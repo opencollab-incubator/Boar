@@ -1,6 +1,6 @@
 package ac.boar.protocol;
 
-import ac.boar.protocol.listener.PacketListener;
+import ac.boar.protocol.api.PacketListener;
 import lombok.Getter;
 
 import java.util.ArrayList;

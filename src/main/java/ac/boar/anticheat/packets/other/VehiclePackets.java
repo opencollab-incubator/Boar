@@ -3,8 +3,8 @@ package ac.boar.anticheat.packets.other;
 import ac.boar.anticheat.compensated.cache.entity.EntityCache;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.player.data.VehicleData;
-import ac.boar.protocol.event.CloudburstPacketEvent;
-import ac.boar.protocol.listener.PacketListener;
+import ac.boar.protocol.api.CloudburstPacketEvent;
+import ac.boar.protocol.api.PacketListener;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityLinkData;
 import org.cloudburstmc.protocol.bedrock.packet.InteractPacket;
 import org.cloudburstmc.protocol.bedrock.packet.SetEntityLinkPacket;
@@ -26,7 +26,7 @@ public class VehiclePackets implements PacketListener {
     }
 
     @Override
-    public void onPacketSend(CloudburstPacketEvent event, boolean immediate) {
+    public void onPacketSend(CloudburstPacketEvent event) {
         final BoarPlayer player = event.getPlayer();
         if (event.getPacket() instanceof SetEntityLinkPacket packet) {
             final EntityLinkData link = packet.getEntityLink();
@@ -56,7 +56,7 @@ public class VehiclePackets implements PacketListener {
             // Yep.
             player.getTeleportUtil().getQueuedTeleports().clear();
 
-            player.sendLatencyStack(immediate);
+            player.sendLatencyStack();
             if (link.getType() == EntityLinkData.Type.REMOVE) {
                 player.getLatencyUtil().addTaskToQueue(player.sentStackId.get(), () -> player.vehicleData = null);
                 return;

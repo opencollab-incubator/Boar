@@ -8,10 +8,9 @@ import ac.boar.anticheat.util.geyser.BlockStorage;
 import ac.boar.anticheat.util.geyser.BoarChunk;
 import ac.boar.anticheat.util.geyser.BoarChunkSection;
 import ac.boar.anticheat.util.math.Vec3;
-import ac.boar.protocol.event.CloudburstPacketEvent;
-import ac.boar.protocol.listener.PacketListener;
+import ac.boar.protocol.api.CloudburstPacketEvent;
+import ac.boar.protocol.api.PacketListener;
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufInputStream;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import org.cloudburstmc.math.GenericMath;
@@ -29,12 +28,12 @@ import java.util.Objects;
 
 public class ServerChunkPackets implements PacketListener {
     @Override
-    public void onPacketSend(CloudburstPacketEvent event, boolean immediate) {
+    public void onPacketSend(CloudburstPacketEvent event) {
         final BoarPlayer player = event.getPlayer();
         final CompensatedWorld world = player.compensatedWorld;
 
         if (event.getPacket() instanceof NetworkChunkPublisherUpdatePacket packet) {
-            player.sendLatencyStack(immediate);
+            player.sendLatencyStack();
 
             player.getLatencyUtil().addTaskToQueue(player.sentStackId.get(), () -> {
                 world.setCenterX(packet.getPosition().getX() >> 4);
@@ -57,7 +56,7 @@ public class ServerChunkPackets implements PacketListener {
             final int x = packet.getChunkX() << 4, z = packet.getChunkZ() << 4;
             // Avoid spamming latency if possible, unless the player is seriously lagging then this shouldn't false.
             if (Math.abs(player.position.x - x) <= 16 || Math.abs(player.position.z - z) <= 16) {
-                player.sendLatencyStack(immediate);
+                player.sendLatencyStack();
             }
 
             final BedrockDimension dimension = DimensionUtil.dimensionFromId(packet.getDimension());
@@ -114,7 +113,7 @@ public class ServerChunkPackets implements PacketListener {
             // Avoid spamming latency if possible, unless the player is seriously lagging then this shouldn't false.
             boolean send = player.position.distanceTo(new Vec3(packet.getBlockPosition())) <= 16;
             if (send) {
-                player.sendLatencyStack(immediate);
+                player.sendLatencyStack();
             }
 
             player.getLatencyUtil().addTaskToQueue(player.sentStackId.get(), () -> world.updateBlock(packet.getBlockPosition(), packet.getDataLayer(), packet.getDefinition().getRuntimeId()));

@@ -4,7 +4,7 @@ import ac.boar.anticheat.check.api.annotations.CheckInfo;
 import ac.boar.anticheat.check.api.impl.PacketCheck;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.util.MathUtil;
-import ac.boar.protocol.event.CloudburstPacketEvent;
+import ac.boar.protocol.api.CloudburstPacketEvent;
 import org.cloudburstmc.protocol.bedrock.packet.PlayerAuthInputPacket;
 import org.geysermc.geyser.util.MathUtils;
 

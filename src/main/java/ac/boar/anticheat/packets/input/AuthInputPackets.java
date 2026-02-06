@@ -12,8 +12,8 @@ import ac.boar.anticheat.prediction.engine.data.Vector;
 import ac.boar.anticheat.teleport.data.TeleportCache;
 import ac.boar.anticheat.util.DimensionUtil;
 import ac.boar.anticheat.util.math.Vec3;
-import ac.boar.protocol.event.CloudburstPacketEvent;
-import ac.boar.protocol.listener.PacketListener;
+import ac.boar.protocol.api.CloudburstPacketEvent;
+import ac.boar.protocol.api.PacketListener;
 import org.cloudburstmc.protocol.bedrock.data.PlayerAuthInputData;
 import org.cloudburstmc.protocol.bedrock.packet.*;
 import org.geysermc.geyser.entity.EntityDefinitions;
@@ -132,14 +132,14 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
     }
 
     @Override
-    public void onPacketSend(CloudburstPacketEvent event, boolean immediate) {
+    public void onPacketSend(CloudburstPacketEvent event) {
         final BoarPlayer player = event.getPlayer();
 
         if (event.getPacket() instanceof ChangeDimensionPacket packet) {
             int dimensionId = packet.getDimension();
             final BedrockDimension dimension = DimensionUtil.dimensionFromId(dimensionId);
 
-            player.sendLatencyStack(immediate);
+            player.sendLatencyStack();
             player.getTeleportUtil().getQueuedTeleports().add(new TeleportCache.DimensionSwitch(player.sentStackId.get(), new Vec3(packet.getPosition().up(EntityDefinitions.PLAYER.offset()))));
             player.getLatencyUtil().addTaskToQueue(player.sentStackId.get(), () -> {
                 if (player.compensatedWorld.getDimension() != dimension) {
@@ -149,6 +149,7 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
 
                 player.compensatedWorld.getChunks().clear();
                 player.compensatedWorld.setDimension(dimension);
+                System.out.println("Set dimension!");
 
                 player.getFlagTracker().clear();
                 player.getFlagTracker().flying(false);
@@ -170,7 +171,7 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
                 packet.setMode(MovePlayerPacket.Mode.TELEPORT);
             }
 
-            player.getTeleportUtil().queueTeleport(new Vec3(packet.getPosition()), immediate);
+            player.getTeleportUtil().queueTeleport(new Vec3(packet.getPosition()));
         }
     }
 }

@@ -1,8 +1,8 @@
 package ac.boar.anticheat.packets.other;
 
 import ac.boar.geyser.util.GeyserUtil;
-import ac.boar.protocol.event.CloudburstPacketEvent;
-import ac.boar.protocol.listener.PacketListener;
+import ac.boar.protocol.api.CloudburstPacketEvent;
+import ac.boar.protocol.api.PacketListener;
 import org.cloudburstmc.protocol.bedrock.packet.NetworkStackLatencyPacket;
 import org.geysermc.api.util.BedrockPlatform;
 import org.geysermc.geyser.session.GeyserSession;

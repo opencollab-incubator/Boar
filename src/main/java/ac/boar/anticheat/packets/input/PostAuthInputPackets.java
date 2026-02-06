@@ -3,8 +3,8 @@ package ac.boar.anticheat.packets.input;
 import ac.boar.anticheat.data.input.TickData;
 import ac.boar.anticheat.packets.input.legacy.LegacyAuthInputPackets;
 import ac.boar.anticheat.player.BoarPlayer;
-import ac.boar.protocol.event.CloudburstPacketEvent;
-import ac.boar.protocol.listener.PacketListener;
+import ac.boar.protocol.api.CloudburstPacketEvent;
+import ac.boar.protocol.api.PacketListener;
 import org.cloudburstmc.protocol.bedrock.packet.PlayerAuthInputPacket;
 
 public class PostAuthInputPackets implements PacketListener {

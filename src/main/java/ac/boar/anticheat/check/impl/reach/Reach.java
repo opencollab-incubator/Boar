@@ -10,7 +10,7 @@ import ac.boar.anticheat.util.MathUtil;
 import ac.boar.anticheat.util.Pair;
 import ac.boar.anticheat.util.math.ReachUtil;
 import ac.boar.anticheat.util.math.Vec3;
-import ac.boar.protocol.event.CloudburstPacketEvent;
+import ac.boar.protocol.api.CloudburstPacketEvent;
 
 import org.cloudburstmc.protocol.bedrock.data.GameType;
 import org.cloudburstmc.protocol.bedrock.data.InputMode;

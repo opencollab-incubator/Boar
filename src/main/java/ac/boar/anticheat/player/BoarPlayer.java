@@ -13,7 +13,6 @@ import ac.boar.anticheat.util.math.Vec3;
 import ac.boar.anticheat.validator.blockbreak.ServerBreakBlockValidator;
 import ac.boar.geyser.util.GeyserUtil;
 import ac.boar.mappings.BlockMappings;
-import ac.boar.protocol.mitm.CloudburstReceiveListener;
 import lombok.Getter;
 
 import ac.boar.anticheat.check.api.holder.CheckHolder;
@@ -22,7 +21,6 @@ import ac.boar.anticheat.data.FluidState;
 import ac.boar.anticheat.util.math.Box;
 import ac.boar.anticheat.util.math.Mutable;
 import ac.boar.anticheat.validator.inventory.ItemTransactionValidator;
-import ac.boar.protocol.mitm.CloudburstSendListener;
 import ac.boar.anticheat.player.data.PlayerData;
 import lombok.Setter;
 import org.cloudburstmc.math.GenericMath;
@@ -55,11 +53,9 @@ public final class BoarPlayer extends PlayerData {
     @Getter
     @Setter
     private BedrockServerSession cloudburstDownstream;
-    public CloudburstSendListener cloudburstUpstream;
-    public CloudburstReceiveListener downstreamPacketHandler;
     public RakSessionCodec rakSessionCodec;
 
-    public long runtimeEntityId, javaEntityId;
+    public long runtimeEntityId;
 
     @Getter
     private final TeleportUtil teleportUtil = new TeleportUtil(this);
@@ -97,7 +93,7 @@ public final class BoarPlayer extends PlayerData {
         AIR_IDS.add(BEDROCK_AIR);
         AIR_IDS.add(mappings.getBedrockBlockId(Blocks.CAVE_AIR.defaultBlockState().javaId()));
         AIR_IDS.add(mappings.getBedrockBlockId(Blocks.VOID_AIR.defaultBlockState().javaId()));
-//
+
         for (GeyserAttributeType type : GeyserAttributeType.values()) {
             final String identifier = type.getBedrockIdentifier();
             if (identifier == null || this.attributes.containsKey(type.getBedrockIdentifier())) {

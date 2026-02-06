@@ -1,4 +1,4 @@
-package ac.boar.protocol.event;
+package ac.boar.protocol.api;
 
 import lombok.Data;
 

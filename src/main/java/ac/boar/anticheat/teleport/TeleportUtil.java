@@ -56,12 +56,12 @@ public class TeleportUtil {
         packet.setMode(MovePlayerPacket.Mode.TELEPORT);
         packet.setTeleportationCause(MovePlayerPacket.TeleportationCause.BEHAVIOR);
 
-        this.queueTeleport(teleport.getPosition(), false);
+        this.queueTeleport(teleport.getPosition());
         this.player.getCloudburstDownstream().sendPacket(packet);
     }
 
-    public void queueTeleport(final Vec3 position, boolean immediate) {
-        player.sendLatencyStack(immediate);
+    public void queueTeleport(final Vec3 position) {
+        player.sendLatencyStack();
         this.queuedTeleports.add(new TeleportCache.Normal(player.sentStackId.get(), position));
         this.lastKnowValid = position.toVector3f();
     }

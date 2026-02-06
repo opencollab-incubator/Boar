@@ -15,7 +15,7 @@ public class BoarPlayerManager extends HashMap<GeyserConnection, BoarPlayer> {
         }
 
         final BoarPlayer player = new BoarPlayer((GeyserSession) connection);
-        GeyserUtil.hookIntoCloudburstMC(player);
+        GeyserUtil.hook(player);
         this.put(connection, player);
         return player;
     }

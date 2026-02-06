@@ -3,8 +3,8 @@ package ac.boar.anticheat.packets.server;
 import ac.boar.anticheat.compensated.cache.entity.EntityCache;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.util.math.Vec3;
-import ac.boar.protocol.event.CloudburstPacketEvent;
-import ac.boar.protocol.listener.PacketListener;
+import ac.boar.protocol.api.CloudburstPacketEvent;
+import ac.boar.protocol.api.PacketListener;
 import org.cloudburstmc.math.vector.Vector3f;
 import org.cloudburstmc.protocol.bedrock.packet.*;
 
@@ -12,10 +12,10 @@ import java.util.Set;
 
 public class ServerEntityPackets implements PacketListener {
     @Override
-    public void onPacketSend(final CloudburstPacketEvent event, final boolean immediate) {
+    public void onPacketSend(final CloudburstPacketEvent event) {
         final BoarPlayer player = event.getPlayer();
         if (event.getPacket() instanceof RemoveEntityPacket packet) {
-            player.sendLatencyStack(immediate);
+            player.sendLatencyStack();
             player.getLatencyUtil().addTaskToQueue(player.sentStackId.get(), () -> {
                 if (player.vehicleData != null && player.vehicleData.vehicleRuntimeId == packet.getUniqueEntityId()) {
                     player.vehicleData = null;

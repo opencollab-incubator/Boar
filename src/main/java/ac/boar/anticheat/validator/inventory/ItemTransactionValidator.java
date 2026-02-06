@@ -87,7 +87,7 @@ public final class ItemTransactionValidator {
                     slotPacket.setItem(ItemData.AIR);
                     slotPacket.setContainerId(ContainerId.INVENTORY);
                     slotPacket.setSlot(slot);
-                    player.cloudburstUpstream.sendPacket(slotPacket);
+//                    player.cloudburstUpstream.sendPacket(slotPacket);
                 }
 
                 if (dropCounts == slotData.getCount()) {

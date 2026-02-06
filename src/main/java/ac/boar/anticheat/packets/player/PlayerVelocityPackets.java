@@ -3,15 +3,15 @@ package ac.boar.anticheat.packets.player;
 import ac.boar.anticheat.data.input.VelocityData;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.util.math.Vec3;
-import ac.boar.protocol.event.CloudburstPacketEvent;
-import ac.boar.protocol.listener.PacketListener;
+import ac.boar.protocol.api.CloudburstPacketEvent;
+import ac.boar.protocol.api.PacketListener;
 import org.cloudburstmc.protocol.bedrock.data.MovementEffectType;
 import org.cloudburstmc.protocol.bedrock.packet.MovementEffectPacket;
 import org.cloudburstmc.protocol.bedrock.packet.SetEntityMotionPacket;
 
 public class PlayerVelocityPackets implements PacketListener {
     @Override
-    public void onPacketSend(final CloudburstPacketEvent event, final boolean immediate) {
+    public void onPacketSend(final CloudburstPacketEvent event) {
         final BoarPlayer player = event.getPlayer();
 
         // Yes only this, there no packet for explosion (for bedrock), geyser translate explosion directly to SetEntityMotionPacket
@@ -23,7 +23,7 @@ public class PlayerVelocityPackets implements PacketListener {
             // I think there is some rewind like behaviour when there is ehm the tick is not 0, so just default back to 0 till I figure it out.
             packet.setTick(0);
 
-            player.sendLatencyStack(immediate);
+            player.sendLatencyStack();
             player.queuedVelocities.put(player.sentStackId.get() + 1, new VelocityData(player.sentStackId.get() + 1, player.tick, new Vec3(packet.getMotion())));
             event.getPostTasks().add(player::sendLatencyStack);
         }
@@ -37,7 +37,7 @@ public class PlayerVelocityPackets implements PacketListener {
             // Well anyway.... if you just send a valid tick id or send an invalid id it works fine :D
             packet.setTick(Integer.MIN_VALUE);
 
-            player.sendLatencyStack(immediate);
+            player.sendLatencyStack();
             player.getLatencyUtil().addTaskToQueue(player.sentStackId.get(), () -> {
                 if (player.glideBoostTicks == 0 && packet.getDuration() == 0 || packet.getDuration() == Integer.MAX_VALUE) {
                     player.glideBoostTicks = 1;
