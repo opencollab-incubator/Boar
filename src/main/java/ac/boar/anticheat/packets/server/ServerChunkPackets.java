@@ -33,9 +33,7 @@ public class ServerChunkPackets implements PacketListener {
         final CompensatedWorld world = player.compensatedWorld;
 
         if (event.getPacket() instanceof NetworkChunkPublisherUpdatePacket packet) {
-            player.sendLatencyStack();
-
-            player.getLatencyUtil().addTaskToQueue(player.sentStackId.get(), () -> {
+            player.sendLatencyStack(() -> {
                 world.setCenterX(packet.getPosition().getX() >> 4);
                 world.setCenterZ(packet.getPosition().getZ() >> 4);
                 world.setRadius(packet.getRadius());
@@ -85,7 +83,7 @@ public class ServerChunkPackets implements PacketListener {
                 buf.release();
             }
 
-            player.getLatencyUtil().addTaskToQueue(player.sentStackId.get(), () -> {
+            player.getLatencyUtil().queue(() -> {
                 if (!player.compensatedWorld.isInLoadDistance(packet.getChunkX(), packet.getChunkZ()) || dimension != player.compensatedWorld.getDimension()) {
 //                    System.out.println("Out of distance...");
                     return;
@@ -116,12 +114,12 @@ public class ServerChunkPackets implements PacketListener {
                 player.sendLatencyStack();
             }
 
-            player.getLatencyUtil().addTaskToQueue(player.sentStackId.get(), () -> world.updateBlock(packet.getBlockPosition(), packet.getDataLayer(), packet.getDefinition().getRuntimeId()));
+            player.getLatencyUtil().queue(() -> world.updateBlock(packet.getBlockPosition(), packet.getDataLayer(), packet.getDefinition().getRuntimeId()));
         }
 
         if (event.getPacket() instanceof BlockEntityDataPacket packet) {
             player.sendLatencyStack();
-            player.getLatencyUtil().addTaskToQueue(player.sentStackId.get(), () -> {
+            player.getLatencyUtil().queue(() -> {
                 final BoarChunk chunk = player.compensatedWorld.getChunk(packet.getBlockPosition().getX() >> 4, packet.getBlockPosition().getZ() >> 4);
                 if (chunk == null) {
                     return;

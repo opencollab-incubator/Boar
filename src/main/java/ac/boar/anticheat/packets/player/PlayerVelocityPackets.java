@@ -38,7 +38,7 @@ public class PlayerVelocityPackets implements PacketListener {
             packet.setTick(Integer.MIN_VALUE);
 
             player.sendLatencyStack();
-            player.getLatencyUtil().addTaskToQueue(player.sentStackId.get(), () -> {
+            player.sendLatencyStack(() -> {
                 if (player.glideBoostTicks == 0 && packet.getDuration() == 0 || packet.getDuration() == Integer.MAX_VALUE) {
                     player.glideBoostTicks = 1;
                     return;

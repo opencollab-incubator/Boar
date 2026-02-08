@@ -16,7 +16,7 @@ public class ServerEntityPackets implements PacketListener {
         final BoarPlayer player = event.getPlayer();
         if (event.getPacket() instanceof RemoveEntityPacket packet) {
             player.sendLatencyStack();
-            player.getLatencyUtil().addTaskToQueue(player.sentStackId.get(), () -> {
+            player.sendLatencyStack(() -> {
                 if (player.vehicleData != null && player.vehicleData.vehicleRuntimeId == packet.getUniqueEntityId()) {
                     player.vehicleData = null;
                 }
@@ -119,17 +119,7 @@ public class ServerEntityPackets implements PacketListener {
         // But if player respond to the transaction AFTER the position packet they 100% already receive the packet.
         player.sendLatencyStack();
 
-        final long id = player.sentStackId.get();
-        player.getLatencyUtil().addTaskToQueue(player.sentStackId.get(), () -> {
-            entity.interpolate(position, lerp && distance < 4096);
-            // Bukkit.broadcastMessage("Player received position=" + position + ", id=" + id);
-        });
-
-        // Bukkit.broadcastMessage("New position=" + position + ", id=" + player.sentStackId.get());
-
-        event.getPostTasks().add(() -> {
-            player.sendLatencyStack();
-            player.getLatencyUtil().addTaskToQueue(player.sentStackId.get(), () -> entity.setPast(null));
-        });
+        player.getLatencyUtil().queue(() -> entity.interpolate(position, lerp && distance < 4096));
+        event.getPostTasks().add(() -> player.sendLatencyStack(() -> entity.setPast(null)));
     }
 }

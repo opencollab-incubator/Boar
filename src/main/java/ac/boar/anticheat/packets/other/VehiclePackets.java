@@ -58,11 +58,11 @@ public class VehiclePackets implements PacketListener {
 
             player.sendLatencyStack();
             if (link.getType() == EntityLinkData.Type.REMOVE) {
-                player.getLatencyUtil().addTaskToQueue(player.sentStackId.get(), () -> player.vehicleData = null);
+                player.getLatencyUtil().queue(() -> player.vehicleData = null);
                 return;
             }
 
-            player.getLatencyUtil().addTaskToQueue(player.sentStackId.get(), () -> {
+            player.getLatencyUtil().queue(() -> {
                 player.vehicleData = new VehicleData();
                 // player.vehicleData.canWeControlThisVehicle = link.getType() == EntityLinkData.Type.RIDER;
                 player.vehicleData.vehicleRuntimeId = entityId;

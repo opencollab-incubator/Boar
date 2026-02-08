@@ -17,7 +17,7 @@ public class GeyserUtil {
     public static void hook(final BoarPlayer player) {
         try {
             BedrockServerSession session = findCloudburstSession(player.getSession());
-            player.setCloudburstDownstream(session);
+            player.setBedrockSession(session);
             final Channel channel = session.getPeer().getChannel();
             channel.pipeline().addAfter(BedrockPacketCodec.NAME, BoarHandlerAdaptor.NAME, new BoarHandlerAdaptor(player, (BedrockPacketCodec) channel.pipeline().get(BedrockPacketCodec.NAME)));
         } catch (Exception ignored) {

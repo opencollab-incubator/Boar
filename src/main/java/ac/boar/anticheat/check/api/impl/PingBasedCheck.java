@@ -9,6 +9,6 @@ public class PingBasedCheck extends Check {
         super(player);
     }
 
-    public void onLatencySend(long id) {}
-    public void onLatencyAccepted(long id, LatencyUtil.Time time) {}
+//    public void onLatencySend(long id) {}
+    public void onLatencyAccepted(LatencyUtil.Latency latency) {}
 }

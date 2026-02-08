@@ -57,7 +57,7 @@ public class TeleportUtil {
         packet.setTeleportationCause(MovePlayerPacket.TeleportationCause.BEHAVIOR);
 
         this.queueTeleport(teleport.getPosition());
-        this.player.getCloudburstDownstream().sendPacket(packet);
+        this.player.getBedrockSession().sendPacket(packet);
     }
 
     public void queueTeleport(final Vec3 position) {
@@ -94,7 +94,7 @@ public class TeleportUtil {
 
         player.sendLatencyStack();
         this.queuedTeleports.add(new TeleportCache.Rewind(player.sentStackId.get(), tick, new Vec3(packet.getPosition()), new Vec3(packet.getDelta()), onGround));
-        this.player.getCloudburstDownstream().sendPacket(packet);
+        this.player.getBedrockSession().sendPacket(packet);
     }
 
     public void cachePosition(long tick, Vector3f position) {

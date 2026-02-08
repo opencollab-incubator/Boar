@@ -1,12 +1,7 @@
-# BOAR IS DISCONTINUED, GO USE THEMIS OR BUY GRIM V3 INSTEAD, I WILL NO LONGER MAINTAIN THIS.
-
 # Boar
 
 Boar is a POC project that allows you to enable [server-auth-with-rewind](https://github.com/Mojang/bedrock-protocol-docs/blob/main/additional_docs/ConfiguringAntiCheat.md) for 
 [GeyserMC](https://github.com/GeyserMC/Geyser) project with a few more checks and improvements compare to BDS.
-
-* *Note: I'm getting more and more tired maintaining this project, so this project won't be frequently update. However this project is not abandoned, I will still maintain
-it, update and push fixes from time to time if needed. If there are bugs and bypasses, you can still can contact to me about it and I wil get to it when I can.*
 
 ### Documented differences between Java - Bedrock [here](https://github.com/oryxel1/Boar/blob/master/DIFFERENCES_WIKI.md) with detailed explainations.
 
@@ -16,7 +11,7 @@ A dedicated (proof of concept) anti cheat for GeyserMC project.
 
 ### Features
 - I will keep this short: lag compensation, movement simulation (prediction), smooth rewind setback.
-- Also this anticheat is actually a Geyser extension!
+- Also, this anticheat is actually a Geyser extension!
 
 ### Current detections list
 #### Almost every single movement-related cheats (except vehicle aka boat/horse), including - but not limited to:

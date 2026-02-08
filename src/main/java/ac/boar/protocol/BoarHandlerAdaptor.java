@@ -50,7 +50,7 @@ public class BoarHandlerAdaptor extends MessageToMessageCodec<BedrockPacketWrapp
             buf.release();
         }
 
-//        System.out.println(event.getPacket().getPacketType());
+        event.getPostTasks().forEach(Runnable::run);
     }
 
     @Override
@@ -69,6 +69,8 @@ public class BoarHandlerAdaptor extends MessageToMessageCodec<BedrockPacketWrapp
 
         msg.setPacket(event.getPacket());
         out.add(msg.retain());
+
+        event.getPostTasks().forEach(Runnable::run);
     }
 
 }

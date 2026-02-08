@@ -23,13 +23,13 @@ public class PlayerEffectPackets implements PacketListener {
                 return;
             }
 
-            player.sendLatencyStack();
-
-            if (packet.getEvent() == MobEffectPacket.Event.ADD || packet.getEvent() == MobEffectPacket.Event.MODIFY) {
-                player.getLatencyUtil().addTaskToQueue(player.sentStackId.get(), () -> player.getActiveEffects().put(effect, new StatusEffect(effect, packet.getAmplifier(), packet.getDuration() + 1)));
-            } else if (packet.getEvent() == MobEffectPacket.Event.REMOVE) {
-                player.getLatencyUtil().addTaskToQueue(player.sentStackId.get(), () -> player.getActiveEffects().remove(effect));
-            }
+            player.sendLatencyStack(() -> {
+                if (packet.getEvent() == MobEffectPacket.Event.ADD || packet.getEvent() == MobEffectPacket.Event.MODIFY) {
+                    player.getActiveEffects().put(effect, new StatusEffect(effect, packet.getAmplifier(), packet.getDuration() + 1));
+                } else if (packet.getEvent() == MobEffectPacket.Event.REMOVE) {
+                    player.getActiveEffects().remove(effect);
+                }
+            });
         }
     }
 }

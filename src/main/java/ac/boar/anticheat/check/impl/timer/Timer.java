@@ -21,14 +21,14 @@ public final class Timer extends PingBasedCheck {
     }
 
     @Override
-    public void onLatencyAccepted(long id, LatencyUtil.Time time) {
+    public void onLatencyAccepted(LatencyUtil.Latency latency) {
         if (!this.beforeAuthInput) {
             return;
         }
 
         this.beforeAuthInput = false;
-        if (time.ns() > System.nanoTime() + this.balance) {
-            long distance = (time.ns() - (System.nanoTime() + this.balance)) - (AVERAGE_DISTANCE / 2);
+        if (latency.ns() > System.nanoTime() + this.balance) {
+            long distance = (latency.ns() - (System.nanoTime() + this.balance)) - (AVERAGE_DISTANCE / 2);
             this.balance += distance;
             this.loseBalance = Math.max(0, this.loseBalance - distance);
 

@@ -39,13 +39,11 @@ public class ServerDataPackets implements PacketListener {
             start.setRewindHistorySize(Boar.getConfig().rewindHistory());
             player.serverBreakBlockValidator = new ServerBreakBlockValidator(player);
 
-            player.sendLatencyStack();
-            player.getLatencyUtil().addTaskToQueue(player.sentStackId.get(), () -> player.gameType = start.getPlayerGameType());
+            player.sendLatencyStack(() -> player.gameType = start.getPlayerGameType());
         }
 
         if (event.getPacket() instanceof SetPlayerGameTypePacket packet) {
-            player.sendLatencyStack();
-            player.getLatencyUtil().addTaskToQueue(player.sentStackId.get(), () -> player.gameType = GameType.from(packet.getGamemode()));
+            player.sendLatencyStack(() -> player.gameType = GameType.from(packet.getGamemode()));
         }
 
         if (event.getPacket() instanceof UpdateAbilitiesPacket packet) {
@@ -53,15 +51,14 @@ public class ServerDataPackets implements PacketListener {
                 return;
             }
 
-            event.getPostTasks().add(() -> player.sendLatencyStack());
-            player.getLatencyUtil().addTaskToQueue(player.sentStackId.get() + 1, () -> {
+            event.getPostTasks().add(() -> player.sendLatencyStack(() -> {
                 player.abilities.clear();
                 for (AbilityLayer layer : packet.getAbilityLayers()) {
                     player.abilities.addAll(layer.getAbilityValues());
                 }
 
                 player.getFlagTracker().setFlying(player.abilities.contains(Ability.FLYING) || player.abilities.contains(Ability.MAY_FLY) && player.getFlagTracker().isFlying());
-            });
+            }));
         }
 
         if (event.getPacket() instanceof SetEntityDataPacket packet) {
@@ -73,7 +70,7 @@ public class ServerDataPackets implements PacketListener {
 
                 // No need to send latency, we only use a few's metadata values from them and most of them almost never actually changed so we should be good,
                 // for eg: (COLLIDEABLE flag is always true for certain entity regardless of what).
-                player.getLatencyUtil().addTaskToQueue(player.sentStackId.get(), () -> cache.setMetadata(packet.getMetadata()));
+                player.getLatencyUtil().queue(() -> cache.setMetadata(packet.getMetadata()));
                 return;
             }
 
@@ -106,7 +103,7 @@ public class ServerDataPackets implements PacketListener {
 
             final long id = player.sentStackId.get();
             player.desyncedFlag.set(flagsCopy != null ? id : -1);
-            player.getLatencyUtil().addTaskToQueue(id, () -> {
+            player.getLatencyUtil().queue(() -> {
                 if (flagsCopy != null) {
                     player.getFlagTracker().set(player, flagsCopy);
                 }
@@ -149,8 +146,7 @@ public class ServerDataPackets implements PacketListener {
                 return;
             }
 
-            player.sendLatencyStack();
-            player.getLatencyUtil().addTaskToQueue(player.sentStackId.get(), () -> {
+            player.sendLatencyStack(() -> {
                 if (player.vehicleData != null) {
                     return;
                 }
