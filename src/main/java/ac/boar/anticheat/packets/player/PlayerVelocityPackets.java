@@ -20,7 +20,7 @@ public class PlayerVelocityPackets implements PacketListener {
                 return;
             }
 
-            // I think there is some rewind like behaviour when there is ehm the tick is not 0, so just default back to 0 till I figure it out.
+            // I think there is some rewind like behavior when there is ehm the tick is not 0, so just default back to 0 till I figure it out.
             packet.setTick(0);
 
             player.sendLatencyStack();

@@ -171,7 +171,7 @@ public final class ItemTransactionValidator {
                         }
 
                         ItemCache heldItem = inventory.inventoryContainer.getHeldItemCache();
-                        GeyserItemStack geyserItemStack = GeyserItemStack.from(inventory.translate(heldItem.getData()));
+                        GeyserItemStack geyserItemStack = GeyserItemStack.from(player.getSession(), inventory.translate(heldItem.getData()));
                         Item item = geyserItemStack.asItem();
 
                         boolean heldItemExist = !heldItem.isEmpty();
@@ -301,18 +301,18 @@ public final class ItemTransactionValidator {
                         if (item.javaId() == Items.WATER_BUCKET.javaId()) {
                             player.compensatedWorld.updateBlock(newBlockPos, 0, player.getSession().getBlockMappings().getBedrockWater().getRuntimeId());
 
-                            GeyserItemStack stack = GeyserItemStack.of(Items.BUCKET.javaId(), 1);
+                            GeyserItemStack stack = GeyserItemStack.of(player.getSession(), Items.BUCKET.javaId(), 1);
                             inventory.inventoryContainer.set(inventory.heldItemSlot, inventory.translate(stack.getItemStack()));
                         } else if (item.javaId() == Items.LAVA_BUCKET.javaId()) {
                             player.compensatedWorld.updateBlock(newBlockPos, 0, player.getSession().getBlockMappings().getBedrockBlockId(Blocks.LAVA.
                                     defaultBlockState().javaId()));
 
-                            GeyserItemStack stack = GeyserItemStack.of(Items.BUCKET.javaId(), 1);
+                            GeyserItemStack stack = GeyserItemStack.of(player.getSession(), Items.BUCKET.javaId(), 1);
                             inventory.inventoryContainer.set(inventory.heldItemSlot, inventory.translate(stack.getItemStack()));
                         } else if (item.javaId() == Items.POWDER_SNOW_BUCKET.javaId()) {
                             player.compensatedWorld.updateBlock(newBlockPos, 0, player.getSession().getBlockMappings().getBedrockBlockId(Blocks.POWDER_SNOW.defaultBlockState().javaId()));
 
-                            GeyserItemStack stack = GeyserItemStack.of(Items.BUCKET.javaId(), 1);
+                            GeyserItemStack stack = GeyserItemStack.of(player.getSession(), Items.BUCKET.javaId(), 1);
                             inventory.inventoryContainer.set(inventory.heldItemSlot, inventory.translate(stack.getItemStack()));
                         } else if (item.javaId() == Items.BUCKET.javaId()) {
                             int javaId = -1, layer = 0;
@@ -333,7 +333,7 @@ public final class ItemTransactionValidator {
 
                             player.compensatedWorld.updateBlock(newBlockPos, layer, player.getSession().getBlockMappings().getBedrockAir().getRuntimeId());
 
-                            GeyserItemStack stack = GeyserItemStack.of(javaId, 1);
+                            GeyserItemStack stack = GeyserItemStack.of(player.getSession(), javaId, 1);
                             inventory.inventoryContainer.set(inventory.heldItemSlot, inventory.translate(stack.getItemStack()));
                         } if (item instanceof BlockItem blockItem) { // Handle block item after bucket.
                             Block mappedBlock = BlockMappings.getItemToBlock().getOrDefault(blockItem, Blocks.AIR);

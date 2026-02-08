@@ -22,7 +22,7 @@ public class PlayerContainerCache extends ContainerCache {
     }
 
     public GeyserItemStack getHeldItem() {
-        return GeyserItemStack.from(this.inventory.translate(getHeldItemData()));
+        return GeyserItemStack.from(inventory.getPlayer().getSession(), this.inventory.translate(getHeldItemData()));
     }
 
     public ItemCache getItemFromSlot(final int slot) {

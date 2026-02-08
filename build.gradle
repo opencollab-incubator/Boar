@@ -6,7 +6,7 @@ plugins {
 
 
 group = 'ac.boar'
-version = '1.0.4'
+version = '2.0'
 
 repositories {
     mavenCentral()
@@ -17,7 +17,7 @@ repositories {
 }
 
 dependencies {
-    compileOnly("org.geysermc.geyser:core:2.9.2-SNAPSHOT") {
+    compileOnly("org.geysermc.geyser:core:2.9.3-SNAPSHOT") {
         exclude group: "com.google.code.gson", module: "gson"
     }
     compileOnly("it.unimi.dsi:fastutil:8.5.15")
