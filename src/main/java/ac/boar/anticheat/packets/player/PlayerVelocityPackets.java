@@ -1,7 +1,8 @@
 package ac.boar.anticheat.packets.player;
 
-import ac.boar.anticheat.data.input.VelocityData;
 import ac.boar.anticheat.player.BoarPlayer;
+import ac.boar.anticheat.prediction.engine.data.Vector;
+import ac.boar.anticheat.prediction.engine.data.VectorType;
 import ac.boar.anticheat.util.math.Vec3;
 import ac.boar.protocol.api.CloudburstPacketEvent;
 import ac.boar.protocol.api.PacketListener;
@@ -23,9 +24,13 @@ public class PlayerVelocityPackets implements PacketListener {
             // I think there is some rewind like behavior when there is ehm the tick is not 0, so just default back to 0 till I figure it out.
             packet.setTick(0);
 
-            player.sendLatencyStack();
-            player.queuedVelocities.put(player.sentStackId.get() + 1, new VelocityData(player.sentStackId.get() + 1, player.tick, new Vec3(packet.getMotion())));
-            event.getPostTasks().add(player::sendLatencyStack);
+            player.sendLatencyStack(() -> player.uncertainVelocity = new Vector(VectorType.VELOCITY, new Vec3(packet.getMotion())));
+            event.getPostTasks().add(() -> player.sendLatencyStack(() -> {
+                if (player.uncertainVelocity != null) {
+                    player.certainVelocity = player.uncertainVelocity;
+                }
+                player.uncertainVelocity = null;
+            }));
         }
 
         if (event.getPacket() instanceof MovementEffectPacket packet) {

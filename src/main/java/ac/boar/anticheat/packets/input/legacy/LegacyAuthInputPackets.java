@@ -4,7 +4,6 @@ import ac.boar.anticheat.check.api.Check;
 import ac.boar.anticheat.check.api.impl.OffsetHandlerCheck;
 import ac.boar.anticheat.compensated.cache.container.ContainerCache;
 import ac.boar.anticheat.data.ItemUseTracker;
-import ac.boar.anticheat.data.input.VelocityData;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.prediction.UncertainRunner;
 import ac.boar.anticheat.prediction.engine.data.VectorType;
@@ -57,20 +56,6 @@ public class LegacyAuthInputPackets {
 
         if (offset < player.getMaxOffset()) {
             player.setPos(player.unvalidatedPosition.clone(), false);
-        }
-
-        // Also clear out old velocity.
-        if (player.bestPossibility.getType() == VectorType.VELOCITY) {
-            Iterator<Map.Entry<Long, VelocityData>> iterator = player.queuedVelocities.entrySet().iterator();
-
-            Map.Entry<Long, VelocityData> entry;
-            while (iterator.hasNext() && (entry = iterator.next()) != null) {
-                if (entry.getKey() > player.bestPossibility.getStackId()) {
-                    break;
-                } else {
-                    iterator.remove();
-                }
-            }
         }
 
         player.prevPosition = player.position;

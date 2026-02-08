@@ -2,7 +2,6 @@ package ac.boar.anticheat.prediction;
 
 import ac.boar.anticheat.collision.Collider;
 import ac.boar.anticheat.data.input.PredictionData;
-import ac.boar.anticheat.data.input.VelocityData;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.prediction.engine.base.PredictionEngine;
 import ac.boar.anticheat.prediction.engine.data.Vector;
@@ -20,6 +19,7 @@ import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 @RequiredArgsConstructor
 public class PredictionRunner {
@@ -50,46 +50,15 @@ public class PredictionRunner {
 
         final List<Vector> possibleVelocities = new ArrayList<>();
 
-        boolean forceVelocity = false;
-
-        VelocityData forcedVelocity = null;
-        for (final VelocityData data : player.queuedVelocities.values()) {
-            if (data.stackId() > player.receivedStackId.get()) {
-                break;
-            }
-
-            forcedVelocity = data;
-            forceVelocity = true;
-        }
-
-        // TODO: Figure out if old velocity affect rewind or not.
-        if (forceVelocity) {
-            // Player already accepted the second latency stack, player HAVE to accept this velocity.
-            possibleVelocities.add(new Vector(VectorType.VELOCITY, forcedVelocity.velocity(), forcedVelocity.stackId()));
-        } else {
-            possibleVelocities.add(new Vector(VectorType.NORMAL, player.velocity.clone()));
-
-            // So here is the thing, this implementation is wrong, this could false in cases where the player
-            // velocity and tick end result in the same motion. Now this is actually quite easy to check for, but
-            // I'm too lazy to check for that now sooooo, ignore for now, if this were to be implemented, just allow
-            // velocity to be taken twice if the velocity have the same offset as tick end, not actually an advantage.
-
-            // Find the nearest velocity that player already accept the first latency stack.
-            VelocityData nearestVelocity = null;
-            for (final VelocityData data : player.queuedVelocities.values()) {
-                if ((data.stackId() - 1) > player.receivedStackId.get()) {
-                    break;
-                }
-
-                // This should only be ONE result, player cannot accept 2 velocity at once since velocity is wrapped between 2 latency stack.
-                nearestVelocity = data;
-            }
-
-            if (nearestVelocity != null) {
-                possibleVelocities.add(new Vector(VectorType.VELOCITY, nearestVelocity.velocity(), nearestVelocity.stackId()));
-                // System.out.println("nearest velocity!");
+        // It is possible to have both "certain" and uncertain velocity.
+        if (player.uncertainVelocity != null) {
+            possibleVelocities.add(player.uncertainVelocity);
+            if (player.uncertainVelocity.isTwice()) {
+                player.uncertainVelocity = null;
             }
         }
+        possibleVelocities.add(Objects.requireNonNullElseGet(player.certainVelocity, () -> new Vector(VectorType.NORMAL, player.velocity.clone())));
+        player.certainVelocity = null;
 
         float closetDistance = Float.MAX_VALUE;
 
@@ -124,10 +93,11 @@ public class PredictionRunner {
                     distance += 1.0E-6f;
                 }
 
-                // Do <= to priority velocity over normal last tick in case if both have the same velocity result.
-                if (distance <= closetDistance) {
+                if (distance < closetDistance) {
                     closetDistance = distance;
                     player.bestPossibility = possibility;
+                } else if (distance == closetDistance && possibility == player.uncertainVelocity) {
+                    player.uncertainVelocity.setTwice(true);
                 }
             }
 
@@ -136,6 +106,10 @@ public class PredictionRunner {
 
         if (player.bestPossibility == null) {
             return false;
+        }
+
+        if (player.bestPossibility == player.uncertainVelocity && !player.uncertainVelocity.isTwice()) {
+            player.uncertainVelocity = null;
         }
 
         // We can start the ACTUAL prediction now.

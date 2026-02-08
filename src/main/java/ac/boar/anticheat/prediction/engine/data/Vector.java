@@ -13,6 +13,8 @@ public class Vector {
 
     private Vec3 velocity;
     private VectorType type;
+    private boolean ignored;
+    private boolean twice;
 
     public Vector(final VectorType type, final Vec3 vec3) {
         this.type = type;

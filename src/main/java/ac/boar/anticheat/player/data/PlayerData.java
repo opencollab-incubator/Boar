@@ -4,7 +4,6 @@ import ac.boar.anticheat.Boar;
 import ac.boar.anticheat.compensated.CompensatedInventory;
 import ac.boar.anticheat.data.*;
 import ac.boar.anticheat.data.input.PredictionData;
-import ac.boar.anticheat.data.input.VelocityData;
 import ac.boar.anticheat.data.vanilla.AttributeInstance;
 import ac.boar.anticheat.data.vanilla.StatusEffect;
 import ac.boar.anticheat.player.data.tracker.FlagTracker;
@@ -94,7 +93,8 @@ public class PlayerData {
     // Movement related, (movement input, player EOT, ...)
     public Vec3 input = Vec3.ZERO;
     public Vec3 unvalidatedTickEnd = Vec3.ZERO;
-    public final Map<Long, VelocityData> queuedVelocities = Collections.synchronizedMap(new TreeMap<>());
+
+    public Vector uncertainVelocity, certainVelocity;
 
     // Attribute related, abilities
     public final Map<String, AttributeInstance> attributes = new HashMap<>();

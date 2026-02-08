@@ -3,7 +3,6 @@ package ac.boar.anticheat.packets.input;
 import ac.boar.anticheat.check.impl.reach.Reach;
 import ac.boar.anticheat.check.impl.timer.Timer;
 import ac.boar.anticheat.data.input.PredictionData;
-import ac.boar.anticheat.data.input.VelocityData;
 import ac.boar.anticheat.packets.input.legacy.LegacyAuthInputPackets;
 import ac.boar.anticheat.packets.input.teleport.TeleportHandler;
 import ac.boar.anticheat.player.BoarPlayer;
@@ -92,16 +91,7 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
             player.setPos(player.unvalidatedPosition);
 
             // Clear velocity out manually since we haven't handled em.
-            Iterator<Map.Entry<Long, VelocityData>> iterator = player.queuedVelocities.entrySet().iterator();
-
-            Map.Entry<Long, VelocityData> entry;
-            while (iterator.hasNext() && (entry = iterator.next()) != null) {
-                if (entry.getKey() >= player.receivedStackId.get()) {
-                    break;
-                } else {
-                    iterator.remove();
-                }
-            }
+            player.certainVelocity = null;
 
             // This is fine, we only need tick end and use before and after to calculate ground.
             player.predictionResult = new PredictionData(Vec3.ZERO, player.velocity.y < 0 && player.getInputData().contains(PlayerAuthInputData.VERTICAL_COLLISION) ? new Vec3(0, 1, 0) : Vec3.ZERO, player.unvalidatedTickEnd);
@@ -149,7 +139,6 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
 
                 player.compensatedWorld.getChunks().clear();
                 player.compensatedWorld.setDimension(dimension);
-                System.out.println("Set dimension!");
 
                 player.getFlagTracker().clear();
                 player.getFlagTracker().flying(false);
