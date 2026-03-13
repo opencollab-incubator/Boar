@@ -1,5 +1,3 @@
-/shelf/
-/workspace.xml
-/.idea/
-/.gradle/
-/build/
+.gradle/
+build/
+.idea/
