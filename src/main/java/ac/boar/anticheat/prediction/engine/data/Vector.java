@@ -3,7 +3,9 @@ package ac.boar.anticheat.prediction.engine.data;
 import ac.boar.anticheat.util.math.Vec3;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.ToString;
 
+@ToString
 @Getter
 @Setter
 public class Vector {

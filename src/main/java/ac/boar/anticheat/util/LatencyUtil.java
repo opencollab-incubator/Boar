@@ -77,6 +77,7 @@ public final class LatencyUtil {
             if (this.tasks != null) {
                 this.tasks.forEach(Runnable::run);
             }
+            this.tasks = null;
         }
     }
 }

@@ -68,7 +68,6 @@ public class ConfigLoader {
                         s = s.replace("ignore-ghost-block: false", "ignore-ghost-block: " + config.ignoreGhostBlock());
                         s = s.replace("differ-till-alert: 0.0", "differ-till-alert: " + config.alertThreshold());
                         s = s.replace("debug-mode: false", "debug-mode: " + config.debugMode());
-                        s = s.replace("max-acknowledgement-time: 500", "max-acknowledgement-time: " + config.maxAcknowledgementTime());
                         s = s.replace("max-latency-wait: 15000", "max-latency-wait: " + config.maxLatencyWait());
                     }
 

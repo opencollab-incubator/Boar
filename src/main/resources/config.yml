@@ -32,10 +32,6 @@ disabled-checks: []
 # NOTE: This will only take effect if player is STANDING on the block.
 ignore-ghost-block: false
 
-# How long player can accept acknowledgements but not latency packet before we try to correct them. Shall this be disabled, set this to -1.
-# Recommends to turn this on and have the value around 200ms-500ms.
-max-acknowledgement-time: 500
-
 # How long do we wait for player to respond to latency confirmation/acknowledgements till we kicked the player for timed out.
 # This value shouldn't be too low to account for lagging player and shouldn't be too high so cheaters won't be able to stop responding to latency for too long.
 max-latency-wait: 15000

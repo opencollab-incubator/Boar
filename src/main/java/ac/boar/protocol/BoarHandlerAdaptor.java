@@ -22,6 +22,10 @@ public class BoarHandlerAdaptor extends MessageToMessageCodec<BedrockPacketWrapp
 
     @Override
     protected void encode(ChannelHandlerContext ctx, BedrockPacketWrapper msg, List<Object> out) {
+        if (player.isClosed()) {
+            return;
+        }
+
         final CloudburstPacketEvent event = new CloudburstPacketEvent(this.player, msg.getPacket());
         try {
             for (final PacketListener listener : PacketEvents.getApi().getListeners()) {
@@ -55,6 +59,10 @@ public class BoarHandlerAdaptor extends MessageToMessageCodec<BedrockPacketWrapp
 
     @Override
     protected void decode(ChannelHandlerContext ctx, BedrockPacketWrapper msg, List<Object> out) {
+        if (player.isClosed()) {
+            return;
+        }
+
         final CloudburstPacketEvent event = new CloudburstPacketEvent(this.player, msg.getPacket());
         try {
             for (final PacketListener listener : PacketEvents.getApi().getListeners()) {

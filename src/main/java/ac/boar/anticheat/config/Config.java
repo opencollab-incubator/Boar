@@ -31,9 +31,6 @@ public final class Config {
     @JsonProperty("ignore-ghost-block")
     @JsonSetter(nulls = Nulls.SKIP)
     private boolean ignoreGhostBlock;
-    @JsonProperty("max-acknowledgement-time")
-    @JsonSetter(nulls = Nulls.SKIP)
-    private long maxAcknowledgementTime = 500L;
     @JsonProperty("max-latency-wait")
     @JsonSetter(nulls = Nulls.SKIP)
     private long maxLatencyWait = 15000L;
@@ -66,10 +63,6 @@ public final class Config {
 
     public boolean ignoreGhostBlock() {
         return ignoreGhostBlock;
-    }
-
-    public long maxAcknowledgementTime() {
-        return maxAcknowledgementTime;
     }
 
     public long maxLatencyWait() {

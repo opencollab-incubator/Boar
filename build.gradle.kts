@@ -29,18 +29,12 @@ dependencies {
     implementation("it.unimi.dsi:fastutil:8.5.15")
 
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.15.2")
-
-    implementation("net.lenni0451.classtransform:core:1.14.1")
-    implementation("net.lenni0451:Reflect:1.5.0")
 }
 
 tasks {
     shadowJar {
         archiveFileName = "boar.jar"
 
-        relocate("net.lenni0451.classtransform", "ac.boar.shaded.classtransform")
-        relocate("org.objectweb.asm", "ac.boar.shaded.asm")
-        relocate("net.lenni0451.reflect", "ac.boar.shaded.reflect")
         relocate("it.unimi.dsi.fastutil", "ac.boar.shaded.fastutil")
         relocate("com.fasterxml.jackson", "ac.boar.shaded.jackson")
         relocate("org.yaml.snakeyaml", "ac.boar.shaded.snakeyaml")

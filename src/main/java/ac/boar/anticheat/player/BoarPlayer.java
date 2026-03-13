@@ -58,7 +58,6 @@ public final class BoarPlayer extends PlayerData {
     @Getter
     @Setter
     private BedrockServerSession bedrockSession;
-    public RakSessionCodec rakSessionCodec;
 
     public long runtimeEntityId;
 
@@ -137,7 +136,6 @@ public final class BoarPlayer extends PlayerData {
     public void sendLatencyStack() {
         long id = ThreadLocalRandom.current().nextLong(-5000000L, 5000000L);
 
-        // We have to send negative values since geyser translate positive one.
         final NetworkStackLatencyPacket latencyPacket = new NetworkStackLatencyPacket();
         latencyPacket.setTimestamp(id);
         latencyPacket.setFromServer(true);
