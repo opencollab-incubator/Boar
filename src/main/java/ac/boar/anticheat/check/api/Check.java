@@ -47,6 +47,6 @@ public class Check {
     }
 
     protected final String getDisplayName() {
-        return player.getSession().getPlayerEntity().getDisplayName();
+        return player.getSession().getPlayerEntity().getDisplayName(true);
     }
 }

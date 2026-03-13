@@ -94,11 +94,7 @@ public final class Reach extends PacketCheck {
         float hitDistance = 0;
         for (Map.Entry<Pair<Vec3, Vec3>, EntityCache> entry : this.queuedHitAttacks.entrySet()) {
             final EntityCache entity = entry.getValue();
-            if (entity == null || entity.getType() != EntityType.PLAYER) {
-                // Nope, other than player no entity reach can be reliably calculate, due to geyser entity position delay (know bug).
-                // This weirdly only applied to non-player entity too (yay!) so I can at least somewhat accurately check for reach cheat in PVP
-                // (https://github.com/GeyserMC/Geyser/issues/5034) and (https://github.com/GeyserMC/Geyser/issues/2520).
-                // We don't want the player to cheat either, so we handle it silently.
+            if (entity == null) {
                 continue;
             }
 

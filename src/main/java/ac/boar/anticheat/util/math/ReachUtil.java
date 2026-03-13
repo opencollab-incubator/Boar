@@ -37,7 +37,7 @@ public class ReachUtil {
                 break;
             }
 
-            deltaTicks += 0.1F;
+            deltaTicks += 0.01f;
         }
 
         return distance == Float.MAX_VALUE ? distance : (float) Math.sqrt(distance);

@@ -1,6 +1,6 @@
 id: boar
 name: Boar
 main: ac.boar.geyser.GeyserBoar
-api: 2.9.0
-version: 1.0.4
+api: 2.9.4
+version: 2.0.0
 authors: [oryxel]

@@ -362,7 +362,7 @@ public final class ItemTransactionValidator {
 
                         ItemStack item = player.compensatedInventory.translate(SD1);
                         if (item.getId() == Items.FIREWORK_ROCKET.javaId() && player.getFlagTracker().has(EntityFlag.GLIDING)) {
-                            player.glideBoostTicks = 20;
+//                            player.glideBoostTicks = 20; // Latest geyser break this.
                         }
 
                         player.getItemUseTracker().use(SD1, item.getId(), false);

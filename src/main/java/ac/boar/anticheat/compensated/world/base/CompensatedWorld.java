@@ -62,7 +62,7 @@ public class CompensatedWorld {
         boolean affectedByOffset = definition.entityType() == EntityType.PLAYER || definition.identifier().equalsIgnoreCase("minecraft:boat") || definition.identifier().equalsIgnoreCase("minecraft:chest_boat");
 
         player.sendLatencyStack();
-        final EntityCache cache = new EntityCache(player, definition.entityType(), definition, player.sentStackId.get(), runtimeId);
+        final EntityCache cache = new EntityCache(player, definition.entityType(), definition, runtimeId);
         cache.setAffectedByOffset(affectedByOffset);
         // Default back to default bounding box if there ain't anything.
         cache.setDimensions(EntityDimensions.fixed(definition.width(), definition.height()));

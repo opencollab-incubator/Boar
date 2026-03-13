@@ -101,8 +101,8 @@ public class ServerDataPackets implements PacketListener {
 
             player.sendLatencyStack();
 
-            final long id = player.sentStackId.get();
-            player.desyncedFlag.set(flagsCopy != null ? id : -1);
+//            final long id = player.sentStackId.get();
+//            player.desyncedFlag.set(flagsCopy != null ? id : -1);
             player.getLatencyUtil().queue(() -> {
                 if (flagsCopy != null) {
                     player.getFlagTracker().set(player, flagsCopy);
@@ -135,9 +135,9 @@ public class ServerDataPackets implements PacketListener {
                     player.dimensions = player.dimensions.hardScaled(scale);
                 }
 
-                if (player.desyncedFlag.get() == id) {
-                    player.desyncedFlag.set(-1);
-                }
+//                if (player.desyncedFlag.get() == id) {
+//                    player.desyncedFlag.set(-1);
+//                }
             });
         }
 

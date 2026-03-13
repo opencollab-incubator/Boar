@@ -25,16 +25,16 @@ public class TeleportHandler {
 
         TeleportCache cache;
         while ((cache = queuedTeleports.peek()) != null) {
-            if (player.receivedStackId.get() < cache.getStackId()) {
+            if (!cache.isAccepted()) {
                 break;
             }
 
             queuedTeleports.poll();
 
-            TeleportCache peek = queuedTeleports.peek();
-            if (peek != null && player.receivedStackId.get() < peek.getStackId()) {
-                continue;
-            }
+//            TeleportCache peek = queuedTeleports.peek();
+//            if (peek != null && peek.isAccepted()) {
+//                continue;
+//            }
 
             // Bedrock don't reply to teleport individually using a separate tick packet instead it just simply set its position to
             // the teleported position and then let us know the *next tick*, so we do the same!
@@ -90,6 +90,10 @@ public class TeleportHandler {
     // we could check for current offset and if it's close then player might possibility HAVEN'T received the rewind yet?
     // Just ignore the edge cases for now.
     private void processRewind(final BoarPlayer player, final TeleportCache.Rewind rewind, final PlayerAuthInputPacket packet) {
+        if (player.getTeleportUtil().isTeleporting()) {
+            return; // nah.
+        }
+
         if (player.isMovementExempted()) { // Fully exempted from rewind teleport.
             return;
         }

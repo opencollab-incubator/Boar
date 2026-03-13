@@ -20,7 +20,7 @@ public class PlayerTicker extends LivingTicker {
             player.input = player.input.multiply(0.3F);
         }
 
-        if (player.getFlagTracker().has(EntityFlag.USING_ITEM)) {
+        if (player.getFlagTracker().has(EntityFlag.USING_ITEM) && !player.getItemUseTracker().isUsingSpear()) {
             player.input = player.input.multiply(0.122499995F);
         }
     }

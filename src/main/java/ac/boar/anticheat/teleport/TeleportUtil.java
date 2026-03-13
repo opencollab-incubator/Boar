@@ -35,7 +35,7 @@ public class TeleportUtil {
     }
 
     public void teleportTo(final Vector3f position) {
-        this.teleportTo(new TeleportCache.Normal(0, new Vec3(position)));
+        this.teleportTo(new TeleportCache.Normal(new Vec3(position)));
     }
 
     public void teleportTo(final TeleportCache cache) {
@@ -56,14 +56,19 @@ public class TeleportUtil {
         packet.setMode(MovePlayerPacket.Mode.TELEPORT);
         packet.setTeleportationCause(MovePlayerPacket.TeleportationCause.BEHAVIOR);
 
-        this.queueTeleport(teleport.getPosition());
         this.player.getBedrockSession().sendPacket(packet);
     }
 
     public void queueTeleport(final Vec3 position) {
-        player.sendLatencyStack();
-        this.queuedTeleports.add(new TeleportCache.Normal(player.sentStackId.get(), position));
+        queue(new TeleportCache.Normal(position));
         this.lastKnowValid = position.toVector3f();
+    }
+
+    public void queue(TeleportCache cache) {
+        this.queuedTeleports.add(cache);
+        player.sendLatencyStack(() -> {
+            cache.setAccepted(true);
+        });
     }
 
     // Rewind teleport part.
@@ -92,8 +97,7 @@ public class TeleportUtil {
         packet.setVehicleRotation(Vector2f.ZERO);
         packet.setPredictionType(player.vehicleData != null ? PredictionType.VEHICLE : PredictionType.PLAYER);
 
-        player.sendLatencyStack();
-        this.queuedTeleports.add(new TeleportCache.Rewind(player.sentStackId.get(), tick, new Vec3(packet.getPosition()), new Vec3(packet.getDelta()), onGround));
+        queue(new TeleportCache.Rewind(tick, new Vec3(packet.getPosition()), new Vec3(packet.getDelta()), onGround));
         this.player.getBedrockSession().sendPacket(packet);
     }
 

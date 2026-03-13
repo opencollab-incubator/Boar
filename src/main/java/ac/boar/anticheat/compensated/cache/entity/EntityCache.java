@@ -22,7 +22,7 @@ public final class EntityCache {
     private final BoarPlayer player;
     private final EntityType type;
     private final EntityDefinition<?> definition;
-    private final long stackId, runtimeId;
+    private final long runtimeId;
 
     private EntityDimensions dimensions;
     private Vec3 serverPosition = Vec3.ZERO;

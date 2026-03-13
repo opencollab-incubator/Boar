@@ -87,22 +87,24 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
             return;
         }
 
-        if (player.isMovementExempted()) {
-            player.setPos(player.unvalidatedPosition);
+        if (!player.getTeleportUtil().isTeleporting()) {
+            if (player.isMovementExempted()) {
+                player.setPos(player.unvalidatedPosition);
 
-            // Clear velocity out manually since we haven't handled em.
-            player.certainVelocity = null;
+                // Clear velocity out manually since we haven't handled em.
+                player.certainVelocity = null;
 
-            // This is fine, we only need tick end and use before and after to calculate ground.
-            player.predictionResult = new PredictionData(Vec3.ZERO, player.velocity.y < 0 && player.getInputData().contains(PlayerAuthInputData.VERTICAL_COLLISION) ? new Vec3(0, 1, 0) : Vec3.ZERO, player.unvalidatedTickEnd);
-            player.velocity = player.unvalidatedTickEnd.clone();
+                // This is fine, we only need tick end and use before and after to calculate ground.
+                player.predictionResult = new PredictionData(Vec3.ZERO, player.velocity.y < 0 && player.getInputData().contains(PlayerAuthInputData.VERTICAL_COLLISION) ? new Vec3(0, 1, 0) : Vec3.ZERO, player.unvalidatedTickEnd);
+                player.velocity = player.unvalidatedTickEnd.clone();
 
-            player.bestPossibility = Vector.NONE;
-        } else {
-            if (!player.inLoadingScreen && player.sinceLoadingScreen >= 2 || player.unvalidatedTickEnd.lengthSquared() > 0) {
-                new PredictionRunner(player).run();
+                player.bestPossibility = Vector.NONE;
             } else {
-                player.velocity = Vec3.ZERO.clone();
+                if (!player.inLoadingScreen && player.sinceLoadingScreen >= 2 || player.unvalidatedTickEnd.lengthSquared() > 0) {
+                    new PredictionRunner(player).run();
+                } else {
+                    player.velocity = Vec3.ZERO.clone();
+                }
             }
         }
 
@@ -130,7 +132,7 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
             final BedrockDimension dimension = DimensionUtil.dimensionFromId(dimensionId);
 
             player.sendLatencyStack();
-            player.getTeleportUtil().getQueuedTeleports().add(new TeleportCache.DimensionSwitch(player.sentStackId.get(), new Vec3(packet.getPosition().up(EntityDefinitions.PLAYER.offset()))));
+            player.getTeleportUtil().queue(new TeleportCache.DimensionSwitch(new Vec3(packet.getPosition().up(EntityDefinitions.PLAYER.offset()))));
             player.getLatencyUtil().queue(() -> {
                 if (player.compensatedWorld.getDimension() != dimension) {
                     player.currentLoadingScreen = packet.getLoadingScreenId();

@@ -14,6 +14,8 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 public final class LatencyUtil {
     private final BoarPlayer player;
     private final Deque<Latency> sentQueue = new ConcurrentLinkedDeque<>();
+    public Latency prevAcceptedLatency;
+
     public Deque<Latency> sentQueue() {
         return this.sentQueue;
     }
@@ -64,6 +66,10 @@ public final class LatencyUtil {
 
         public long ns() {
             return this.ns;
+        }
+
+        public long ms() {
+            return this.ms;
         }
 
         public void run() {

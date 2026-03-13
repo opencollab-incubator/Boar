@@ -23,6 +23,11 @@ public class ItemUseTracker {
         METADATA, INVENTORY_TRANSACTION, NONE
     }
 
+    public boolean isUsingSpear() {
+        return javaItemId == Items.WOODEN_SPEAR.javaId() || javaItemId == Items.STONE_SPEAR.javaId()
+                || javaItemId == Items.IRON_SPEAR.javaId() || javaItemId == Items.GOLDEN_SPEAR.javaId() || javaItemId == Items.DIAMOND_SPEAR.javaId() || javaItemId == Items.NETHERITE_SPEAR.javaId();
+    }
+
     public void preTick() {
         if (!player.getFlagTracker().has(EntityFlag.USING_ITEM)) {
             return;
