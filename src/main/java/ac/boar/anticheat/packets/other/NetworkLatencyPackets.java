@@ -42,6 +42,7 @@ public class NetworkLatencyPackets implements PacketListener {
         player.getLatencyUtil().onLatencyAccepted(poll);
         event.setCancelled(poll.ours());
 
+        player.getLatencyUtil().prevAcceptedTime = System.currentTimeMillis();
         player.getLatencyUtil().prevAcceptedLatency = poll;
     }
 }

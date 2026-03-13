@@ -11,9 +11,9 @@ import ac.boar.anticheat.util.LatencyUtil;
 import ac.boar.anticheat.util.MathUtil;
 import ac.boar.anticheat.util.math.Vec3;
 import ac.boar.anticheat.validator.blockbreak.ServerBreakBlockValidator;
-import ac.boar.geyser.util.GeyserUtil;
 import ac.boar.mappings.BlockMappings;
 import ac.boar.protocol.BoarHandlerAdaptor;
+import io.netty.channel.EventLoop;
 import lombok.Getter;
 
 import ac.boar.anticheat.check.api.holder.CheckHolder;
@@ -24,6 +24,7 @@ import ac.boar.anticheat.util.math.Mutable;
 import ac.boar.anticheat.validator.inventory.ItemTransactionValidator;
 import ac.boar.anticheat.player.data.PlayerData;
 import lombok.Setter;
+import lombok.SneakyThrows;
 import org.cloudburstmc.math.GenericMath;
 import org.cloudburstmc.math.TrigMath;
 import org.cloudburstmc.math.vector.Vector3i;
@@ -44,11 +45,12 @@ import org.geysermc.geyser.level.block.type.BlockState;
 import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.mcprotocollib.protocol.data.game.entity.Effect;
 
+import java.lang.reflect.Field;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.TimeUnit;
 
 public final class BoarPlayer extends PlayerData {
     @Getter
@@ -83,6 +85,7 @@ public final class BoarPlayer extends PlayerData {
     @Getter
     private final Map<UUID, CommandSource> trackedDebugPlayers = new ConcurrentHashMap<>();
 
+    @SneakyThrows
     public BoarPlayer(GeyserSession session) {
         this.session = session;
 
@@ -103,6 +106,22 @@ public final class BoarPlayer extends PlayerData {
             }
 
             this.attributes.put(identifier, new AttributeInstance(type.getDefaultValue()));
+        }
+
+
+        final Field field = GeyserSession.class.getDeclaredField("tickEventLoop");
+        field.setAccessible(true);
+        ((EventLoop)field.get(session)).scheduleAtFixedRate(this::serverTick, 50000000, 50000000, TimeUnit.NANOSECONDS);
+    }
+
+    public void serverTick() {
+        if (this.getLatencyUtil().sentQueue().isEmpty()) {
+            sendLatencyStack();
+            return;
+        }
+
+        if (System.currentTimeMillis() - this.getLatencyUtil().prevAcceptedTime > Boar.getConfig().maxLatencyWait()) {
+            kick("Timed out!");
         }
     }
 

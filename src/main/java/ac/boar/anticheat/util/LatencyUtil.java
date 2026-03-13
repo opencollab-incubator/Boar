@@ -15,6 +15,7 @@ public final class LatencyUtil {
     private final BoarPlayer player;
     private final Deque<Latency> sentQueue = new ConcurrentLinkedDeque<>();
     public Latency prevAcceptedLatency;
+    public long prevAcceptedTime = System.currentTimeMillis();
 
     public Deque<Latency> sentQueue() {
         return this.sentQueue;
