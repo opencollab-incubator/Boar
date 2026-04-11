@@ -49,7 +49,7 @@ public class PlayerVelocityPackets implements PacketListener {
                     return;
                 }
 
-                player.glideBoostTicks = packet.getDuration() / 2;
+                player.glideBoostTicks = Math.max(1, packet.getDuration() / 2);
             });
         }
     }

@@ -11,11 +11,11 @@ import ac.boar.anticheat.util.MathUtil;
 import ac.boar.anticheat.util.geyser.BoarChunk;
 import ac.boar.anticheat.util.geyser.BoarChunkSection;
 import ac.boar.anticheat.util.math.Mutable;
+import ac.boar.anticheat.util.math.Vec3;
 import it.unimi.dsi.fastutil.longs.*;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
-import org.cloudburstmc.math.GenericMath;
 import org.cloudburstmc.math.vector.Vector3i;
 import org.geysermc.geyser.entity.EntityDefinition;
 import org.geysermc.geyser.entity.type.Entity;
@@ -74,33 +74,22 @@ public class CompensatedWorld {
     }
 
     private int radius;
-    private int centerX, centerZ;
+    private Vector3i radiusCenter;
 
-    // (https://github.com/RaphiMC/ViaBedrock/blob/main/src/main/java/net/raphimc/viabedrock/protocol/storage/ChunkTracker.java#L263)
     public void yeetOutOfRangeChunks() {
-        final Set<Long> chunksToRemove = new HashSet<>();
-        for (long key : this.chunks.keySet()) {
+        this.chunks.keySet().removeIf(key -> {
             final int chunkX = (int) key, chunkZ = (int) (key >> 32);
-            if (this.isInLoadDistance(chunkX, chunkZ)) {
-                continue;
-            }
-
-            chunksToRemove.add(key);
-        }
-        for (long key : chunksToRemove) {
-            this.chunks.remove(key);
-        }
+            return this.isOutOfRadius(chunkX << 4, chunkZ << 4);
+        });
     }
 
-    // (https://github.com/RaphiMC/ViaBedrock/blob/main/src/main/java/net/raphimc/viabedrock/protocol/storage/ChunkTracker.java#L247)
-    public boolean isInLoadDistance(final int chunkX, final int chunkZ) {
-        if (!(Math.abs(chunkX - this.centerX) <= this.radius && Math.abs(chunkZ - this.centerZ) <= this.radius)) {
-            final int centerX = GenericMath.floor(player.position.getX()) >> 4;
-            final int centerZ = GenericMath.floor(player.position.getZ()) >> 4;
-            return Math.abs(chunkX - centerX) <= this.radius && Math.abs(chunkZ - centerZ) <= this.radius;
-        }
+    public boolean isOutOfRadius(int chunkX, int chunkZ) {
+        Vec3 radiusCenter = new Vec3(this.radiusCenter).add(0.5f, 0.5f, 0.5f); // Properly correct eh?
 
-        return true;
+        // Still unsure about this... should we get rid of chunk sections, or chunk?
+        // Well since we're getting rid of chunks for now, let set the y pos to 0.
+        Vec3 chunkCenter = new Vec3(chunkX + 8, 0, chunkZ + 8);
+        return radiusCenter.squaredDistanceTo(chunkCenter) > this.radius * this.radius;
     }
 
     public void put(int x, int z, BoarChunkSection[] chunks) {

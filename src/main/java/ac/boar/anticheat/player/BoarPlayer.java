@@ -186,7 +186,7 @@ public final class BoarPlayer extends PlayerData {
     }
 
     public void postTick() {
-        this.glideBoostTicks--;
+        this.glideBoostTicks--; // Glide boost should tick regardless if the player is gliding or not!
         this.getItemUseTracker().postTick();
     }
 

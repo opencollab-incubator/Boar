@@ -13,45 +13,42 @@ public class GlidingPredictionEngine extends PredictionEngine {
     }
 
     @Override
-    public Vec3 travel(Vec3 vec3) {
-        float velX = vec3.x, velY = vec3.y, velZ = vec3.z;
+    public Vec3 travel(Vec3 movement) {
+        final Vec3 lookAngle = MathUtil.getRotationVector(player.pitch, player.yaw);
 
-        final Vec3 view = MathUtil.getRotationVector(player.pitch, player.yaw);
+        // Based off https://mcsrc.dev/1/26.1.2/net/minecraft/world/entity/LivingEntity#L2536
+        float leanAngle = player.pitch * MathUtil.DEGREE_TO_RAD;
+        float lookHorLength = lookAngle.horizontalLength();
+        float moveHorLength = movement.horizontalLength();
 
-        float v8 = player.pitch * MathUtil.DEGREE_TO_RAD;
-        float v9 = view.horizontalLength();
-        float v10 = view.lengthSquared();
-        float v11 = vec3.horizontalLength();
-        float v12 = TrigMath.cos(v8);
-        float v14 = v12 * (Math.min((float) GenericMath.sqrt(v10) * 2.5F, 1.0F) * v12);
+        // Lift force is kinda the only part somewhat differ from java, according to BDS?
+        float cosOfLeanAngle = TrigMath.cos(leanAngle);
+        float liftForce = cosOfLeanAngle * (Math.min((float) GenericMath.sqrt(lookAngle.lengthSquared()) * 2.5F, 1.0F) * cosOfLeanAngle);
 
-        float v15 = 1.0F / v9;
-
-        velY -= (v14 * 0.75F - 1.0F) * -player.getEffectiveGravity(vec3);
-        if (velY < 0.0 && v9 > 0.0) {
-            float v21 = velY * -0.1F * v14;
-            velZ += (view.z * v21 * v15);
-            velY += v21;
-            velX += (view.x * v21 * v15);
+        movement.y -= (liftForce * 0.75F - 1.0F) * -player.getEffectiveGravity(movement);
+        if (movement.y < 0.0 && lookHorLength > 0.0) {
+            float convert = movement.y * -0.1F * liftForce;
+            movement = movement.add(lookAngle.x * convert / lookHorLength, convert, lookAngle.z * convert / lookHorLength);
         }
-        if (v8 < 0.0) {
-            float v26 = TrigMath.sin(v8) * v11 * -0.039999999F;
-            velX -= v26 * view.x * v15;
-            velY += v26 * 3.2F;
-            velZ -= v26 * view.z * v15;
+        if (leanAngle < 0.0) {
+            float convert = TrigMath.sin(leanAngle) * moveHorLength * -0.04f;
+            movement = movement.subtract(convert * lookAngle.x / lookHorLength, convert * -3.2F, convert * lookAngle.z / lookHorLength);
         }
-        if (v9 > 0.0) {
-            velX += (v15 * view.x * v11 - velX) * 0.1F;
-            velZ += (v15 * view.z * v11 - velZ) * 0.1F;
+        if (lookHorLength > 0.0) {
+            movement = movement.add(
+                    (lookAngle.x / lookHorLength * moveHorLength - movement.x) * 0.1f, 0, (lookAngle.z / lookHorLength * moveHorLength - movement.z) * 0.1f
+            );
         }
 
+        // It seems like it's the same as java code (https://mcsrc.dev/1/26.1.2/net/minecraft/world/entity/projectile/FireworkRocketEntity#L136)
+        // Although different is that it's ticking here instead of in the fireworks entity (since the fireworks entity logic doesn't really exist)
         if (player.glideBoostTicks > 0) {
-            velX += (view.x * 0.1F) + (((view.x * 1.5F) - velX) * 0.5F);
-            velY += (view.y * 0.1F) + (((view.y * 1.5F) - velY) * 0.5F);
-            velZ += (view.z * 0.1F) + (((view.z * 1.5F) - velZ) * 0.5F);
+            movement = movement.add(lookAngle.x * 0.1f + (lookAngle.x * 1.5f - movement.x) * 0.5f,
+                    lookAngle.y * 0.1f + (lookAngle.y * 1.5f - movement.y) * 0.5f,
+                    lookAngle.z * 0.1f + (lookAngle.z * 1.5f - movement.z) * 0.5f);
         }
 
-        return new Vec3(velX * 0.99000001F, velY * 0.98000002f, velZ * 0.99000001F);
+        return movement.multiply(0.99f, 0.98f, 0.99f);
     }
 
     @Override

@@ -34,8 +34,7 @@ public class ServerChunkPackets implements PacketListener {
 
         if (event.getPacket() instanceof NetworkChunkPublisherUpdatePacket packet) {
             player.sendLatencyStack(() -> {
-                world.setCenterX(packet.getPosition().getX() >> 4);
-                world.setCenterZ(packet.getPosition().getZ() >> 4);
+                world.setRadiusCenter(packet.getPosition());
                 world.setRadius(packet.getRadius());
 
                 world.yeetOutOfRangeChunks();
@@ -84,8 +83,7 @@ public class ServerChunkPackets implements PacketListener {
             }
 
             player.getLatencyUtil().queue(() -> {
-                if (!player.compensatedWorld.isInLoadDistance(packet.getChunkX(), packet.getChunkZ()) || dimension != player.compensatedWorld.getDimension()) {
-//                    System.out.println("Out of distance...");
+                if (player.compensatedWorld.isOutOfRadius(packet.getChunkX()  << 4, packet.getChunkZ() << 4) || dimension != player.compensatedWorld.getDimension()) {
                     return;
                 }
 
