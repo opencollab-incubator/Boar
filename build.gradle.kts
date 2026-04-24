@@ -55,13 +55,16 @@ modrinth {
     loaders = listOf("geyser")
 }
 
-fun getCommitMessage(): String {
-    val stdout = ByteArrayOutputStream()
-    exec {
-        commandLine("git", "log", "-1", "--pretty=%B")
-        standardOutput = stdout
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
     }
-    return stdout.toString().trim()
+}
+
+fun getCommitMessage(): String {
+    return providers.exec {
+        commandLine("git", "log", "-1", "--pretty=%B")
+    }.standardOutput.asText.get().trim()
 }
 
 // Thanks to https://gist.github.com/JonasGroeger/7620911 :tm:
