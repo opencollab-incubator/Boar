@@ -2,8 +2,8 @@ import java.io.ByteArrayOutputStream
 
 plugins {
     id("java")
-    id("com.gradleup.shadow") version "8.3.0"
-    id("com.modrinth.minotaur") version "2.+"
+    alias(libs.plugins.shadow)
+    alias(libs.plugins.minotaur)
 }
 
 group = "ac.boar"
@@ -15,20 +15,20 @@ repositories {
 }
 
 dependencies {
-    compileOnly("org.geysermc.geyser:core:2.9.4-SNAPSHOT") {
+    compileOnly(libs.geyser.core) {
         exclude(group = "com.google.code.gson", module = "gson")
     }
 
-    compileOnly("it.unimi.dsi:fastutil:8.5.15")
-    compileOnly("org.projectlombok:lombok:1.18.36")
-    annotationProcessor("org.projectlombok:lombok:1.18.36")
+    compileOnly(libs.fastutil)
+    compileOnly(libs.lombok)
+    annotationProcessor(libs.lombok)
 
-    compileOnly("com.google.code.gson:gson:2.3.1")
-    testImplementation("com.google.code.gson:gson:2.3.1")
+    compileOnly(libs.gson)
+    testImplementation(libs.gson)
 
-    implementation("it.unimi.dsi:fastutil:8.5.15")
+    implementation(libs.fastutil)
 
-    implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.15.2")
+    implementation(libs.jackson.yaml)
 }
 
 tasks {

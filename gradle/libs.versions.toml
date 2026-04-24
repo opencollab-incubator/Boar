@@ -1,0 +1,19 @@
+[versions]
+geyser = "2.9.4-SNAPSHOT"
+fastutil = "8.5.15"
+lombok = "1.18.36"
+gson = "2.3.1"
+jackson = "2.15.2"
+shadow = "9.3.0"
+minotaur = "2.+"
+
+[libraries]
+geyser-core = { module = "org.geysermc.geyser:core", version.ref = "geyser" }
+fastutil = { module = "it.unimi.dsi:fastutil", version.ref = "fastutil" }
+lombok = { module = "org.projectlombok:lombok", version.ref = "lombok" }
+gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
+jackson-yaml = { module = "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml", version.ref = "jackson" }
+
+[plugins]
+shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
+minotaur = { id = "com.modrinth.minotaur", version.ref = "minotaur" }
