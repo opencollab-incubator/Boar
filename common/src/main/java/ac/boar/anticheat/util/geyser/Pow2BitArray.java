@@ -1,0 +1,96 @@
+/*
+ * Copyright (c) 2019-2022 GeyserMC. http://geysermc.org
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ *
+ * @author GeyserMC
+ * @link https://github.com/GeyserMC/Geyser
+ */
+
+package ac.boar.anticheat.util.geyser;
+
+import org.cloudburstmc.math.GenericMath;
+import org.cloudburstmc.protocol.common.util.Preconditions;
+
+import java.util.Arrays;
+
+/**
+ * @param words Array used to store data
+ * @param version Palette version information
+ * @param size Number of entries in this palette (<b>not</b> the length of the words array that internally backs this palette)
+ */
+public record Pow2BitArray(BitArrayVersion version, int size, int[] words) implements BitArray {
+
+    public Pow2BitArray(BitArrayVersion version, int size, int[] words) {
+        this.size = size;
+        this.version = version;
+        this.words = words;
+        int expectedWordsLength = GenericMath.ceil((float) size / version.entriesPerWord);
+        if (words.length != expectedWordsLength) {
+            throw new IllegalArgumentException("Invalid length given for storage, got: " + words.length +
+                    " but expected: " + expectedWordsLength);
+        }
+    }
+
+    /**
+     * Sets the entry at the given location to the given value
+     */
+    public void set(int index, int value) {
+        Preconditions.checkElementIndex(index, this.size);
+        Preconditions.checkArgument(value >= 0 && value <= this.version.maxEntryValue, "Invalid value %s", value);
+        int bitIndex = index * this.version.bits;
+        int arrayIndex = bitIndex >> 5;
+        int offset = bitIndex & 31;
+        this.words[arrayIndex] = this.words[arrayIndex] & ~(this.version.maxEntryValue << offset) | (value & this.version.maxEntryValue) << offset;
+    }
+
+    /**
+     * Gets the entry at the given index
+     */
+    public int get(int index) {
+        Preconditions.checkElementIndex(index, this.size);
+        int bitIndex = index * this.version.bits;
+        int arrayIndex = bitIndex >> 5;
+        int wordOffset = bitIndex & 31;
+        return this.words[arrayIndex] >>> wordOffset & this.version.maxEntryValue;
+    }
+
+    /**
+     * Gets the long array that is used to store the data in this BitArray. This is useful for sending packet data.
+     */
+    @Override
+    public int size() {
+        return this.size;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @return {@inheritDoc}
+     */
+    @Override
+    public int[] words() {
+        return this.words;
+    }
+
+    @Override
+    public BitArray copy() {
+        return new Pow2BitArray(this.version, this.size, Arrays.copyOf(this.words, this.words.length));
+    }
+}
