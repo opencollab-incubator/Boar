@@ -1,6 +1,7 @@
 package ac.boar.anticheat.check.impl.prediction;
 
 import ac.boar.anticheat.Boar;
+import ac.boar.anticheat.check.api.BaseCheck;
 import ac.boar.anticheat.check.api.Check;
 import ac.boar.api.anticheat.annotations.CheckInfo;
 import ac.boar.anticheat.check.api.impl.OffsetHandlerCheck;
@@ -14,20 +15,20 @@ import java.util.HashMap;
 import java.util.Map;
 
 @CheckInfo(name = "Prediction")
-public class Prediction extends OffsetHandlerCheck {
+public class Prediction extends BaseCheck implements OffsetHandlerCheck {
     private final Map<String, Check> checks = new HashMap<>();
 
     public Prediction(BoarPlayer player) {
         super(player);
 
-        this.checks.put("Phase", new Check(player, "Phase", "", false));
-        this.checks.put("Velocity", new Check(player, "Velocity", "", false));
+        this.checks.put("Phase", new BaseCheck(player, "Phase", "", false));
+        this.checks.put("Velocity", new BaseCheck(player, "Velocity", "", false));
 
-        this.checks.put("Strafe", new Check(player, "Strafe", "", false));
-        this.checks.put("Speed", new Check(player, "Speed", "", false));
-        this.checks.put("Flight", new Check(player, "Flight", "", false));
+        this.checks.put("Strafe", new BaseCheck(player, "Strafe", "", false));
+        this.checks.put("Speed", new BaseCheck(player, "Speed", "", false));
+        this.checks.put("Flight", new BaseCheck(player, "Flight", "", false));
 
-        this.checks.put("Collisions", new Check(player, "Collisions", "", false));
+        this.checks.put("Collisions", new BaseCheck(player, "Collisions", "", false));
     }
 
     @Override

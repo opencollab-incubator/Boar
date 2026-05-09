@@ -2,6 +2,7 @@ package ac.boar.anticheat.check.impl.prediction;
 
 import ac.boar.anticheat.Boar;
 import ac.boar.anticheat.alert.AlertManager;
+import ac.boar.anticheat.check.api.BaseCheck;
 import ac.boar.api.anticheat.annotations.CheckInfo;
 import ac.boar.anticheat.check.api.impl.OffsetHandlerCheck;
 import ac.boar.anticheat.player.BoarPlayer;
@@ -9,7 +10,7 @@ import ac.boar.anticheat.util.math.Vec3;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 
 @CheckInfo(name = "DebugOffset")
-public class DebugOffsetA extends OffsetHandlerCheck {
+public class DebugOffsetA extends BaseCheck implements OffsetHandlerCheck {
     public DebugOffsetA(BoarPlayer player) {
         super(player);
     }

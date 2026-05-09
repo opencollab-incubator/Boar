@@ -1,6 +1,7 @@
 package ac.boar.anticheat.check.impl.reach;
 
 import ac.boar.anticheat.Boar;
+import ac.boar.anticheat.check.api.BaseCheck;
 import ac.boar.anticheat.check.api.impl.PacketCheck;
 import ac.boar.anticheat.compensated.cache.entity.EntityCache;
 import ac.boar.anticheat.player.BoarPlayer;
@@ -23,7 +24,7 @@ import java.util.Map;
 
 @Experimental
 @CheckInfo(name = "Reach")
-public final class Reach extends PacketCheck {
+public final class Reach extends BaseCheck implements PacketCheck {
     private final Map<Pair<Vec3, Vec3>, EntityCache> queuedHitAttacks = new HashMap<>();
     private boolean lastKnowHitWasValid;
 

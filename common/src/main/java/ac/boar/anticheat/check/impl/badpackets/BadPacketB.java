@@ -1,5 +1,6 @@
 package ac.boar.anticheat.check.impl.badpackets;
 
+import ac.boar.anticheat.check.api.BaseCheck;
 import ac.boar.anticheat.check.api.impl.PacketCheck;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.util.MathUtil;
@@ -8,7 +9,7 @@ import ac.boar.protocol.api.CloudburstPacketEvent;
 import org.cloudburstmc.protocol.bedrock.packet.PlayerAuthInputPacket;
 
 @CheckInfo(name = "Bad Packet", type = "B")
-public class BadPacketB extends PacketCheck {
+public class BadPacketB extends BaseCheck implements PacketCheck {
     public BadPacketB(BoarPlayer player) {
         super(player);
     }

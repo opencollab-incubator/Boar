@@ -1,6 +1,7 @@
 package ac.boar.anticheat;
 
 import ac.boar.anticheat.alert.AlertManager;
+import ac.boar.anticheat.check.api.BoarCheckRegistry;
 import ac.boar.anticheat.config.Config;
 import ac.boar.anticheat.config.ConfigLoader;
 import ac.boar.anticheat.data.block.BoarBlockStateInst;
@@ -36,6 +37,8 @@ public class Boar {
 
     private BoarPlayerManager<?> playerManager;
     private AlertManager alertManager;
+
+    private final BoarCheckRegistry checkRegistry = new BoarCheckRegistry();
 
     private BoarPlatform platform;
 

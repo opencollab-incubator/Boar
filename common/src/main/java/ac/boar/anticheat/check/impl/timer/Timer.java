@@ -1,6 +1,7 @@
 package ac.boar.anticheat.check.impl.timer;
 
 import ac.boar.anticheat.Boar;
+import ac.boar.anticheat.check.api.BaseCheck;
 import ac.boar.anticheat.check.api.impl.PingBasedCheck;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.util.LatencyUtil;
@@ -9,7 +10,7 @@ import ac.boar.api.anticheat.annotations.Experimental;
 
 @Experimental
 @CheckInfo(name = "Timer")
-public final class Timer extends PingBasedCheck {
+public final class Timer extends BaseCheck implements PingBasedCheck {
     private static final long AVERAGE_DISTANCE = (long) 5e+7;
 
     private long lastNS, balance, prevTick;
