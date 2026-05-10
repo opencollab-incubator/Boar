@@ -18,6 +18,14 @@ public final class PacketEvents {
         this.listeners.addAll(List.of(listener));
     }
 
+    public boolean unregister(final PacketListener listener) {
+        return this.listeners.remove(listener);
+    }
+
+    public boolean unregister(final Class<? extends PacketListener> type) {
+        return this.listeners.removeIf(l -> l.getClass() == type);
+    }
+
     public void terminate() {
         this.listeners.clear();
     }

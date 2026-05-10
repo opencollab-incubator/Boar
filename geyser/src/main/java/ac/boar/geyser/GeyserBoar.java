@@ -7,6 +7,7 @@ import ac.boar.anticheat.check.api.BoarDefaultChecks;
 import ac.boar.anticheat.config.Config;
 import ac.boar.anticheat.config.ConfigLoader;
 import ac.boar.anticheat.player.BoarPlayer;
+import ac.boar.protocol.BoarDefaultPacketListeners;
 import ac.boar.geyser.model.GeyserMessageRecipient;
 import ac.boar.geyser.player.GeyserPlayerManager;
 import lombok.Getter;
@@ -79,6 +80,7 @@ public class GeyserBoar implements Extension {
         Boar.getInstance().init(this.platform);
         BoarDefaultChecks.registerAll(Boar.getInstance().getCheckRegistry());
         BoarDefaultAcknowledgments.registerAll(Boar.getInstance().getAcknowledgmentRegistry());
+        BoarDefaultPacketListeners.registerAll();
     }
 
     @Subscribe

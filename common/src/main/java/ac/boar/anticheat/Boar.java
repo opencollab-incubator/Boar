@@ -9,17 +9,6 @@ import ac.boar.anticheat.data.block.BoarBlockStateInst;
 import ac.boar.anticheat.data.effect.EffectInst;
 import ac.boar.anticheat.data.enchantment.EnchantmentInst;
 import ac.boar.anticheat.data.inventory.ItemStackInst;
-import ac.boar.anticheat.packets.input.AuthInputPackets;
-import ac.boar.anticheat.packets.input.PostAuthInputPackets;
-import ac.boar.anticheat.packets.other.NetworkLatencyPackets;
-import ac.boar.anticheat.packets.other.PacketCheckRunner;
-import ac.boar.anticheat.packets.other.VehiclePackets;
-import ac.boar.anticheat.packets.player.PlayerEffectPackets;
-import ac.boar.anticheat.packets.player.PlayerInventoryPackets;
-import ac.boar.anticheat.packets.player.PlayerVelocityPackets;
-import ac.boar.anticheat.packets.server.ServerChunkPackets;
-import ac.boar.anticheat.packets.server.ServerDataPackets;
-import ac.boar.anticheat.packets.server.ServerEntityPackets;
 import ac.boar.anticheat.player.BoarPlayerManager;
 import ac.boar.mappings.block.BlockMappingsInst;
 import ac.boar.mappings.entity.EntityMappingsInst;
@@ -60,18 +49,6 @@ public class Boar {
 
         this.playerManager = platform.playerManager();
         this.alertManager = new AlertManager();
-
-        PacketEvents.getApi().register(new NetworkLatencyPackets());
-        PacketEvents.getApi().register(new ServerChunkPackets());
-        PacketEvents.getApi().register(new ServerEntityPackets());
-        PacketEvents.getApi().register(new ServerDataPackets());
-        PacketEvents.getApi().register(new PlayerEffectPackets());
-        PacketEvents.getApi().register(new PlayerVelocityPackets());
-        PacketEvents.getApi().register(new PlayerInventoryPackets());
-        PacketEvents.getApi().register(new VehiclePackets());
-        PacketEvents.getApi().register(new PacketCheckRunner());
-        PacketEvents.getApi().register(new AuthInputPackets());
-        PacketEvents.getApi().register(new PostAuthInputPackets());
     }
 
     public void terminate(BoarPlatform platform) {
