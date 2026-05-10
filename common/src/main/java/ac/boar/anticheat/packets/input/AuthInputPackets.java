@@ -1,5 +1,6 @@
 package ac.boar.anticheat.packets.input;
 
+import ac.boar.anticheat.ack.types.DimensionSwitchAck;
 import ac.boar.anticheat.check.impl.reach.Reach;
 import ac.boar.anticheat.check.impl.timer.Timer;
 import ac.boar.anticheat.data.input.PredictionData;
@@ -132,18 +133,7 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
 
             player.sendLatencyStack();
             player.getTeleportUtil().queue(new TeleportCache.DimensionSwitch(new Vec3(packet.getPosition().up(EntityDefinitions.PLAYER.find().map(EntityDefinition::offset).orElse(1.62f)))));
-            player.getLatencyUtil().queue(() -> {
-                if (player.compensatedWorld.getDimension() != dimension) {
-                    player.currentLoadingScreen = packet.getLoadingScreenId();
-                    player.inLoadingScreen = true;
-                }
-
-                player.compensatedWorld.getChunks().clear();
-                player.compensatedWorld.setDimension(dimension);
-
-                player.getFlagTracker().clear();
-                player.getFlagTracker().flying(false);
-            });
+            player.queueAcknowledgment(new DimensionSwitchAck(dimension, packet.getLoadingScreenId()));
         }
 
         if (event.getPacket() instanceof MovePlayerPacket packet) {

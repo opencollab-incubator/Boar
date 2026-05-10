@@ -1,8 +1,9 @@
 package ac.boar.anticheat.packets.other;
 
+import ac.boar.anticheat.ack.types.VehicleClearAck;
+import ac.boar.anticheat.ack.types.VehicleSetAck;
 import ac.boar.anticheat.compensated.cache.entity.EntityCache;
 import ac.boar.anticheat.player.BoarPlayer;
-import ac.boar.anticheat.player.data.VehicleData;
 import ac.boar.protocol.api.CloudburstPacketEvent;
 import ac.boar.protocol.api.PacketListener;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityLinkData;
@@ -58,15 +59,11 @@ public class VehiclePackets implements PacketListener {
 
             player.sendLatencyStack();
             if (link.getType() == EntityLinkData.Type.REMOVE) {
-                player.getLatencyUtil().queue(() -> player.vehicleData = null);
+                player.queueAcknowledgment(new VehicleClearAck());
                 return;
             }
 
-            player.getLatencyUtil().queue(() -> {
-                player.vehicleData = new VehicleData();
-                // player.vehicleData.canWeControlThisVehicle = link.getType() == EntityLinkData.Type.RIDER;
-                player.vehicleData.vehicleRuntimeId = entityId;
-            });
+            player.queueAcknowledgment(new VehicleSetAck(entityId));
         }
     }
 }

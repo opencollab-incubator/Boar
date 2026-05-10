@@ -1,7 +1,7 @@
 package ac.boar.anticheat.packets.player;
 
+import ac.boar.anticheat.ack.types.MobEffectAck;
 import ac.boar.anticheat.data.effect.Effect;
-import ac.boar.anticheat.data.vanilla.StatusEffect;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.protocol.api.CloudburstPacketEvent;
 import ac.boar.protocol.api.PacketListener;
@@ -22,13 +22,7 @@ public class PlayerEffectPackets implements PacketListener {
                 return;
             }
 
-            player.sendLatencyStack(() -> {
-                if (packet.getEvent() == MobEffectPacket.Event.ADD || packet.getEvent() == MobEffectPacket.Event.MODIFY) {
-                    player.getActiveEffects().put(effect, new StatusEffect(effect, packet.getAmplifier(), packet.getDuration() + 1));
-                } else if (packet.getEvent() == MobEffectPacket.Event.REMOVE) {
-                    player.getActiveEffects().remove(effect);
-                }
-            });
+            player.sendLatencyStack(new MobEffectAck(effect, packet.getEvent(), packet.getAmplifier(), packet.getDuration()));
         }
     }
 }

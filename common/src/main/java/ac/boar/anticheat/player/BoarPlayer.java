@@ -1,6 +1,8 @@
 package ac.boar.anticheat.player;
 
 import ac.boar.anticheat.Boar;
+import ac.boar.anticheat.ack.Acknowledgment;
+import ac.boar.anticheat.ack.BoarAcknowledgmentTransport;
 import ac.boar.anticheat.check.api.holder.CheckHolder;
 import ac.boar.anticheat.collision.util.CuboidBlockIterator;
 import ac.boar.anticheat.compensated.CompensatedInventory;
@@ -33,6 +35,7 @@ import ac.boar.mappings.entity.Entity;
 import ac.boar.mappings.entity.EntityDefinition;
 import ac.boar.mappings.entity.EntityDefinitions;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.SneakyThrows;
 import org.cloudburstmc.math.GenericMath;
 import org.cloudburstmc.math.TrigMath;
@@ -41,13 +44,11 @@ import org.cloudburstmc.protocol.bedrock.BedrockServerSession;
 import org.cloudburstmc.protocol.bedrock.data.Ability;
 import org.cloudburstmc.protocol.bedrock.data.PlayerAuthInputData;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
-import org.cloudburstmc.protocol.bedrock.packet.NetworkStackLatencyPacket;
 
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ThreadLocalRandom;
 
 public final class BoarPlayer extends PlayerData {
     @Getter
@@ -73,6 +74,10 @@ public final class BoarPlayer extends PlayerData {
 
     @Getter
     private final LatencyUtil latencyUtil = new LatencyUtil(this);
+
+    @Getter
+    @Setter
+    private BoarAcknowledgmentTransport ackTransport;
 
     // Lag compensation
     public final CompensatedWorldImpl compensatedWorld = new CompensatedWorldImpl(this);
@@ -122,24 +127,19 @@ public final class BoarPlayer extends PlayerData {
         return this.session.isClosed();
     }
 
-    public void sendLatencyStack(Runnable runnable) {
-        sendLatencyStack();
-        this.latencyUtil.queue(runnable);
+    /** Emit a fresh ping with the acknowledgment bound to it. */
+    public void sendLatencyStack(Acknowledgment ack) {
+        this.ackTransport.send(ack);
     }
 
+    /** Emit a keepalive ping (no acknowledgment). */
     public void sendLatencyStack() {
-        long id = ThreadLocalRandom.current().nextLong(-5000000L, 5000000L);
+        this.ackTransport.keepalive();
+    }
 
-        final NetworkStackLatencyPacket latencyPacket = new NetworkStackLatencyPacket();
-        latencyPacket.setTimestamp(id);
-        latencyPacket.setFromServer(false); // hack to distinguish from Geyser packet and ours.
-
-        if (!this.isClosed()) {
-            this.bedrockSession.sendPacketImmediately(latencyPacket);
-        }
-//        this.bedrockSession.getPeer().getChannel().pipeline().context(BoarHandlerAdaptor.NAME).writeAndFlush(
-//                BedrockPacketWrapper.create(0, 0, 0, latencyPacket, null)
-//        );
+    /** Bind the acknowledgment to whatever ping is most recently in flight. */
+    public void queueAcknowledgment(Acknowledgment ack) {
+        this.ackTransport.attach(ack);
     }
 
     public boolean isMovementExempted() {

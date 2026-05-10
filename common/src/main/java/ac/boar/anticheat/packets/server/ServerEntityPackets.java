@@ -1,5 +1,8 @@
 package ac.boar.anticheat.packets.server;
 
+import ac.boar.anticheat.ack.types.EntityClearPastAck;
+import ac.boar.anticheat.ack.types.EntityInterpolateAck;
+import ac.boar.anticheat.ack.types.EntityRemoveAck;
 import ac.boar.anticheat.compensated.cache.entity.EntityCache;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.util.math.Vec3;
@@ -16,13 +19,7 @@ public class ServerEntityPackets implements PacketListener {
         final BoarPlayer player = event.getPlayer();
         if (event.getPacket() instanceof RemoveEntityPacket packet) {
             player.sendLatencyStack();
-            player.sendLatencyStack(() -> {
-                if (player.vehicleData != null && player.vehicleData.vehicleRuntimeId == packet.getUniqueEntityId()) {
-                    player.vehicleData = null;
-                }
-
-                player.compensatedWorld.removeEntity(packet.getUniqueEntityId());
-            });
+            player.sendLatencyStack(new EntityRemoveAck(packet.getUniqueEntityId()));
         }
 
         if (event.getPacket() instanceof AddEntityPacket packet) {
@@ -119,7 +116,8 @@ public class ServerEntityPackets implements PacketListener {
         // But if player respond to the transaction AFTER the position packet they 100% already receive the packet.
         player.sendLatencyStack();
 
-        player.getLatencyUtil().queue(() -> entity.interpolate(position, lerp && distance < 4096));
-        event.getPostTasks().add(() -> player.sendLatencyStack(() -> entity.setPast(null)));
+        final long runtimeId = entity.getRuntimeId();
+        player.queueAcknowledgment(new EntityInterpolateAck(runtimeId, position, lerp && distance < 4096));
+        event.getPostTasks().add(() -> player.sendLatencyStack(new EntityClearPastAck(runtimeId)));
     }
 }

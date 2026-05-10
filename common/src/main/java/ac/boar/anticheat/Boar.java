@@ -1,5 +1,6 @@
 package ac.boar.anticheat;
 
+import ac.boar.anticheat.ack.BoarAcknowledgmentRegistry;
 import ac.boar.anticheat.alert.AlertManager;
 import ac.boar.anticheat.check.api.BoarCheckRegistry;
 import ac.boar.anticheat.config.Config;
@@ -39,6 +40,7 @@ public class Boar {
     private AlertManager alertManager;
 
     private final BoarCheckRegistry checkRegistry = new BoarCheckRegistry();
+    private final BoarAcknowledgmentRegistry acknowledgmentRegistry = new BoarAcknowledgmentRegistry();
 
     private BoarPlatform platform;
 

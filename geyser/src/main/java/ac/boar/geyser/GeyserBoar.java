@@ -1,6 +1,7 @@
 package ac.boar.geyser;
 
 import ac.boar.anticheat.Boar;
+import ac.boar.anticheat.ack.BoarDefaultAcknowledgments;
 import ac.boar.anticheat.alert.AlertManager;
 import ac.boar.anticheat.check.api.BoarDefaultChecks;
 import ac.boar.anticheat.config.Config;
@@ -77,6 +78,7 @@ public class GeyserBoar implements Extension {
 
         Boar.getInstance().init(this.platform);
         BoarDefaultChecks.registerAll(Boar.getInstance().getCheckRegistry());
+        BoarDefaultAcknowledgments.registerAll(Boar.getInstance().getAcknowledgmentRegistry());
     }
 
     @Subscribe

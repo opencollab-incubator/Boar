@@ -1,15 +1,17 @@
 package ac.boar.anticheat.packets.server;
 
 import ac.boar.anticheat.Boar;
+import ac.boar.anticheat.ack.types.BlockEntityUpdateAck;
+import ac.boar.anticheat.ack.types.BlockUpdateAck;
+import ac.boar.anticheat.ack.types.ChunkLoadAck;
+import ac.boar.anticheat.ack.types.ChunkPublisherUpdateAck;
 import ac.boar.anticheat.compensated.world.base.CompensatedWorld;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.util.Dimension;
 import ac.boar.anticheat.util.DimensionUtil;
 import ac.boar.anticheat.util.geyser.BitArray;
 import ac.boar.anticheat.util.geyser.BitArrayVersion;
-import ac.boar.anticheat.util.geyser.BlockEntityInfo;
 import ac.boar.anticheat.util.geyser.BlockStorage;
-import ac.boar.anticheat.util.geyser.BoarChunk;
 import ac.boar.anticheat.util.geyser.BoarChunkSection;
 import ac.boar.anticheat.util.geyser.SingletonBitArray;
 import ac.boar.anticheat.util.math.Vec3;
@@ -19,7 +21,6 @@ import io.netty.buffer.ByteBuf;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import org.cloudburstmc.math.GenericMath;
-import org.cloudburstmc.math.vector.Vector3i;
 import org.cloudburstmc.protocol.bedrock.data.ServerboundLoadingScreenPacketType;
 import org.cloudburstmc.protocol.bedrock.packet.BlockEntityDataPacket;
 import org.cloudburstmc.protocol.bedrock.packet.LevelChunkPacket;
@@ -37,12 +38,7 @@ public class ServerChunkPackets implements PacketListener {
         final CompensatedWorld world = player.compensatedWorld;
 
         if (event.getPacket() instanceof NetworkChunkPublisherUpdatePacket packet) {
-            player.sendLatencyStack(() -> {
-                world.setRadiusCenter(packet.getPosition());
-                world.setRadius(packet.getRadius());
-
-                world.yeetOutOfRangeChunks();
-            });
+            player.sendLatencyStack(new ChunkPublisherUpdateAck(packet.getPosition(), packet.getRadius()));
         }
 
         // There are a ton of chunk sending and world type for Bedrock (why support that much anyway)
@@ -86,13 +82,7 @@ public class ServerChunkPackets implements PacketListener {
                 buf.release();
             }
 
-            player.getLatencyUtil().queue(() -> {
-                if (player.compensatedWorld.isOutOfRadius(packet.getChunkX()  << 4, packet.getChunkZ() << 4) || dimension != player.compensatedWorld.getDimension()) {
-                    return;
-                }
-
-                world.put(packet.getChunkX(), packet.getChunkZ(), sections);
-            });
+            player.queueAcknowledgment(new ChunkLoadAck(packet.getChunkX(), packet.getChunkZ(), dimension, sections));
         }
 
         if (event.getPacket() instanceof UpdateBlockPacket packet) {
@@ -116,21 +106,11 @@ public class ServerChunkPackets implements PacketListener {
                 player.sendLatencyStack();
             }
 
-            player.getLatencyUtil().queue(() -> world.updateBlock(packet.getBlockPosition(), packet.getDataLayer(), packet.getDefinition().getRuntimeId()));
+            player.queueAcknowledgment(new BlockUpdateAck(packet.getBlockPosition(), packet.getDataLayer(), packet.getDefinition().getRuntimeId()));
         }
 
         if (event.getPacket() instanceof BlockEntityDataPacket packet) {
-            player.sendLatencyStack();
-            player.getLatencyUtil().queue(() -> {
-                final BoarChunk chunk = player.compensatedWorld.getChunk(packet.getBlockPosition().getX() >> 4, packet.getBlockPosition().getZ() >> 4);
-                if (chunk == null) {
-                    return;
-                }
-
-                final Vector3i pos = packet.getBlockPosition();
-                chunk.blockEntities().removeIf(block -> block.x() == pos.getX() && block.y() == pos.getY() && block.z() == pos.getZ());
-                chunk.blockEntities().add(new BlockEntityInfo(pos.getX(), pos.getY(), pos.getZ(), packet.getData()));
-            });
+            player.sendLatencyStack(new BlockEntityUpdateAck(packet.getBlockPosition(), packet.getData()));
         }
     }
 

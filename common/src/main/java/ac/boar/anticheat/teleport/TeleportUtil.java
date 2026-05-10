@@ -1,6 +1,7 @@
 package ac.boar.anticheat.teleport;
 
 import ac.boar.anticheat.Boar;
+import ac.boar.anticheat.ack.types.TeleportAcceptAck;
 import ac.boar.anticheat.data.input.PredictionData;
 import ac.boar.anticheat.data.input.TickData;
 import ac.boar.anticheat.player.BoarPlayer;
@@ -66,9 +67,7 @@ public class TeleportUtil {
 
     public void queue(TeleportCache cache) {
         this.queuedTeleports.add(cache);
-        player.sendLatencyStack(() -> {
-            cache.setAccepted(true);
-        });
+        player.sendLatencyStack(new TeleportAcceptAck(cache));
     }
 
     // Rewind teleport part.

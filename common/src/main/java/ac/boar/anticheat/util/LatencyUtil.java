@@ -1,5 +1,8 @@
 package ac.boar.anticheat.util;
 
+import ac.boar.anticheat.Boar;
+import ac.boar.anticheat.ack.Acknowledgment;
+import ac.boar.anticheat.ack.BoarAcknowledgmentRegistry;
 import ac.boar.anticheat.check.api.Check;
 import ac.boar.anticheat.check.api.impl.PingBasedCheck;
 import ac.boar.anticheat.player.BoarPlayer;
@@ -25,17 +28,17 @@ public final class LatencyUtil {
         this.sentQueue.add(new Latency(id, System.currentTimeMillis(), System.nanoTime(), ours, ours ? new ArrayList<>() : null));
     }
 
-    public void queue(Runnable runnable) {
+    public void queue(Acknowledgment ack) {
         if (this.sentQueue.isEmpty()) {
-            runnable.run();
+            Boar.getInstance().getAcknowledgmentRegistry().dispatch(this.player, ack);
             return;
         }
 
-        if (this.sentQueue.getLast().tasks == null) {
-            this.sentQueue.getLast().tasks = new ArrayList<>();
+        if (this.sentQueue.getLast().acknowledgments == null) {
+            this.sentQueue.getLast().acknowledgments = new ArrayList<>();
         }
 
-        this.sentQueue.getLast().tasks.add(runnable);
+        this.sentQueue.getLast().acknowledgments.add(ack);
     }
 
     public void onLatencyAccepted(Latency latency) {
@@ -55,7 +58,7 @@ public final class LatencyUtil {
         private final long ms;
         private final long ns;
         private boolean ours;
-        private List<Runnable> tasks;
+        private List<Acknowledgment> acknowledgments;
 
         public boolean ours() {
             return this.ours;
@@ -73,11 +76,14 @@ public final class LatencyUtil {
             return this.ms;
         }
 
-        public void run() {
-            if (this.tasks != null) {
-                this.tasks.forEach(Runnable::run);
+        public void dispatch(BoarPlayer player) {
+            if (this.acknowledgments != null) {
+                final BoarAcknowledgmentRegistry registry = Boar.getInstance().getAcknowledgmentRegistry();
+                for (Acknowledgment ack : this.acknowledgments) {
+                    registry.dispatch(player, ack);
+                }
             }
-            this.tasks = null;
+            this.acknowledgments = null;
         }
     }
 }

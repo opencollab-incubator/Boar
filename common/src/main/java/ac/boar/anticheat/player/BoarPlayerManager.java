@@ -1,5 +1,6 @@
 package ac.boar.anticheat.player;
 
+import ac.boar.anticheat.ack.BoarAcknowledgmentTransport;
 import ac.boar.anticheat.data.vanilla.AttributeInstance;
 import ac.boar.anticheat.player.accessor.EntityAccessor;
 import ac.boar.anticheat.player.accessor.InventoryAccessor;
@@ -33,6 +34,8 @@ public abstract class BoarPlayerManager<T> extends HashMap<T, BoarPlayer> {
                 this.createDefaultAttributes()
         );
 
+        player.setAckTransport(this.createAckTransport(player));
+
         Channel channel = serverSession.getPeer().getChannel();
         channel.pipeline().addAfter(BedrockPacketCodec.NAME, BoarHandlerAdaptor.NAME, new BoarHandlerAdaptor(player, (BedrockPacketCodec) channel.pipeline().get(BedrockPacketCodec.NAME)));
 
@@ -56,6 +59,8 @@ public abstract class BoarPlayerManager<T> extends HashMap<T, BoarPlayer> {
     protected abstract InventoryAccessor createInventoryAccessor(T session);
 
     protected abstract Map<String, AttributeInstance> createDefaultAttributes();
+
+    protected abstract BoarAcknowledgmentTransport createAckTransport(BoarPlayer player);
 
     protected abstract ScheduledFuture<?> beginTicking(T session, Runnable ticker);
 }

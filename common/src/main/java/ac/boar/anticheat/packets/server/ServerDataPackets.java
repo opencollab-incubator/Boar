@@ -1,23 +1,22 @@
 package ac.boar.anticheat.packets.server;
 
 import ac.boar.anticheat.Boar;
+import ac.boar.anticheat.ack.types.EntityMetadataAck;
+import ac.boar.anticheat.ack.types.GameTypeAck;
+import ac.boar.anticheat.ack.types.PlayerMetadataAck;
+import ac.boar.anticheat.ack.types.UpdateAbilitiesAck;
+import ac.boar.anticheat.ack.types.UpdateAttributesAck;
 import ac.boar.anticheat.compensated.cache.container.ContainerCache;
 import ac.boar.anticheat.compensated.cache.entity.EntityCache;
-import ac.boar.anticheat.data.EntityDimensions;
 import ac.boar.anticheat.data.inventory.BoarItemStack;
-import ac.boar.anticheat.data.vanilla.AttributeInstance;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.util.DimensionUtil;
 import ac.boar.anticheat.validator.blockbreak.ServerBreakBlockValidator;
 import ac.boar.mappings.item.Items;
 import ac.boar.protocol.api.CloudburstPacketEvent;
 import ac.boar.protocol.api.PacketListener;
-import org.cloudburstmc.protocol.bedrock.data.Ability;
-import org.cloudburstmc.protocol.bedrock.data.AbilityLayer;
-import org.cloudburstmc.protocol.bedrock.data.AttributeData;
 import org.cloudburstmc.protocol.bedrock.data.AuthoritativeMovementMode;
 import org.cloudburstmc.protocol.bedrock.data.GameType;
-import org.cloudburstmc.protocol.bedrock.data.attribute.AttributeModifierData;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 import org.cloudburstmc.protocol.bedrock.packet.MovementPredictionSyncPacket;
@@ -48,11 +47,11 @@ public class ServerDataPackets implements PacketListener {
             start.setRewindHistorySize(Boar.getConfig().rewindHistory());
             player.serverBreakBlockValidator = new ServerBreakBlockValidator(player);
 
-            player.sendLatencyStack(() -> player.gameType = start.getPlayerGameType());
+            player.sendLatencyStack(new GameTypeAck(start.getPlayerGameType()));
         }
 
         if (event.getPacket() instanceof SetPlayerGameTypePacket packet) {
-            player.sendLatencyStack(() -> player.gameType = GameType.from(packet.getGamemode()));
+            player.sendLatencyStack(new GameTypeAck(GameType.from(packet.getGamemode())));
         }
 
         if (event.getPacket() instanceof UpdateAbilitiesPacket packet) {
@@ -60,14 +59,7 @@ public class ServerDataPackets implements PacketListener {
                 return;
             }
 
-            event.getPostTasks().add(() -> player.sendLatencyStack(() -> {
-                player.abilities.clear();
-                for (AbilityLayer layer : packet.getAbilityLayers()) {
-                    player.abilities.addAll(layer.getAbilityValues());
-                }
-
-                player.getFlagTracker().setFlying(player.abilities.contains(Ability.FLYING) || player.abilities.contains(Ability.MAY_FLY) && player.getFlagTracker().isFlying());
-            }));
+            event.getPostTasks().add(() -> player.sendLatencyStack(new UpdateAbilitiesAck(packet.getAbilityLayers())));
         }
 
         if (event.getPacket() instanceof SetEntityDataPacket packet) {
@@ -79,7 +71,7 @@ public class ServerDataPackets implements PacketListener {
 
                 // No need to send latency, we only use a few's metadata values from them and most of them almost never actually changed so we should be good,
                 // for eg: (COLLIDEABLE flag is always true for certain entity regardless of what).
-                player.getLatencyUtil().queue(() -> cache.setMetadata(packet.getMetadata()));
+                player.queueAcknowledgment(new EntityMetadataAck(cache.getRuntimeId(), packet.getMetadata()));
                 return;
             }
 
@@ -110,44 +102,8 @@ public class ServerDataPackets implements PacketListener {
 
             player.sendLatencyStack();
 
-//            final long id = player.sentStackId.get();
-//            player.desyncedFlag.set(flagsCopy != null ? id : -1);
-            player.getLatencyUtil().queue(() -> {
-                if (flagsCopy != null) {
-                    player.getFlagTracker().set(player, flagsCopy);
-                }
-
-                // Dimension seems to be controlled server-side as far as I know (tested with clumsy).
-
-                if (width != null) {
-                    player.dimensions = EntityDimensions.fixed(width, player.dimensions.height()).withEyeHeight(player.dimensions.eyeHeight());
-                    player.boundingBox = player.dimensions.getBoxAt(player.position);
-                    // System.out.println("Update width!");
-                }
-
-                if (height != null) {
-                    float eyeHeight = 1.62F;
-                    if (Math.abs(height - 0.2F) <= 1.0E-3) {
-                        eyeHeight = 0.2F;
-                    } else if (Math.abs(height - 0.6F) <= 1.0E-3) {
-                        eyeHeight = 0.4F;
-                    } else if (Math.abs(height - 1.5F) <= 1.0E-3) {
-                        eyeHeight = 1.27F;
-                    }
-
-                    player.dimensions = EntityDimensions.fixed(player.dimensions.width(), height).withEyeHeight(eyeHeight);
-                    player.boundingBox = player.dimensions.getBoxAt(player.position);
-                    // System.out.println("Update height!");
-                }
-
-                if (scale != null) {
-                    player.dimensions = player.dimensions.hardScaled(scale);
-                }
-
-//                if (player.desyncedFlag.get() == id) {
-//                    player.desyncedFlag.set(-1);
-//                }
-            });
+            // Dimension seems to be controlled server-side as far as I know (tested with clumsy).
+            player.queueAcknowledgment(new PlayerMetadataAck(width, height, scale, flagsCopy));
         }
 
         if (event.getPacket() instanceof UpdateAttributesPacket packet) {
@@ -155,27 +111,7 @@ public class ServerDataPackets implements PacketListener {
                 return;
             }
 
-            player.sendLatencyStack(() -> {
-                if (player.vehicleData != null) {
-                    return;
-                }
-
-                for (final AttributeData data : packet.getAttributes()) {
-                    final AttributeInstance attribute = player.attributes.get(data.getName());
-                    if (attribute == null) {
-                        return;
-                    }
-
-                    attribute.clearModifiers();
-                    attribute.setBaseValue(data.getDefaultValue());
-                    attribute.setValue(data.getValue());
-
-                    // This is useless since there is no modifiers but still be here if Geyser decide to change this in the future.
-                    for (AttributeModifierData lv5 : data.getModifiers()) {
-                        attribute.addTemporaryModifier(lv5);
-                    }
-                }
-            });
+            player.sendLatencyStack(new UpdateAttributesAck(packet.getAttributes()));
         }
     }
 

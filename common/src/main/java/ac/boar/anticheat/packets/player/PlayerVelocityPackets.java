@@ -1,8 +1,9 @@
 package ac.boar.anticheat.packets.player;
 
+import ac.boar.anticheat.ack.types.GlideBoostAck;
+import ac.boar.anticheat.ack.types.PromoteVelocityAck;
+import ac.boar.anticheat.ack.types.UncertainVelocityAck;
 import ac.boar.anticheat.player.BoarPlayer;
-import ac.boar.anticheat.prediction.engine.data.Vector;
-import ac.boar.anticheat.prediction.engine.data.VectorType;
 import ac.boar.anticheat.util.math.Vec3;
 import ac.boar.protocol.api.CloudburstPacketEvent;
 import ac.boar.protocol.api.PacketListener;
@@ -24,13 +25,8 @@ public class PlayerVelocityPackets implements PacketListener {
             // I think there is some rewind like behavior when there is ehm the tick is not 0, so just default back to 0 till I figure it out.
             packet.setTick(0);
 
-            player.sendLatencyStack(() -> player.uncertainVelocity = new Vector(VectorType.VELOCITY, new Vec3(packet.getMotion())));
-            event.getPostTasks().add(() -> player.sendLatencyStack(() -> {
-                if (player.uncertainVelocity != null) {
-                    player.certainVelocity = player.uncertainVelocity;
-                }
-                player.uncertainVelocity = null;
-            }));
+            player.sendLatencyStack(new UncertainVelocityAck(new Vec3(packet.getMotion())));
+            event.getPostTasks().add(() -> player.sendLatencyStack(new PromoteVelocityAck()));
         }
 
         if (event.getPacket() instanceof MovementEffectPacket packet) {
@@ -43,14 +39,7 @@ public class PlayerVelocityPackets implements PacketListener {
             packet.setTick(Integer.MIN_VALUE);
 
             player.sendLatencyStack();
-            player.sendLatencyStack(() -> {
-                if (player.glideBoostTicks == 0 && packet.getDuration() == 0 || packet.getDuration() == Integer.MAX_VALUE) {
-                    player.glideBoostTicks = 1;
-                    return;
-                }
-
-                player.glideBoostTicks = Math.max(1, packet.getDuration() / 2);
-            });
+            player.sendLatencyStack(new GlideBoostAck(packet.getDuration()));
         }
     }
 }
