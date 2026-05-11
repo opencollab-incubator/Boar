@@ -28,17 +28,40 @@ public final class LatencyUtil {
         this.sentQueue.add(new Latency(id, System.currentTimeMillis(), System.nanoTime(), ours, ours ? new ArrayList<>() : null));
     }
 
+    /**
+     * Append a Latency that already has acknowledgments attached. Used by the batch acknowledger,
+     * which has drained a snapshot of pending acks and assigned them an id atomically before the
+     * NSL packet hits the wire.
+     */
+    public void queueWithAcks(long id, List<Acknowledgment> acks) {
+        this.sentQueue.add(new Latency(id, System.currentTimeMillis(), System.nanoTime(), true, new ArrayList<>(acks)));
+    }
+
+    /**
+     * Attach an acknowledgment to whatever Latency is currently most-recently-in-flight, or
+     * dispatch inline if none is pending.
+     *
+     * <p>The "attach to last in-flight" semantic is preserved for legacy callers, but new code
+     * should go through {@code BoarPlayer.queueAcknowledgment} which routes to the pending bucket
+     * for batch-time NSL emission.
+     *
+     * <p>Synchronized on the target Latency to keep the null-check + list-create + add atomic with
+     * respect to other writers and with respect to {@link Latency#dispatch} on the channel event
+     * loop.
+     */
     public void queue(Acknowledgment ack) {
-        if (this.sentQueue.isEmpty()) {
+        Latency last = this.sentQueue.peekLast();
+        if (last == null) {
             Boar.getInstance().getAcknowledgmentRegistry().dispatch(this.player, ack);
             return;
         }
 
-        if (this.sentQueue.getLast().acknowledgments == null) {
-            this.sentQueue.getLast().acknowledgments = new ArrayList<>();
+        synchronized (last) {
+            if (last.acknowledgments == null) {
+                last.acknowledgments = new ArrayList<>();
+            }
+            last.acknowledgments.add(ack);
         }
-
-        this.sentQueue.getLast().acknowledgments.add(ack);
     }
 
     public void onLatencyAccepted(Latency latency) {
@@ -77,13 +100,17 @@ public final class LatencyUtil {
         }
 
         public void dispatch(BoarPlayer player) {
-            if (this.acknowledgments != null) {
+            List<Acknowledgment> snapshot;
+            synchronized (this) {
+                snapshot = this.acknowledgments;
+                this.acknowledgments = null;
+            }
+            if (snapshot != null) {
                 final BoarAcknowledgmentRegistry registry = Boar.getInstance().getAcknowledgmentRegistry();
-                for (Acknowledgment ack : this.acknowledgments) {
+                for (Acknowledgment ack : snapshot) {
                     registry.dispatch(player, ack);
                 }
             }
-            this.acknowledgments = null;
         }
     }
 }

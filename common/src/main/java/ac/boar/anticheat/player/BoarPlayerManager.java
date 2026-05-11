@@ -8,6 +8,7 @@ import ac.boar.anticheat.player.accessor.WorldAccessor;
 import ac.boar.anticheat.player.data.BlockMappingInfo;
 import ac.boar.api.anticheat.model.NetworkSession;
 import ac.boar.mappings.entity.Entity;
+import ac.boar.protocol.BoarBatchAcknowledger;
 import ac.boar.protocol.BoarHandlerAdaptor;
 import io.netty.channel.Channel;
 import org.cloudburstmc.protocol.bedrock.BedrockServerSession;
@@ -38,6 +39,10 @@ public abstract class BoarPlayerManager<T> extends HashMap<T, BoarPlayer> {
 
         Channel channel = serverSession.getPeer().getChannel();
         channel.pipeline().addAfter(BedrockPacketCodec.NAME, BoarHandlerAdaptor.NAME, new BoarHandlerAdaptor(player, (BedrockPacketCodec) channel.pipeline().get(BedrockPacketCodec.NAME)));
+        // Sits between BedrockPacketCodec and BoarHandlerAdaptor in pipeline order — outbound
+        // traversal hits us after BoarHandlerAdaptor, so flush() can inject an NSL into the same
+        // batch as whatever else is being flushed.
+        channel.pipeline().addAfter(BedrockPacketCodec.NAME, BoarBatchAcknowledger.NAME, new BoarBatchAcknowledger(player));
 
         this.put(session, player);
         player.future = this.beginTicking(session, player::serverTick);

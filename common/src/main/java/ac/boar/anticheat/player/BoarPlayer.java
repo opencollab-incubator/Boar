@@ -3,6 +3,7 @@ package ac.boar.anticheat.player;
 import ac.boar.anticheat.Boar;
 import ac.boar.anticheat.ack.Acknowledgment;
 import ac.boar.anticheat.ack.BoarAcknowledgmentTransport;
+import ac.boar.anticheat.ack.BoarBatchedAcknowledgmentTransport;
 import ac.boar.anticheat.check.api.holder.CheckHolder;
 import ac.boar.anticheat.collision.util.CuboidBlockIterator;
 import ac.boar.anticheat.compensated.CompensatedInventory;
@@ -114,6 +115,11 @@ public final class BoarPlayer extends PlayerData {
 
     void serverTick() {
         if (this.getLatencyUtil().sentQueue().isEmpty()) {
+            // If acks are pending, the next outbound batch flush emits an NSL covering them — skip the keepalive to avoid an extra wire ping.
+            // The BedrockPeer ticks every 50ms so the flush will happen well before any timeout threshold.
+            if (this.ackTransport instanceof BoarBatchedAcknowledgmentTransport batched && batched.hasPending()) {
+                return;
+            }
             sendLatencyStack();
             return;
         }
@@ -127,17 +133,25 @@ public final class BoarPlayer extends PlayerData {
         return this.session.isClosed();
     }
 
-    /** Emit a fresh ping with the acknowledgment bound to it. */
+    /**
+     * Register an acknowledgment to be associated with the current Bedrock batch.
+     */
     public void sendLatencyStack(Acknowledgment ack) {
         this.ackTransport.send(ack);
     }
 
-    /** Emit a keepalive ping (no acknowledgment). */
+    /**
+     * Emit a keepalive ping (no acknowledgment). Used by {@code serverTick} for liveness
+     * detection when the server is idle and not sending packets
+     */
     public void sendLatencyStack() {
         this.ackTransport.keepalive();
     }
 
-    /** Bind the acknowledgment to whatever ping is most recently in flight. */
+    /**
+     * Register an acknowledgment to ride the next outbound bedrock batch's injected NSL. Identical
+     * semantics to {@link #sendLatencyStack(Acknowledgment)} under the default batched transport.
+     */
     public void queueAcknowledgment(Acknowledgment ack) {
         this.ackTransport.attach(ack);
     }

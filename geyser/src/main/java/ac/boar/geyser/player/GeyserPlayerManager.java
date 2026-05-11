@@ -1,7 +1,7 @@
 package ac.boar.geyser.player;
 
+import ac.boar.anticheat.ack.BatchAcknowledgmentTransport;
 import ac.boar.anticheat.ack.BoarAcknowledgmentTransport;
-import ac.boar.anticheat.ack.NetworkStackLatencyTransport;
 import ac.boar.anticheat.data.vanilla.AttributeInstance;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.player.BoarPlayerManager;
@@ -118,7 +118,7 @@ public class GeyserPlayerManager extends BoarPlayerManager<GeyserSession> {
 
     @Override
     protected BoarAcknowledgmentTransport createAckTransport(BoarPlayer player) {
-        return new NetworkStackLatencyTransport(player);
+        return new BatchAcknowledgmentTransport(player);
     }
 
     @Override
