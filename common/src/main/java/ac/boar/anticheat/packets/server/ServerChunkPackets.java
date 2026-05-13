@@ -18,6 +18,7 @@ import ac.boar.protocol.api.PacketListener;
 import io.netty.buffer.ByteBuf;
 import org.cloudburstmc.math.GenericMath;
 import org.cloudburstmc.math.vector.Vector3i;
+import org.cloudburstmc.protocol.bedrock.data.BlockChangeEntry;
 import org.cloudburstmc.protocol.bedrock.data.ServerboundLoadingScreenPacketType;
 import org.cloudburstmc.protocol.bedrock.data.SubChunkData;
 import org.cloudburstmc.protocol.bedrock.data.SubChunkRequestResult;
@@ -27,6 +28,7 @@ import org.cloudburstmc.protocol.bedrock.packet.NetworkChunkPublisherUpdatePacke
 import org.cloudburstmc.protocol.bedrock.packet.ServerboundLoadingScreenPacket;
 import org.cloudburstmc.protocol.bedrock.packet.SubChunkPacket;
 import org.cloudburstmc.protocol.bedrock.packet.UpdateBlockPacket;
+import org.cloudburstmc.protocol.bedrock.packet.UpdateSubChunkBlocksPacket;
 
 import java.util.Objects;
 
@@ -56,9 +58,9 @@ public class ServerChunkPackets implements PacketListener {
 
             final int x = packet.getChunkX() << 4, z = packet.getChunkZ() << 4;
             // Avoid spamming latency if possible, unless the player is seriously lagging then this shouldn't false.
-            if (Math.abs(player.position.x - x) <= 16 || Math.abs(player.position.z - z) <= 16) {
+            /* if (Math.abs(player.position.x - x) <= 16 || Math.abs(player.position.z - z) <= 16) {
                 player.sendLatencyStack();
-            }
+            } */
 
             final Dimension dimension = DimensionUtil.dimensionFromId(packet.getDimension());
             final BoarChunkSection[] sections = new BoarChunkSection[dimension.height() >> 4];
@@ -146,6 +148,14 @@ public class ServerChunkPackets implements PacketListener {
             }
 
             player.queueAcknowledgment(new BlockUpdateAck(packet.getBlockPosition(), packet.getDataLayer(), packet.getDefinition().getRuntimeId()));
+        } else if (event.getPacket() instanceof UpdateSubChunkBlocksPacket packet) {
+            // TODO: Figure out the difference between standard block entries and extra block entries and re-evaluate if this current handling is correct.
+            for (BlockChangeEntry entry : packet.getStandardBlocks()) {
+                player.queueAcknowledgment(new BlockUpdateAck(entry.getPosition(), 0, entry.getDefinition().getRuntimeId()));
+            }
+            for (BlockChangeEntry entry : packet.getExtraBlocks()) {
+                player.queueAcknowledgment(new BlockUpdateAck(entry.getPosition(), 1, entry.getDefinition().getRuntimeId()));
+            }
         } else if (event.getPacket() instanceof BlockEntityDataPacket packet) {
             player.sendLatencyStack(new BlockEntityUpdateAck(packet.getBlockPosition(), packet.getData()));
         }
