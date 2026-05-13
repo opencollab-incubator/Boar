@@ -96,12 +96,6 @@ public class ServerChunkPackets implements PacketListener {
             final Dimension dimension = DimensionUtil.dimensionFromId(packet.getDimension());
             final Vector3i center = packet.getCenterPosition();
 
-            // Send latency once per packet if the area is near the player.
-            final int centerX = center.getX() << 4, centerZ = center.getZ() << 4;
-            if (Math.abs(player.position.x - centerX) <= 16 || Math.abs(player.position.z - centerZ) <= 16) {
-                player.sendLatencyStack();
-            }
-
             for (SubChunkData entry : packet.getSubChunks()) {
                 final SubChunkRequestResult result = entry.getResult();
                 if (result != SubChunkRequestResult.SUCCESS && result != SubChunkRequestResult.SUCCESS_ALL_AIR) {
@@ -142,10 +136,10 @@ public class ServerChunkPackets implements PacketListener {
             }
 
             // Avoid spamming latency if possible, unless the player is seriously lagging then this shouldn't false.
-            boolean send = player.position.distanceTo(new Vec3(packet.getBlockPosition())) <= 16;
+            /* boolean send = player.position.distanceTo(new Vec3(packet.getBlockPosition())) <= 16;
             if (send) {
                 player.sendLatencyStack();
-            }
+            } */
 
             player.queueAcknowledgment(new BlockUpdateAck(packet.getBlockPosition(), packet.getDataLayer(), packet.getDefinition().getRuntimeId()));
         } else if (event.getPacket() instanceof UpdateSubChunkBlocksPacket packet) {
