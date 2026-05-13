@@ -5,29 +5,28 @@ import ac.boar.anticheat.ack.types.BlockEntityUpdateAck;
 import ac.boar.anticheat.ack.types.BlockUpdateAck;
 import ac.boar.anticheat.ack.types.ChunkLoadAck;
 import ac.boar.anticheat.ack.types.ChunkPublisherUpdateAck;
+import ac.boar.anticheat.ack.types.SubChunkLoadAck;
 import ac.boar.anticheat.compensated.world.base.CompensatedWorld;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.util.Dimension;
 import ac.boar.anticheat.util.DimensionUtil;
-import ac.boar.anticheat.util.geyser.BitArray;
-import ac.boar.anticheat.util.geyser.BitArrayVersion;
-import ac.boar.anticheat.util.geyser.BlockStorage;
 import ac.boar.anticheat.util.geyser.BoarChunkSection;
-import ac.boar.anticheat.util.geyser.SingletonBitArray;
+import ac.boar.anticheat.util.geyser.ChunkDecoder;
 import ac.boar.anticheat.util.math.Vec3;
 import ac.boar.protocol.api.CloudburstPacketEvent;
 import ac.boar.protocol.api.PacketListener;
 import io.netty.buffer.ByteBuf;
-import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.ints.IntList;
 import org.cloudburstmc.math.GenericMath;
+import org.cloudburstmc.math.vector.Vector3i;
 import org.cloudburstmc.protocol.bedrock.data.ServerboundLoadingScreenPacketType;
+import org.cloudburstmc.protocol.bedrock.data.SubChunkData;
+import org.cloudburstmc.protocol.bedrock.data.SubChunkRequestResult;
 import org.cloudburstmc.protocol.bedrock.packet.BlockEntityDataPacket;
 import org.cloudburstmc.protocol.bedrock.packet.LevelChunkPacket;
 import org.cloudburstmc.protocol.bedrock.packet.NetworkChunkPublisherUpdatePacket;
 import org.cloudburstmc.protocol.bedrock.packet.ServerboundLoadingScreenPacket;
+import org.cloudburstmc.protocol.bedrock.packet.SubChunkPacket;
 import org.cloudburstmc.protocol.bedrock.packet.UpdateBlockPacket;
-import org.cloudburstmc.protocol.common.util.VarInts;
 
 import java.util.Objects;
 
@@ -39,11 +38,16 @@ public class ServerChunkPackets implements PacketListener {
 
         if (event.getPacket() instanceof NetworkChunkPublisherUpdatePacket packet) {
             player.sendLatencyStack(new ChunkPublisherUpdateAck(packet.getPosition(), packet.getRadius()));
-        }
+        } else if (event.getPacket() instanceof LevelChunkPacket packet) {
+            // Servers will have to implement their own custom handlers for chunks if they want to use the sub-chunk cache system.
+            if (packet.isCachingEnabled()) {
+                return;
+            }
+            // Sub-chunk request mode is enabled - actual chunk data will arrive in SubChunkPackets.
+            if (packet.isRequestSubChunks()) {
+                return;
+            }
 
-        // There are a ton of chunk sending and world type for Bedrock (why support that much anyway)
-        // But since Geyser only use this, then we only added support for this, no need to torture ourselves.
-        if (event.getPacket() instanceof LevelChunkPacket packet) {
             final int subChunksCount = packet.getSubChunksLength();
             if (subChunksCount <= -2 || packet.getDimension() < 0 || packet.getDimension() > 2) {
                 // These cases will all be ignored.
@@ -61,18 +65,12 @@ public class ServerChunkPackets implements PacketListener {
 
             final ByteBuf buf = packet.getData().retainedDuplicate();
             try {
-                for (int sectionY = 0; sectionY < subChunksCount; sectionY++) {
-                    buf.readByte(); // Chunk format version, Geyser only use the latest version 9 so this info is useless to us.
-
-                    final short layerCount = buf.readUnsignedByte(); // Layers (ideally 2).
-                    buf.readUnsignedByte(); // Sub chunk index, useless information to us.
-
-                    final BlockStorage[] layers = new BlockStorage[layerCount];
-                    for (int layer = 0; layer < layerCount; layer++) {
-                        layers[layer] = readLayer(buf, player.mappingInfo.airId());
+                for (int i = 0; i < subChunksCount; i++) {
+                    final ChunkDecoder.DecodedSubChunk decoded = ChunkDecoder.readSubChunk(buf, player.mappingInfo.airId(), i, dimension.minY());
+                    if (decoded.sectionY() < 0 || decoded.sectionY() >= sections.length) {
+                        continue;
                     }
-
-                    sections[sectionY] = new BoarChunkSection(layers);
+                    sections[decoded.sectionY()] = decoded.section();
                 }
 
                 // Ignore the rest, I only need the chunk data.
@@ -83,9 +81,50 @@ public class ServerChunkPackets implements PacketListener {
             }
 
             player.queueAcknowledgment(new ChunkLoadAck(packet.getChunkX(), packet.getChunkZ(), dimension, sections));
-        }
+        } else if (event.getPacket() instanceof SubChunkPacket packet) {
+            if (packet.isCacheEnabled()) {
+                return;
+            }
 
-        if (event.getPacket() instanceof UpdateBlockPacket packet) {
+            // TODO: Implement handling custom dimensions
+            if (packet.getDimension() < 0 || packet.getDimension() > 2) {
+                return;
+            }
+
+            final Dimension dimension = DimensionUtil.dimensionFromId(packet.getDimension());
+            final Vector3i center = packet.getCenterPosition();
+
+            // Send latency once per packet if the area is near the player.
+            final int centerX = center.getX() << 4, centerZ = center.getZ() << 4;
+            if (Math.abs(player.position.x - centerX) <= 16 || Math.abs(player.position.z - centerZ) <= 16) {
+                player.sendLatencyStack();
+            }
+
+            for (SubChunkData entry : packet.getSubChunks()) {
+                final SubChunkRequestResult result = entry.getResult();
+                if (result != SubChunkRequestResult.SUCCESS && result != SubChunkRequestResult.SUCCESS_ALL_AIR) {
+                    continue;
+                }
+
+                final Vector3i offset = entry.getPosition();
+                final int chunkX = center.getX() + offset.getX();
+                final int chunkZ = center.getZ() + offset.getZ();
+                final int sectionY = (center.getY() + offset.getY()) - (dimension.minY() >> 4);
+
+                BoarChunkSection section = null;
+                if (result == SubChunkRequestResult.SUCCESS && entry.getData() != null) {
+                    final ByteBuf buf = entry.getData().retainedDuplicate();
+                    try {
+                        section = ChunkDecoder.readSubChunk(buf, player.mappingInfo.airId(), sectionY, dimension.minY()).section();
+                    } catch (Exception ignored) {
+                    } finally {
+                        buf.release();
+                    }
+                }
+
+                player.queueAcknowledgment(new SubChunkLoadAck(chunkX, chunkZ, sectionY, dimension, section));
+            }
+        } else if (event.getPacket() instanceof UpdateBlockPacket packet) {
             // Ugly hack.
             if (packet.getDataLayer() == 0 && Boar.getConfig().ignoreGhostBlock() && !player.inLoadingScreen && player.sinceLoadingScreen >= 2) {
                 boolean newBlockIsAir = player.mappingInfo.airIds().contains(packet.getDefinition().getRuntimeId());
@@ -107,9 +146,7 @@ public class ServerChunkPackets implements PacketListener {
             }
 
             player.queueAcknowledgment(new BlockUpdateAck(packet.getBlockPosition(), packet.getDataLayer(), packet.getDefinition().getRuntimeId()));
-        }
-
-        if (event.getPacket() instanceof BlockEntityDataPacket packet) {
+        } else if (event.getPacket() instanceof BlockEntityDataPacket packet) {
             player.sendLatencyStack(new BlockEntityUpdateAck(packet.getBlockPosition(), packet.getData()));
         }
     }
@@ -125,37 +162,5 @@ public class ServerChunkPackets implements PacketListener {
                 player.sinceLoadingScreen = 0;
             }
         }
-    }
-
-    private BlockStorage readLayer(final ByteBuf buf, final int initialId) {
-        final int version = buf.readUnsignedByte() >> 1;
-        if (version == 127) { // 127 = Same values as previous palette
-            return null;
-        }
-
-        final BitArray bitArray;
-        if (version == 0) {
-            bitArray = BitArrayVersion.get(version, true).createArray(4096, null);
-        } else {
-            bitArray = BitArrayVersion.get(version, true).createArray(4096);
-        }
-
-        if (!(bitArray instanceof SingletonBitArray)) {
-            for (int i = 0; i < bitArray.words().length; i++) {
-                bitArray.words()[i] = buf.readIntLE();
-            }
-        }
-
-        final int size = bitArray instanceof SingletonBitArray ? 1 : VarInts.readInt(buf);
-
-        final IntList palette = new IntArrayList(size);
-        for (int i = 0; i < size; i++) {
-            palette.add(VarInts.readInt(buf));
-        }
-
-        if (palette.isEmpty()) {
-            palette.add(initialId);
-        }
-        return new BlockStorage(bitArray, palette);
     }
 }

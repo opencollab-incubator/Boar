@@ -93,6 +93,23 @@ public class CompensatedWorld {
         this.chunks.put(chunkPosition, new BoarChunk(chunks, new ArrayList<>()));
     }
 
+    public void updateSection(int chunkX, int chunkZ, int sectionY, BoarChunkSection section) {
+        final int sectionCount = this.dimension.height() >> 4;
+        if (sectionY < 0 || sectionY >= sectionCount) {
+            return;
+        }
+
+        BoarChunk chunk = this.getChunk(chunkX, chunkZ);
+        if (chunk == null) {
+            final BoarChunkSection[] sections = new BoarChunkSection[sectionCount];
+            sections[sectionY] = section;
+            this.chunks.put(MathUtil.chunkPositionToLong(chunkX, chunkZ), new BoarChunk(sections, new ArrayList<>()));
+            return;
+        }
+
+        chunk.sections()[sectionY] = section;
+    }
+
     public void removeFromCache(int x, int z) {
         this.chunks.remove(MathUtil.chunkPositionToLong(x, z));
     }

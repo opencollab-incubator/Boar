@@ -4,6 +4,7 @@ import ac.boar.anticheat.ack.types.BlockEntityUpdateAck;
 import ac.boar.anticheat.ack.types.BlockUpdateAck;
 import ac.boar.anticheat.ack.types.ChunkLoadAck;
 import ac.boar.anticheat.ack.types.ChunkPublisherUpdateAck;
+import ac.boar.anticheat.ack.types.SubChunkLoadAck;
 import ac.boar.anticheat.ack.types.ContainerOpenAck;
 import ac.boar.anticheat.ack.types.CraftingDataAck;
 import ac.boar.anticheat.ack.types.CreativeContentAck;
@@ -65,6 +66,7 @@ public final class BoarDefaultAcknowledgments {
     public static void registerAll(BoarAcknowledgmentRegistry registry) {
         registry.register(ChunkPublisherUpdateAck.class, BoarDefaultAcknowledgments::handleChunkPublisherUpdate);
         registry.register(ChunkLoadAck.class, BoarDefaultAcknowledgments::handleChunkLoad);
+        registry.register(SubChunkLoadAck.class, BoarDefaultAcknowledgments::handleSubChunkLoad);
         registry.register(BlockUpdateAck.class, BoarDefaultAcknowledgments::handleBlockUpdate);
         registry.register(BlockEntityUpdateAck.class, BoarDefaultAcknowledgments::handleBlockEntityUpdate);
 
@@ -111,6 +113,13 @@ public final class BoarDefaultAcknowledgments {
             return;
         }
         player.compensatedWorld.put(ack.chunkX(), ack.chunkZ(), ack.sections());
+    }
+
+    private static void handleSubChunkLoad(BoarPlayer player, SubChunkLoadAck ack) {
+        if (player.compensatedWorld.isOutOfRadius(ack.chunkX() << 4, ack.chunkZ() << 4) || ack.dimension() != player.compensatedWorld.getDimension()) {
+            return;
+        }
+        player.compensatedWorld.updateSection(ack.chunkX(), ack.chunkZ(), ack.sectionY(), ack.section());
     }
 
     private static void handleBlockUpdate(BoarPlayer player, BlockUpdateAck ack) {
