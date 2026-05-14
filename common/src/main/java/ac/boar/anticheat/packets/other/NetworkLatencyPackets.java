@@ -34,7 +34,6 @@ public class NetworkLatencyPackets implements PacketListener {
         // Bedrock player have different latency magnitude depending on the platform. We only
         // know about PS5 currently — see BedrockPlatform.PS4 (misleading name).
         long id = packet.getTimestamp() / (player.getSession().requiresPingMagnitude() ? PS5_LATENCY_MAGNITUDE : LATENCY_MAGNITUDE);
-
         if (player.getAckTransport().onPingReceived(id)) {
             event.setCancelled(true);
         }

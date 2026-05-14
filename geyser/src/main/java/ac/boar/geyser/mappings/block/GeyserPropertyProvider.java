@@ -23,6 +23,7 @@ public class GeyserPropertyProvider implements PropertyProvider {
                     type -> ac.boar.mappings.block.ChestType.VALUES[type.ordinal()]
             );
             case "door_hinge" -> new GeyserProperty(Properties.DOOR_HINGE);
+            case "drag" -> new GeyserProperty(Properties.DRAG);
             case "half" -> new GeyserProperty(Properties.HALF);
             case "has_book" -> new GeyserProperty(Properties.HAS_BOOK);
             case "horizontal_facing" -> enumProperty(
@@ -30,6 +31,7 @@ public class GeyserPropertyProvider implements PropertyProvider {
                     (ac.boar.anticheat.util.math.Direction d) -> Direction.VALUES[d.ordinal()],
                     d -> ac.boar.anticheat.util.math.Direction.VALUES[d.ordinal()]
             );
+            case "level" -> new GeyserProperty(Properties.LEVEL);
             case "lit" -> new GeyserProperty(Properties.LIT);
             case "open" -> new GeyserProperty(Properties.OPEN);
             case "respawn_anchor_charges" -> new GeyserProperty(Properties.RESPAWN_ANCHOR_CHARGES);

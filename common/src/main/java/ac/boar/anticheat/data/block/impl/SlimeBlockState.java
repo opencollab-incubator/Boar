@@ -1,14 +1,14 @@
-package ac.boar.geyser.anticheat.data.block.impl;
+package ac.boar.anticheat.data.block.impl;
 
+import ac.boar.anticheat.data.block.AbstractBoarBlockState;
+import ac.boar.anticheat.data.block.BoarBlockStateDelegate;
 import ac.boar.anticheat.player.BoarPlayer;
-import ac.boar.geyser.anticheat.data.block.GeyserBoarBlockState;
 import org.cloudburstmc.math.vector.Vector3i;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
-import org.geysermc.geyser.level.block.type.BlockState;
 
-public class SlimeBlockState extends GeyserBoarBlockState {
-    public SlimeBlockState(BlockState state, Vector3i position, int layer) {
-        super(state, position, layer);
+public class SlimeBlockState extends AbstractBoarBlockState {
+    public SlimeBlockState(BoarBlockStateDelegate delegate) {
+        super(delegate);
     }
 
     @Override

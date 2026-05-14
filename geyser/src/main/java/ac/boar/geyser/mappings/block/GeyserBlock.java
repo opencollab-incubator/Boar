@@ -2,7 +2,6 @@ package ac.boar.geyser.mappings.block;
 
 import ac.boar.anticheat.data.block.BoarBlockState;
 import ac.boar.anticheat.util.Reference;
-import ac.boar.geyser.anticheat.data.block.GeyserBoarBlockState;
 import ac.boar.mappings.block.Block;
 import org.cloudburstmc.math.vector.Vector3i;
 
@@ -29,7 +28,7 @@ public record GeyserBlock(org.geysermc.geyser.level.block.type.Block handle) imp
 
     @Override
     public BoarBlockState defaultBlockState(Vector3i position, int layer) {
-        return new GeyserBoarBlockState(this.handle.defaultBlockState(), position, layer);
+        return BoarBlockState.create(this.handle.defaultBlockState().javaId(), position, layer);
     }
 
     @Override

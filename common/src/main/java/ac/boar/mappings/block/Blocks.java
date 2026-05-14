@@ -9,17 +9,21 @@ public final class Blocks {
     public static final Reference<Block> AIR = create("air");
     public static final Reference<Block> ANVIL = create("anvil");
     public static final Reference<Block> BAMBOO = create("bamboo");
+    public static final Reference<Block> BAMBOO_SAPLING = create("bamboo_sapling");
     public static final Reference<Block> BARREL = create("barrel");
     public static final Reference<Block> BEACON = create("beacon");
     public static final Reference<Block> BELL = create("bell");
     public static final Reference<Block> BLAST_FURNACE = create("blast_furnace");
     public static final Reference<Block> BLUE_ICE = create("blue_ice");
     public static final Reference<Block> BREWING_STAND = create("brewing_stand");
+    public static final Reference<Block> BUBBLE_COLUMN = create("bubble_column");
     public static final Reference<Block> CACTUS = create("cactus");
     public static final Reference<Block> CAKE = create("cake");
     public static final Reference<Block> CAULDRON = create("cauldron");
+    public static final Reference<Block> CAVE_AIR = create("cave_air");
     public static final Reference<Block> CHIPPED_ANVIL = create("chipped_anvil");
     public static final Reference<Block> CHISELED_BOOKSHELF = create("chiseled_bookshelf");
+    public static final Reference<Block> COBWEB = create("cobweb");
     public static final Reference<Block> CONDUIT = create("conduit");
     public static final Reference<Block> DAMAGED_ANVIL = create("damaged_anvil");
     public static final Reference<Block> END_PORTAL_FRAME = create("end_portal_frame");
@@ -42,11 +46,13 @@ public final class Blocks {
     public static final Reference<Block> RESPAWN_ANCHOR = create("respawn_anchor");
     public static final Reference<Block> SCAFFOLDING = create("scaffolding");
     public static final Reference<Block> SEA_PICKLE = create("sea_pickle");
+    public static final Reference<Block> SLIME_BLOCK = create("slime_block");
     public static final Reference<Block> SOUL_LANTERN = create("soul_lantern");
     public static final Reference<Block> SOUL_SAND = create("soul_sand");
     public static final Reference<Block> SWEET_BERRY_BUSH = create("sweet_berry_bush");
     public static final Reference<Block> TNT = create("tnt");
     public static final Reference<Block> VAULT = create("vault");
+    public static final Reference<Block> VOID_AIR = create("void_air");
     public static final Reference<Block> WATER = create("water");
     public static final Reference<Block> WATER_CAULDRON = create("water_cauldron");
 
