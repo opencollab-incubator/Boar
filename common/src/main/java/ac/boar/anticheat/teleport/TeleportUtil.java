@@ -41,6 +41,7 @@ public class TeleportUtil {
 
     public void teleportTo(final TeleportCache cache) {
         if (this.isTeleporting()) {
+            Boar.debug("[movement-debug] skipped teleport reason=already-teleporting queued=" + this.queuedTeleports.size(), Boar.DebugMessage.WARNING);
             return;
         }
 
@@ -58,6 +59,7 @@ public class TeleportUtil {
         packet.setTeleportationCause(MovePlayerPacket.TeleportationCause.BEHAVIOR);
 
         this.player.getBedrockSession().sendPacket(packet);
+        Boar.debug("[movement-debug] sent teleport pos=" + teleport.getPosition() + " lastKnown=" + this.lastKnowValid, Boar.DebugMessage.WARNING);
     }
 
     public void queueTeleport(final Vec3 position) {
@@ -80,6 +82,7 @@ public class TeleportUtil {
 
     public void rewind(final RewindData rewind) {
         if (this.isTeleporting()) {
+            Boar.debug("[movement-debug] skipped rewind reason=already-teleporting queued=" + this.queuedTeleports.size() + " tick=" + rewind.tick(), Boar.DebugMessage.WARNING);
             return;
         }
 
@@ -98,6 +101,7 @@ public class TeleportUtil {
 
         queue(new TeleportCache.Rewind(tick, new Vec3(packet.getPosition()), new Vec3(packet.getDelta()), onGround));
         this.player.getBedrockSession().sendPacket(packet);
+        Boar.debug("[movement-debug] sent rewind tick=" + tick + " pos=" + packet.getPosition() + " delta=" + packet.getDelta() + " onGround=" + onGround, Boar.DebugMessage.WARNING);
     }
 
     public void cachePosition(long tick, Vector3f position) {

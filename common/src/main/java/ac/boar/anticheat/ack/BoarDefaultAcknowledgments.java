@@ -1,5 +1,6 @@
 package ac.boar.anticheat.ack;
 
+import ac.boar.anticheat.Boar;
 import ac.boar.anticheat.ack.types.BlockEntityUpdateAck;
 import ac.boar.anticheat.ack.types.BlockUpdateAck;
 import ac.boar.anticheat.ack.types.ChunkLoadAck;
@@ -8,7 +9,6 @@ import ac.boar.anticheat.ack.types.ContainerOpenAck;
 import ac.boar.anticheat.ack.types.CraftingDataAck;
 import ac.boar.anticheat.ack.types.CreativeContentAck;
 import ac.boar.anticheat.ack.types.DimensionSwitchAck;
-import ac.boar.anticheat.ack.types.EntityClearPastAck;
 import ac.boar.anticheat.ack.types.EntityInterpolateAck;
 import ac.boar.anticheat.ack.types.EntityMetadataAck;
 import ac.boar.anticheat.ack.types.EntityRemoveAck;
@@ -19,14 +19,13 @@ import ac.boar.anticheat.ack.types.InventoryContentAck;
 import ac.boar.anticheat.ack.types.InventorySlotAck;
 import ac.boar.anticheat.ack.types.MobEffectAck;
 import ac.boar.anticheat.ack.types.PlayerMetadataAck;
-import ac.boar.anticheat.ack.types.PromoteVelocityAck;
 import ac.boar.anticheat.ack.types.TeleportAcceptAck;
-import ac.boar.anticheat.ack.types.UncertainVelocityAck;
 import ac.boar.anticheat.ack.types.UpdateAbilitiesAck;
 import ac.boar.anticheat.ack.types.UpdateAttributesAck;
 import ac.boar.anticheat.ack.types.UpdateTradeAck;
 import ac.boar.anticheat.ack.types.VehicleClearAck;
 import ac.boar.anticheat.ack.types.VehicleSetAck;
+import ac.boar.anticheat.ack.types.VelocityAck;
 import ac.boar.anticheat.compensated.CompensatedInventory;
 import ac.boar.anticheat.compensated.cache.container.ContainerCache;
 import ac.boar.anticheat.compensated.cache.container.impl.TradeContainerCache;
@@ -72,7 +71,6 @@ public final class BoarDefaultAcknowledgments {
 
         registry.register(EntityRemoveAck.class, BoarDefaultAcknowledgments::handleEntityRemove);
         registry.register(EntityInterpolateAck.class, BoarDefaultAcknowledgments::handleEntityInterpolate);
-        registry.register(EntityClearPastAck.class, BoarDefaultAcknowledgments::handleEntityClearPast);
         registry.register(EntityMetadataAck.class, BoarDefaultAcknowledgments::handleEntityMetadata);
 
         registry.register(GameTypeAck.class, BoarDefaultAcknowledgments::handleGameType);
@@ -80,8 +78,7 @@ public final class BoarDefaultAcknowledgments {
         registry.register(PlayerMetadataAck.class, BoarDefaultAcknowledgments::handlePlayerMetadata);
         registry.register(UpdateAttributesAck.class, BoarDefaultAcknowledgments::handleUpdateAttributes);
 
-        registry.register(UncertainVelocityAck.class, BoarDefaultAcknowledgments::handleUncertainVelocity);
-        registry.register(PromoteVelocityAck.class, BoarDefaultAcknowledgments::handlePromoteVelocity);
+        registry.register(VelocityAck.class, BoarDefaultAcknowledgments::handleVelocity);
         registry.register(GlideBoostAck.class, BoarDefaultAcknowledgments::handleGlideBoost);
 
         registry.register(CreativeContentAck.class, BoarDefaultAcknowledgments::handleCreativeContent);
@@ -148,14 +145,10 @@ public final class BoarDefaultAcknowledgments {
     private static void handleEntityInterpolate(BoarPlayer player, EntityInterpolateAck ack) {
         final EntityCache entity = player.compensatedWorld.getEntity(ack.runtimeEntityId());
         if (entity != null) {
+            Boar.debug("[entity-ack] dispatch interpolate runtimeId=" + ack.runtimeEntityId() + " pos=" + ack.position() + " lerp=" + ack.lerp() + " before=" + entity.getCurrent().getPos(), Boar.DebugMessage.INFO);
             entity.interpolate(ack.position(), ack.lerp());
-        }
-    }
-
-    private static void handleEntityClearPast(BoarPlayer player, EntityClearPastAck ack) {
-        final EntityCache entity = player.compensatedWorld.getEntity(ack.runtimeEntityId());
-        if (entity != null) {
-            entity.setPast(null);
+        } else {
+            Boar.debug("[entity-ack] missing entity for interpolate runtimeId=" + ack.runtimeEntityId() + " pos=" + ack.position(), Boar.DebugMessage.WARNING);
         }
     }
 
@@ -227,15 +220,9 @@ public final class BoarDefaultAcknowledgments {
         }
     }
 
-    private static void handleUncertainVelocity(BoarPlayer player, UncertainVelocityAck ack) {
-        player.uncertainVelocity = new Vector(VectorType.VELOCITY, ack.motion());
-    }
-
-    private static void handlePromoteVelocity(BoarPlayer player, PromoteVelocityAck ack) {
-        if (player.uncertainVelocity != null) {
-            player.certainVelocity = player.uncertainVelocity;
-        }
-        player.uncertainVelocity = null;
+    private static void handleVelocity(BoarPlayer player, VelocityAck ack) {
+        player.certainVelocity = new Vector(VectorType.VELOCITY, ack.motion());
+        Boar.debug("[velocity-ack] dispatch velocity=" + ack.motion(), Boar.DebugMessage.INFO);
     }
 
     private static void handleGlideBoost(BoarPlayer player, GlideBoostAck ack) {

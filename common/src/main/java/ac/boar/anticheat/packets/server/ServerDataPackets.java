@@ -59,7 +59,7 @@ public class ServerDataPackets implements PacketListener {
                 return;
             }
 
-            event.getPostTasks().add(() -> player.sendLatencyStack(new UpdateAbilitiesAck(packet.getAbilityLayers())));
+            player.queueAcknowledgment(new UpdateAbilitiesAck(packet.getAbilityLayers()));
         }
 
         if (event.getPacket() instanceof SetEntityDataPacket packet) {
@@ -99,8 +99,6 @@ public class ServerDataPackets implements PacketListener {
             } else {
                 flagsCopy = null;
             }
-
-            player.sendLatencyStack();
 
             // Dimension seems to be controlled server-side as far as I know (tested with clumsy).
             player.queueAcknowledgment(new PlayerMetadataAck(width, height, scale, flagsCopy));

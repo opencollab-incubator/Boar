@@ -47,6 +47,7 @@ public final class Reach extends BaseCheck implements PacketCheck {
         final EntityCache entity = player.compensatedWorld.getEntity(packet.getRuntimeEntityId());
         // TODO: Implement reach check inside vehicle properly!
         if (entity == null || entity.isInVehicle()) {
+            Boar.debug("[reach-debug] ignored attack runtimeId=" + packet.getRuntimeEntityId() + " reason=" + (entity == null ? "missing-entity" : "entity-in-vehicle"), Boar.DebugMessage.INFO);
             return;
         }
 
@@ -60,6 +61,7 @@ public final class Reach extends BaseCheck implements PacketCheck {
             if (MathUtil.wrapDegrees(Math.abs(player.yaw - player.interactRotation.getY())) > 110) {
                 this.lastKnowHitWasValid = false;
                 event.setCancelled(true);
+                Boar.debug("[reach-debug] cancelled immediate reason=touch-fov runtimeId=" + packet.getRuntimeEntityId() + " yaw=" + player.yaw + " interactYaw=" + player.interactRotation.getY(), Boar.DebugMessage.WARNING);
                 return; // Invalid hit, no need to try to validate this.
             }
         }
@@ -74,9 +76,12 @@ public final class Reach extends BaseCheck implements PacketCheck {
         // is also invalid, then cancel. This way if player never flag then their hit won't cancel here, but if they HAD flag before
         // then the hit will be canceled. Now technically this can be abused, but I don't really see it as a big of a deal since
         // backtrack cheat (latency abuse) is already a thing.
-        if (ReachUtil.calculateReach(player, pair, entity) > Boar.getConfig().toleranceReach()) {
+        final float immediateReach = ReachUtil.calculateReach(player, pair, entity);
+        Boar.debug("[reach-debug] attack runtimeId=" + packet.getRuntimeEntityId() + " immediateReach=" + immediateReach + " tolerance=" + Boar.getConfig().toleranceReach() + " lastKnownValid=" + this.lastKnowHitWasValid + " entityPos=" + entity.getCurrent().getPos() + " target=" + entity.getCurrent().getInterpolator().getTargetPos() + " step=" + entity.getCurrent().getInterpolator().getStep(), Boar.DebugMessage.INFO);
+        if (immediateReach > Boar.getConfig().toleranceReach()) {
             if (!this.lastKnowHitWasValid) {
                 event.setCancelled(true);
+                Boar.debug("[reach-debug] cancelled immediate reason=reach runtimeId=" + packet.getRuntimeEntityId() + " reach=" + immediateReach, Boar.DebugMessage.WARNING);
             }
             this.lastKnowHitWasValid = false;
         } else {
@@ -85,10 +90,11 @@ public final class Reach extends BaseCheck implements PacketCheck {
     }
 
     public void pollQueuedHits() {
-        this.lastKnowHitWasValid = false;
         if (this.queuedHitAttacks.isEmpty()) {
             return;
         }
+
+        this.lastKnowHitWasValid = false;
 
         float hitDistance = 0;
         for (Map.Entry<Pair<Vec3, Vec3>, EntityCache> entry : this.queuedHitAttacks.entrySet()) {
@@ -111,11 +117,14 @@ public final class Reach extends BaseCheck implements PacketCheck {
 
         if (hitDistance > Boar.getConfig().toleranceReach()) {
             if (hitDistance == Float.MAX_VALUE) {
+                Boar.debug("[reach-debug] fail queued reason=no-hit queued=" + this.queuedHitAttacks.size(), Boar.DebugMessage.WARNING);
                 this.fail("failed to find entity in sight.");
             } else {
+                Boar.debug("[reach-debug] fail queued reason=distance distance=" + hitDistance + " tolerance=" + Boar.getConfig().toleranceReach(), Boar.DebugMessage.WARNING);
                 this.fail("entity out of range, distance=" + hitDistance);
             }
         } else {
+            this.lastKnowHitWasValid = true;
             Boar.debug("Valid hit distance=" + hitDistance, Boar.DebugMessage.INFO);
         }
 

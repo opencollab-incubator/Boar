@@ -1,5 +1,6 @@
 package ac.boar.anticheat.ack;
 
+import ac.boar.anticheat.Boar;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.util.LatencyUtil;
 import lombok.RequiredArgsConstructor;
@@ -66,6 +67,7 @@ public class BatchAcknowledgmentTransport implements BoarBatchedAcknowledgmentTr
     public boolean onPingReceived(long id) {
         final LatencyUtil latencyUtil = this.player.getLatencyUtil();
         final LatencyUtil.Latency poll = latencyUtil.sentQueue().poll();
+        Boar.debug("[ack-recv] received id=" + id + " expected=" + (poll == null ? "none" : poll.id()) + " remaining=" + latencyUtil.sentQueue().size(), Boar.DebugMessage.INFO);
 
         if (poll == null || poll.id() != id) {
             this.player.kick("Invalid latency id, expected=" + (poll == null ? "none" : poll.id()) + ", actual=" + id);

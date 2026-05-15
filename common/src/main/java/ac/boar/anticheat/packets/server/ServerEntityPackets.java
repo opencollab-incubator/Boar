@@ -1,6 +1,6 @@
 package ac.boar.anticheat.packets.server;
 
-import ac.boar.anticheat.ack.types.EntityClearPastAck;
+import ac.boar.anticheat.Boar;
 import ac.boar.anticheat.ack.types.EntityInterpolateAck;
 import ac.boar.anticheat.ack.types.EntityRemoveAck;
 import ac.boar.anticheat.compensated.cache.entity.EntityCache;
@@ -18,7 +18,6 @@ public class ServerEntityPackets implements PacketListener {
     public void onPacketSend(final CloudburstPacketEvent event) {
         final BoarPlayer player = event.getPlayer();
         if (event.getPacket() instanceof RemoveEntityPacket packet) {
-            player.sendLatencyStack();
             player.sendLatencyStack(new EntityRemoveAck(packet.getUniqueEntityId()));
         }
 
@@ -111,13 +110,8 @@ public class ServerEntityPackets implements PacketListener {
 
         entity.setServerPosition(position);
 
-        // We need 2 transaction to check, if player receive the first transaction they could already have received the packet
-        // Or they could lag right before they receive the actual update position packet so we can't be sure
-        // But if player respond to the transaction AFTER the position packet they 100% already receive the packet.
-        player.sendLatencyStack();
-
         final long runtimeId = entity.getRuntimeId();
         player.queueAcknowledgment(new EntityInterpolateAck(runtimeId, position, lerp && distance < 4096));
-        event.getPostTasks().add(() -> player.sendLatencyStack(new EntityClearPastAck(runtimeId)));
+        Boar.debug("[entity-ack] queued interpolate runtimeId=" + runtimeId + " pos=" + position + " lerp=" + (lerp && distance < 4096) + " distanceSq=" + distance, Boar.DebugMessage.INFO);
     }
 }

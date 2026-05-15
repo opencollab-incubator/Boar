@@ -59,6 +59,7 @@ public final class Timer extends BaseCheck implements PingBasedCheck {
                 this.fail("balance=" + this.balance + ", player is ahead!");
             }
 
+            Boar.debug("[timer-debug] invalid tick=" + player.tick + " prevTick=" + this.prevTick + " balance=" + this.balance + " loseBalance=" + this.loseBalance + " distanceNs=" + distance + " neededNs=" + neededDistance + " teleporting=" + player.getTeleportUtil().isTeleporting(), Boar.DebugMessage.WARNING);
             player.getTeleportUtil().teleportTo(player.getTeleportUtil().getLastKnowValid());
             this.balance -= AVERAGE_DISTANCE;
             valid = false;

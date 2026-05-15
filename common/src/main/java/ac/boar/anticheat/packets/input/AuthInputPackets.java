@@ -1,5 +1,6 @@
 package ac.boar.anticheat.packets.input;
 
+import ac.boar.anticheat.Boar;
 import ac.boar.anticheat.ack.types.DimensionSwitchAck;
 import ac.boar.anticheat.check.impl.reach.Reach;
 import ac.boar.anticheat.check.impl.timer.Timer;
@@ -63,6 +64,7 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
         final Timer timer = (Timer) player.getCheckHolder().get(Timer.class);
         if (timer != null && timer.isInvalid()) {
             event.setCancelled(true);
+            Boar.debug("[movement-debug] cancelled auth-input reason=timer tick=" + player.tick + " packetTick=" + packet.getTick() + " pos=" + packet.getPosition() + " delta=" + packet.getDelta(), Boar.DebugMessage.WARNING);
             return;
         }
 
@@ -131,7 +133,6 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
             int dimensionId = packet.getDimension();
             final Dimension dimension = DimensionUtil.dimensionFromId(dimensionId);
 
-            player.sendLatencyStack();
             player.getTeleportUtil().queue(new TeleportCache.DimensionSwitch(new Vec3(packet.getPosition().up(EntityDefinitions.PLAYER.find().map(EntityDefinition::offset).orElse(1.62f)))));
             player.queueAcknowledgment(new DimensionSwitchAck(dimension, packet.getLoadingScreenId()));
         }

@@ -14,7 +14,6 @@ import ac.boar.anticheat.util.geyser.BitArrayVersion;
 import ac.boar.anticheat.util.geyser.BlockStorage;
 import ac.boar.anticheat.util.geyser.BoarChunkSection;
 import ac.boar.anticheat.util.geyser.SingletonBitArray;
-import ac.boar.anticheat.util.math.Vec3;
 import ac.boar.protocol.api.CloudburstPacketEvent;
 import ac.boar.protocol.api.PacketListener;
 import io.netty.buffer.ByteBuf;
@@ -48,12 +47,6 @@ public class ServerChunkPackets implements PacketListener {
             if (subChunksCount <= -2 || packet.getDimension() < 0 || packet.getDimension() > 2) {
                 // These cases will all be ignored.
                 return;
-            }
-
-            final int x = packet.getChunkX() << 4, z = packet.getChunkZ() << 4;
-            // Avoid spamming latency if possible, unless the player is seriously lagging then this shouldn't false.
-            if (Math.abs(player.position.x - x) <= 16 || Math.abs(player.position.z - z) <= 16) {
-                player.sendLatencyStack();
             }
 
             final Dimension dimension = DimensionUtil.dimensionFromId(packet.getDimension());
@@ -98,12 +91,6 @@ public class ServerChunkPackets implements PacketListener {
                         world.updateBlock(packet.getBlockPosition(), packet.getDataLayer(), packet.getDefinition().getRuntimeId());
                     }
                 }
-            }
-
-            // Avoid spamming latency if possible, unless the player is seriously lagging then this shouldn't false.
-            boolean send = player.position.distanceTo(new Vec3(packet.getBlockPosition())) <= 16;
-            if (send) {
-                player.sendLatencyStack();
             }
 
             player.queueAcknowledgment(new BlockUpdateAck(packet.getBlockPosition(), packet.getDataLayer(), packet.getDefinition().getRuntimeId()));

@@ -1,8 +1,7 @@
 package ac.boar.anticheat.packets.player;
 
 import ac.boar.anticheat.ack.types.GlideBoostAck;
-import ac.boar.anticheat.ack.types.PromoteVelocityAck;
-import ac.boar.anticheat.ack.types.UncertainVelocityAck;
+import ac.boar.anticheat.ack.types.VelocityAck;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.util.math.Vec3;
 import ac.boar.protocol.api.CloudburstPacketEvent;
@@ -25,8 +24,7 @@ public class PlayerVelocityPackets implements PacketListener {
             // I think there is some rewind like behavior when there is ehm the tick is not 0, so just default back to 0 till I figure it out.
             packet.setTick(0);
 
-            player.sendLatencyStack(new UncertainVelocityAck(new Vec3(packet.getMotion())));
-            event.getPostTasks().add(() -> player.sendLatencyStack(new PromoteVelocityAck()));
+            player.sendLatencyStack(new VelocityAck(new Vec3(packet.getMotion())));
         }
 
         if (event.getPacket() instanceof MovementEffectPacket packet) {
@@ -38,7 +36,6 @@ public class PlayerVelocityPackets implements PacketListener {
             // Well anyway.... if you just send a valid tick id or send an invalid id it works fine :D
             packet.setTick(Integer.MIN_VALUE);
 
-            player.sendLatencyStack();
             player.sendLatencyStack(new GlideBoostAck(packet.getDuration()));
         }
     }

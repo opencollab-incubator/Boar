@@ -26,6 +26,7 @@ public final class LatencyUtil {
 
     public void queue(long id, boolean ours) {
         this.sentQueue.add(new Latency(id, System.currentTimeMillis(), System.nanoTime(), ours, ours ? new ArrayList<>() : null));
+        Boar.debug("[ack-queue] queued id=" + id + " ours=" + ours + " acks=[] sentQueue=" + this.sentQueue.size(), Boar.DebugMessage.INFO);
     }
 
     /**
@@ -35,6 +36,7 @@ public final class LatencyUtil {
      */
     public void queueWithAcks(long id, List<Acknowledgment> acks) {
         this.sentQueue.add(new Latency(id, System.currentTimeMillis(), System.nanoTime(), true, new ArrayList<>(acks)));
+        Boar.debug("[ack-queue] queued id=" + id + " ours=true acks=" + ackNames(acks) + " sentQueue=" + this.sentQueue.size(), Boar.DebugMessage.INFO);
     }
 
     /**
@@ -52,6 +54,7 @@ public final class LatencyUtil {
     public void queue(Acknowledgment ack) {
         Latency last = this.sentQueue.peekLast();
         if (last == null) {
+            Boar.debug("[ack-queue] dispatch-inline ack=" + ack.getClass().getSimpleName(), Boar.DebugMessage.WARNING);
             Boar.getInstance().getAcknowledgmentRegistry().dispatch(this.player, ack);
             return;
         }
@@ -61,6 +64,7 @@ public final class LatencyUtil {
                 last.acknowledgments = new ArrayList<>();
             }
             last.acknowledgments.add(ack);
+            Boar.debug("[ack-queue] attached ack=" + ack.getClass().getSimpleName() + " to id=" + last.id + " ackCount=" + last.acknowledgments.size(), Boar.DebugMessage.INFO);
         }
     }
 
@@ -105,6 +109,7 @@ public final class LatencyUtil {
                 snapshot = this.acknowledgments;
                 this.acknowledgments = null;
             }
+            Boar.debug("[ack-dispatch] accepted id=" + this.id + " ours=" + this.ours + " acks=" + LatencyUtil.ackNames(snapshot), Boar.DebugMessage.INFO);
             if (snapshot != null) {
                 final BoarAcknowledgmentRegistry registry = Boar.getInstance().getAcknowledgmentRegistry();
                 for (Acknowledgment ack : snapshot) {
@@ -112,5 +117,20 @@ public final class LatencyUtil {
                 }
             }
         }
+    }
+
+    private static String ackNames(List<Acknowledgment> acknowledgments) {
+        if (acknowledgments == null || acknowledgments.isEmpty()) {
+            return "[]";
+        }
+
+        StringBuilder builder = new StringBuilder("[");
+        for (int i = 0; i < acknowledgments.size(); i++) {
+            if (i > 0) {
+                builder.append(", ");
+            }
+            builder.append(acknowledgments.get(i).getClass().getSimpleName());
+        }
+        return builder.append(']').toString();
     }
 }

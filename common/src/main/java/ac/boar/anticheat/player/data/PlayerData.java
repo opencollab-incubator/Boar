@@ -98,7 +98,7 @@ public class PlayerData {
     public Vec3 input = Vec3.ZERO;
     public Vec3 unvalidatedTickEnd = Vec3.ZERO;
 
-    public Vector uncertainVelocity, certainVelocity;
+    public Vector certainVelocity;
 
     // Attribute related, abilities
     public final Map<String, AttributeInstance> attributes = new HashMap<>();

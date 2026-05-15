@@ -52,7 +52,7 @@ public final class EntityCache {
         }
     }
 
-    private CachedEntityState past, current;
+    private CachedEntityState current;
 
     public boolean affectedByOffset;
     public float getYOffset() {
@@ -68,8 +68,6 @@ public final class EntityCache {
     }
 
     public void interpolate(Vec3 pos, boolean lerp) {
-        this.past = this.current.clone();
-
         if (!lerp) {
             this.current.setTeleportPos(pos);
         } else {

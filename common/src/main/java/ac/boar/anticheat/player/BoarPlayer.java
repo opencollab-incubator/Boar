@@ -179,10 +179,6 @@ public final class BoarPlayer extends PlayerData {
 
         try {
             for (final EntityCache cache : this.compensatedWorld.getEntities().values()) {
-                if (cache.getPast() != null) {
-                    cache.getPast().tick();
-                }
-
                 if (cache.getCurrent() != null) {
                     cache.getCurrent().tick();
                 }

@@ -87,7 +87,6 @@ public class PlayerInventoryPackets implements PacketListener {
 
         if (event.getPacket() instanceof ContainerOpenPacket packet) {
             // System.out.println(packet);
-            player.sendLatencyStack();
             player.queueAcknowledgment(new ContainerOpenAck(packet.getId(), packet.getType(), packet.getBlockPosition(), packet.getUniqueEntityId()));
         }
 //
@@ -113,7 +112,6 @@ public class PlayerInventoryPackets implements PacketListener {
         }
 
         if (event.getPacket() instanceof InventoryContentPacket packet) {
-            player.sendLatencyStack();
             player.sendLatencyStack(new InventoryContentAck(packet.getContainerId(), packet.getContents(), packet.getStorageItem()));
         }
 

@@ -37,11 +37,15 @@ public class Prediction extends BaseCheck implements OffsetHandlerCheck {
             return;
         }
 
+        Boar.debug("[movement-debug] prediction offset tick=" + player.tick + " offset=" + offset + " max=" + player.getMaxOffset() + " alert=" + Boar.getConfig().alertThreshold() + " type=" + player.bestPossibility.getType() + " predictedPos=" + player.position + " actualPos=" + player.unvalidatedPosition + " predictedDelta=" + player.velocity + " actualDelta=" + player.unvalidatedTickEnd, Boar.DebugMessage.WARNING);
+
         if (!shouldDoFail() || offset < Boar.getConfig().alertThreshold()) {
+            Boar.debug("[movement-debug] rewind reason=prediction-soft tick=" + player.tick + " offset=" + offset, Boar.DebugMessage.WARNING);
             player.getTeleportUtil().rewind(player.tick);
             return;
         }
 
+        Boar.debug("[movement-debug] rewind reason=prediction-fail tick=" + player.tick + " offset=" + offset, Boar.DebugMessage.WARNING);
         player.getTeleportUtil().rewind(player.tick);
 
         boolean claimedHorizontal = player.getInputData().contains(PlayerAuthInputData.HORIZONTAL_COLLISION);

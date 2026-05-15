@@ -24,14 +24,6 @@ public class ReachUtil {
                 distance = Math.min(distance, hitResult.squaredDistanceTo(min));
             }
 
-            // We're unsure due to split latency, let's try both past and current position to see what have the closer position.
-            if (distance > MAX_RANGE && entity.getPast() != null) {
-                final Vec3 prevHitResult = calculateHitResult(entity.getPast().calculateBoundingBox(), min, max);
-                if (prevHitResult != null) {
-                    distance = Math.min(distance, prevHitResult.squaredDistanceTo(min));
-                }
-            }
-
             // Valid hit, let exit to save performance!
             if (distance <= MAX_RANGE) {
                 break;
