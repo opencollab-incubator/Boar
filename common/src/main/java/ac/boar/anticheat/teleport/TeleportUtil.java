@@ -100,7 +100,8 @@ public class TeleportUtil {
         packet.setPredictionType(player.vehicleData != null ? PredictionType.VEHICLE : PredictionType.PLAYER);
 
         queue(new TeleportCache.Rewind(tick, new Vec3(packet.getPosition()), new Vec3(packet.getDelta()), onGround));
-        this.player.getBedrockSession().sendPacket(packet);
+        this.player.getBedrockSession().sendPacketImmediately(packet);
+        System.out.println("corrected movement at frame " + tick);
         Boar.debug("[movement-debug] sent rewind tick=" + tick + " pos=" + packet.getPosition() + " delta=" + packet.getDelta() + " onGround=" + onGround, Boar.DebugMessage.WARNING);
     }
 

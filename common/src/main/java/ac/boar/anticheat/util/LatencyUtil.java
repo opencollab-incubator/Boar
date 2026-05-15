@@ -113,7 +113,15 @@ public final class LatencyUtil {
             if (snapshot != null) {
                 final BoarAcknowledgmentRegistry registry = Boar.getInstance().getAcknowledgmentRegistry();
                 for (Acknowledgment ack : snapshot) {
-                    registry.dispatch(player, ack);
+                    // A throwing handler must not skip the rest of the batch — every ack in a
+                    // bundle is independent, and a failure in one (e.g. a ChunkLoadAck dispatched
+                    // before its ChunkPublisherUpdateAck arrived) historically blackholed
+                    // teleport/velocity/etc. acks that came after it in the same NSL.
+                    try {
+                        registry.dispatch(player, ack);
+                    } catch (Throwable t) {
+                        Boar.debug("[ack-dispatch] handler failed ack=" + ack.getClass().getSimpleName() + " err=" + t, Boar.DebugMessage.SERVE);
+                    }
                 }
             }
         }

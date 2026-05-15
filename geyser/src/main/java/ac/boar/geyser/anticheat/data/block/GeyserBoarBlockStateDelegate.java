@@ -25,10 +25,12 @@ import org.geysermc.geyser.level.physics.BoundingBox;
 import org.geysermc.geyser.registry.BlockRegistries;
 import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.geyser.session.cache.SkullCache;
+import org.geysermc.geyser.translator.collision.BlockCollision;
 import org.geysermc.geyser.translator.collision.SolidCollision;
 import org.geysermc.geyser.util.BlockUtils;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
@@ -89,8 +91,16 @@ public class GeyserBoarBlockStateDelegate implements BoarBlockStateDelegate {
 
     @Override
     public List<Box> getCollisionBoxes() {
+        // Geyser returns null for blocks it has no collision data for (unmapped/unknown block IDs).
+        // Treat as a non-collidable block (like air) instead of NPEing the prediction tick — that
+        // failure historically blackholed doPostPrediction, freezing player.position at spawn.
+        BlockCollision collision = BlockUtils.getCollision(state.javaId());
+        if (collision == null) {
+            return Collections.emptyList();
+        }
+
         List<Box> collisions = new ArrayList<>();
-        for (BoundingBox boundingBox : BlockUtils.getCollision(state.javaId()).getBoundingBoxes()) {
+        for (BoundingBox boundingBox : collision.getBoundingBoxes()) {
             collisions.add(new Box(
                     (float) boundingBox.getMin(Axis.X),
                     (float) boundingBox.getMin(Axis.Y),
