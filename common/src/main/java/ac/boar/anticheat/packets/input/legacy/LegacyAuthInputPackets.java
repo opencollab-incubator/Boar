@@ -1,6 +1,5 @@
 package ac.boar.anticheat.packets.input.legacy;
 
-import ac.boar.anticheat.Boar;
 import ac.boar.anticheat.check.api.Check;
 import ac.boar.anticheat.check.api.impl.OffsetHandlerCheck;
 import ac.boar.anticheat.compensated.cache.container.ContainerCache;
@@ -35,15 +34,10 @@ public class LegacyAuthInputPackets {
 
         // Properly calculated offset by comparing position instead of poorly calculated velocity that get calculated using (pos - prevPos) to account for floating point errors.
         float offset = player.position.distanceTo(player.unvalidatedPosition);
-        float rawOffset = offset;
         float extraOffset = uncertainRunner.extraOffset(offset);
         offset -= extraOffset;
         offset -= uncertainRunner.extraOffsetNonTickEnd(offset);
         uncertainRunner.uncertainPushTowardsTheClosetSpace();
-
-        if (player.tick < 50 || rawOffset > player.getMaxOffset()) {
-            Boar.debug("[post-pred] tick=" + player.tick + " rawOffset=" + rawOffset + " offset=" + offset + " extra=" + extraOffset + " predPos=" + player.position + " actualPos=" + player.unvalidatedPosition + " predVel=" + player.velocity + " actualDelta=" + player.unvalidatedTickEnd + " exempt=" + player.isMovementExempted() + " teleporting=" + player.getTeleportUtil().isTeleporting() + " inLoading=" + player.inLoadingScreen + " sinceLoading=" + player.sinceLoadingScreen, Boar.DebugMessage.WARNING);
-        }
 
         for (Map.Entry<Class<?>, Check> entry : player.getCheckHolder().entrySet()) {
             Check v = entry.getValue();

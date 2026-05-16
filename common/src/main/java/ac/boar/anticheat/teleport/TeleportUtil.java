@@ -101,8 +101,7 @@ public class TeleportUtil {
 
         queue(new TeleportCache.Rewind(tick, new Vec3(packet.getPosition()), new Vec3(packet.getDelta()), onGround));
         this.player.getBedrockSession().sendPacketImmediately(packet);
-        System.out.println("corrected movement at frame " + tick);
-        Boar.debug("[movement-debug] sent rewind tick=" + tick + " pos=" + packet.getPosition() + " delta=" + packet.getDelta() + " onGround=" + onGround, Boar.DebugMessage.WARNING);
+        Boar.debug("sent rewind tick=" + tick + " pos=" + packet.getPosition() + " delta=" + packet.getDelta() + " onGround=" + onGround, Boar.DebugMessage.WARNING);
     }
 
     public void cachePosition(long tick, Vector3f position) {

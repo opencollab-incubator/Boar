@@ -38,10 +38,6 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
 
         player.sinceLoadingScreen++;
 
-        if (player.tick < 50 || player.tick % 50 == 0) {
-            Boar.debug("[auth-flow] ENTRY tick=" + player.tick + " claimedTick=" + packet.getTick() + " inLoading=" + player.inLoadingScreen + " sinceLoading=" + player.sinceLoadingScreen + " pos=" + packet.getPosition(), Boar.DebugMessage.WARNING);
-        }
-
         // -------------------------------------------------------------------------
         // Timer check start here.
         final long claimedTick = packet.getTick();
@@ -86,17 +82,12 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
 
         player.tick();
 
-        if (player.tick < 50) {
-            Boar.debug("[auth-flow] tick=" + player.tick + " reached vehicle/bed check vehicleData=" + (player.vehicleData != null) + " bedPos=" + player.getEntity().bedPosition() + " inLoading=" + player.inLoadingScreen + " sinceLoading=" + player.sinceLoadingScreen + " unvalidatedTickEnd=" + player.unvalidatedTickEnd, Boar.DebugMessage.WARNING);
-        }
-
         if (player.vehicleData != null) { // TODO: Vehicle prediction.
             player.position = player.unvalidatedPosition;
             return;
         }
 
         if (player.getEntity().bedPosition() != null) {
-            Boar.debug("[auth-flow] tick=" + player.tick + " EARLY RETURN bedPos=" + player.getEntity().bedPosition(), Boar.DebugMessage.WARNING);
             return;
         }
 
