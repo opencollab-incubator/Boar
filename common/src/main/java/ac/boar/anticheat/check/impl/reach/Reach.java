@@ -103,9 +103,6 @@ public final class Reach extends BaseCheck implements PacketCheck {
                 continue;
             }
 
-            Boar.debug("Step=" + entity.getCurrent().getInterpolator().getStep(), Boar.DebugMessage.INFO);
-            Boar.debug("Prev=" + entity.getCurrent().getPrevPos() + ", current=" + entity.getCurrent().getPos() + ", lerpingTo=" + entity.getCurrent().getInterpolator().getTargetPos(), Boar.DebugMessage.INFO);
-
             // There are some edge cases when entity position is interpolating.
             final float newReachDistance = ReachUtil.calculateReach(player, entry.getKey(), entry.getValue());
             if (newReachDistance == Float.MAX_VALUE && entity.getCurrent().getInterpolator().getStep() > 1) {
@@ -125,7 +122,7 @@ public final class Reach extends BaseCheck implements PacketCheck {
             }
         } else {
             this.lastKnowHitWasValid = true;
-            Boar.debug("Valid hit distance=" + hitDistance, Boar.DebugMessage.INFO);
+            //Boar.debug("Valid hit distance=" + hitDistance, Boar.DebugMessage.INFO);
         }
 
         this.queuedHitAttacks.clear();

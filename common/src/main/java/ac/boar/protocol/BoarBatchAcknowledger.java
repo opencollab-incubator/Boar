@@ -61,10 +61,8 @@ public class BoarBatchAcknowledger extends ChannelOutboundHandlerAdapter {
             // No acks to dispatch, but the batch holds non-NSL packets — emit a bare NSL so the
             // batch terminates with one. Queue an empty Latency so the response is consumed cleanly.
             this.player.getLatencyUtil().queue(id, true);
-            Boar.debug("[ack-batch] flush id=" + id + " bare=true sentQueue=" + this.player.getLatencyUtil().sentQueue().size(), Boar.DebugMessage.INFO);
         } else {
             this.player.getLatencyUtil().queueWithAcks(id, snapshot);
-            Boar.debug("[ack-batch] flush id=" + id + " bare=false acks=" + ackNames(snapshot) + " sentQueue=" + this.player.getLatencyUtil().sentQueue().size(), Boar.DebugMessage.INFO);
         }
 
         final NetworkStackLatencyPacket nsl = new NetworkStackLatencyPacket();

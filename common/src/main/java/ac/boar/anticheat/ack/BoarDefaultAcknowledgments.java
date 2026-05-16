@@ -145,10 +145,7 @@ public final class BoarDefaultAcknowledgments {
     private static void handleEntityInterpolate(BoarPlayer player, EntityInterpolateAck ack) {
         final EntityCache entity = player.compensatedWorld.getEntity(ack.runtimeEntityId());
         if (entity != null) {
-            Boar.debug("[entity-ack] dispatch interpolate runtimeId=" + ack.runtimeEntityId() + " pos=" + ack.position() + " lerp=" + ack.lerp() + " before=" + entity.getCurrent().getPos(), Boar.DebugMessage.INFO);
             entity.interpolate(ack.position(), ack.lerp());
-        } else {
-            Boar.debug("[entity-ack] missing entity for interpolate runtimeId=" + ack.runtimeEntityId() + " pos=" + ack.position(), Boar.DebugMessage.WARNING);
         }
     }
 

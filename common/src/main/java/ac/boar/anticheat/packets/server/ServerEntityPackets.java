@@ -112,6 +112,5 @@ public class ServerEntityPackets implements PacketListener {
 
         final long runtimeId = entity.getRuntimeId();
         player.queueAcknowledgment(new EntityInterpolateAck(runtimeId, position, lerp && distance < 4096));
-        Boar.debug("[entity-ack] queued interpolate runtimeId=" + runtimeId + " pos=" + position + " lerp=" + (lerp && distance < 4096) + " distanceSq=" + distance, Boar.DebugMessage.INFO);
     }
 }
