@@ -131,7 +131,7 @@ public class UncertainRunner {
         }
 
         if (player.getFlagTracker().has(EntityFlag.GLIDING)) {
-            extra += 1.0E-4F; // gliding accuracy is... yuck.
+            extra += 8.0E-4F; // gliding accuracy is... yuck.
 
             if (offset <= 8.0E-4 && player.glideBoostTicks >= 0) {
                 extra = offset;
