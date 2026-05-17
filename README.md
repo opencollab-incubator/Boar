@@ -1,7 +1,7 @@
 # Boar
 
-[![Modrinth Downloads](https://img.shields.io/modrinth/dt/boar?label=Modrinth&logo=modrinth&style=flat-square)](https://discord.gg/E865SEQBR)
-[![Discord](https://img.shields.io/discord/1504901803236659351?label=Discord&logo=discord&style=flat-square)](modrinth.com/plugin/boar/)
+[![Modrinth Downloads](https://img.shields.io/modrinth/dt/boar?label=Modrinth&logo=modrinth&style=flat-square)](modrinth.com/plugin/boar/)
+[![Discord](https://img.shields.io/discord/1504901803236659351?label=Discord&logo=discord&style=flat-square)](https://discord.gg/E865SEQBR)
 
 Boar is an anticheat project that allows you to enable [server-auth-with-rewind](https://github.com/Mojang/bedrock-protocol-docs/blob/main/additional_docs/ConfiguringAntiCheat.md) for 
 [GeyserMC](https://github.com/GeyserMC/Geyser) with a few more checks and improvements compared to BDS.
