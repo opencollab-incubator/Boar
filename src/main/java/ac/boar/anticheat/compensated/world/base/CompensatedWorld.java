@@ -91,7 +91,7 @@ public class CompensatedWorld {
         // Still unsure about this... should we get rid of chunk sections, or chunk?
         // Well since we're getting rid of chunks for now, let set the y pos to 0.
         Vec3 chunkCenter = new Vec3(chunkX + 8, 0, chunkZ + 8);
-        return radiusCenter.squaredDistanceTo(chunkCenter) > this.radius * this.radius;
+        return radiusCenter.squaredDistanceTo(chunkCenter) > this.radius * this.radius && new Vec3(player.position.x, 0, player.position.z).squaredDistanceTo(chunkCenter) > this.radius * this.radius;
     }
 
     public void put(int x, int z, BoarChunkSection[] chunks) {
