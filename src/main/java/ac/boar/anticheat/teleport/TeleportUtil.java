@@ -66,7 +66,7 @@ public class TeleportUtil {
     private final Map<Long, RewindHistory> rewindHistory = new ConcurrentSkipListMap<>();
 
     public void rewind(long tick) {
-        this.rewind(new RewindHistory(tick, this.lastKnowValid, player.predictionResult));
+        this.rewind(this.rewindHistory.getOrDefault(tick, new RewindHistory(player.tick, this.lastKnowValid, player.predictionResult)));
     }
 
     public void rewind(final RewindHistory rewind) {
