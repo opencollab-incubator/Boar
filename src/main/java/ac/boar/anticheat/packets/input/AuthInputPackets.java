@@ -2,24 +2,17 @@ package ac.boar.anticheat.packets.input;
 
 import ac.boar.anticheat.check.impl.reach.Reach;
 import ac.boar.anticheat.check.impl.timer.Timer;
-import ac.boar.anticheat.data.input.PredictionData;
 import ac.boar.anticheat.packets.input.legacy.LegacyAuthInputPackets;
 import ac.boar.anticheat.packets.input.teleport.TeleportHandler;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.prediction.PredictionRunner;
-import ac.boar.anticheat.prediction.engine.data.Vector;
-import ac.boar.anticheat.teleport.data.TeleportCache;
+import ac.boar.anticheat.teleport.data.TeleportData;
 import ac.boar.anticheat.util.DimensionUtil;
 import ac.boar.anticheat.util.math.Vec3;
 import ac.boar.protocol.api.CloudburstPacketEvent;
 import ac.boar.protocol.api.PacketListener;
-import org.cloudburstmc.protocol.bedrock.data.PlayerAuthInputData;
 import org.cloudburstmc.protocol.bedrock.packet.*;
-import org.geysermc.geyser.entity.EntityDefinitions;
 import org.geysermc.geyser.level.BedrockDimension;
-
-import java.util.Iterator;
-import java.util.Map;
 
 public class AuthInputPackets extends TeleportHandler implements PacketListener {
     @Override
@@ -87,37 +80,30 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
             return;
         }
 
-        if (player.isMovementExempted()) {
-            player.setPos(player.unvalidatedPosition);
-
-            // Clear velocity out manually since we haven't handled em.
-            player.certainVelocity = null;
-
-            // This is fine, we only need tick end and use before and after to calculate ground.
-            player.predictionResult = new PredictionData(Vec3.ZERO, player.velocity.y < 0 && player.getInputData().contains(PlayerAuthInputData.VERTICAL_COLLISION) ? new Vec3(0, 1, 0) : Vec3.ZERO, player.unvalidatedTickEnd);
-            player.velocity = player.unvalidatedTickEnd.clone();
-
-            player.bestPossibility = Vector.NONE;
-        } else {
-            if (!player.inLoadingScreen && player.sinceLoadingScreen >= 2 || player.unvalidatedTickEnd.lengthSquared() > 0) {
-                new PredictionRunner(player).run();
-            } else {
-                player.velocity = Vec3.ZERO.clone();
-            }
-        }
-
         player.insideUnloadedChunk = !player.compensatedWorld.isChunkLoaded((int) player.position.x, (int) player.position.z);
         // Don't try to predict player position in an unloaded chunk, it's not worth it and uh won't go well!
         // Just keep teleporting the player back until they loaded in, that way we shouldn't false post teleport... I think!
         // There isn't much room to abuse considering they're not loaded in any way... and the position is validated so
         // the player can't just send a position 100000 blocks out to avoid for eg: velocity.
-
         // TODO: Test properly uhhhh in some cases, I'm too lazy to care.
         if (player.insideUnloadedChunk) {
-            player.getTeleportUtil().teleportTo(player.getTeleportUtil().getLastKnowValid());
+            player.getTeleportUtil().teleport(player.getTeleportUtil().getLastKnowValid());
         }
 
-        this.processQueuedTeleports(player, packet);
+        if (player.getTeleportUtil().isTeleporting()) {
+            this.processQueuedTeleports(player, packet);
+        } else {
+            if (player.isMovementExempted()) {
+                processExempted(player);
+            } else {
+                if (!player.inLoadingScreen && player.sinceLoadingScreen >= 2 || player.unvalidatedTickEnd.lengthSquared() > 0) {
+                    new PredictionRunner(player).run();
+                } else {
+                    player.velocity = Vec3.ZERO.clone();
+                }
+            }
+        }
+
         LegacyAuthInputPackets.doPostPrediction(player, packet);
     }
 
@@ -130,7 +116,7 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
             final BedrockDimension dimension = DimensionUtil.dimensionFromId(dimensionId);
 
             player.sendLatencyStack();
-            player.getTeleportUtil().queue(new TeleportCache.DimensionSwitch(new Vec3(packet.getPosition().up(EntityDefinitions.PLAYER.offset()))));
+//            player.getTeleportUtil().queue(new TeleportCache.DimensionSwitch(new Vec3(packet.getPosition().up(EntityDefinitions.PLAYER.offset()))));
             player.getLatencyUtil().queue(() -> {
                 if (player.compensatedWorld.getDimension() != dimension) {
                     player.currentLoadingScreen = packet.getLoadingScreenId();
@@ -160,7 +146,7 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
                 packet.setMode(MovePlayerPacket.Mode.TELEPORT);
             }
 
-            player.getTeleportUtil().queueTeleport(new Vec3(packet.getPosition()));
+            player.getTeleportUtil().queue(new TeleportData(new Vec3(packet.getPosition())));
         }
     }
 }

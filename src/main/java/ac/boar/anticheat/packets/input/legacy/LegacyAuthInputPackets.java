@@ -6,7 +6,6 @@ import ac.boar.anticheat.compensated.cache.container.ContainerCache;
 import ac.boar.anticheat.data.ItemUseTracker;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.prediction.UncertainRunner;
-import ac.boar.anticheat.prediction.engine.data.VectorType;
 import ac.boar.anticheat.util.InputUtil;
 
 import ac.boar.anticheat.util.math.Vec3;
@@ -30,7 +29,7 @@ public class LegacyAuthInputPackets {
 
     public static void doPostPrediction(final BoarPlayer player, final PlayerAuthInputPacket packet) {
         player.postTick();
-        player.getTeleportUtil().cachePosition(player.tick, player.position.add(0, player.getYOffset(), 0).toVector3f());
+        player.getTeleportUtil().cacheRewindHistory(player.tick, player.position.add(0, player.getYOffset(), 0));
 
         final UncertainRunner uncertainRunner = new UncertainRunner(player);
 

@@ -12,7 +12,6 @@ import ac.boar.anticheat.util.MathUtil;
 import ac.boar.anticheat.util.math.Vec3;
 import ac.boar.anticheat.validator.blockbreak.ServerBreakBlockValidator;
 import ac.boar.mappings.BlockMappings;
-import ac.boar.protocol.BoarHandlerAdaptor;
 import io.netty.channel.EventLoop;
 import lombok.Getter;
 
@@ -143,10 +142,8 @@ public final class BoarPlayer extends PlayerData {
         latencyPacket.setTimestamp(id);
         latencyPacket.setFromServer(false); // hack to distinguish from Geyser packet and ours.
 
+        this.latencyUtil.queue(id, true);
         this.session.sendUpstreamPacketImmediately(latencyPacket);
-//        this.bedrockSession.getPeer().getChannel().pipeline().context(BoarHandlerAdaptor.NAME).writeAndFlush(
-//                BedrockPacketWrapper.create(0, 0, 0, latencyPacket, null)
-//        );
     }
 
     public boolean isMovementExempted() {

@@ -58,7 +58,8 @@ public final class Timer extends PingBasedCheck {
                 this.fail("balance=" + this.balance + ", player is ahead!");
             }
 
-            player.getTeleportUtil().teleportTo(player.getTeleportUtil().getLastKnowValid());
+            // Rewind don't work for our case...
+            player.getTeleportUtil().teleport(player.getTeleportUtil().getLastKnowValid());
             this.balance -= AVERAGE_DISTANCE;
             valid = false;
         } else {
