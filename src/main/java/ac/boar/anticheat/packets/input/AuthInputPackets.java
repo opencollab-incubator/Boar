@@ -81,16 +81,6 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
             return;
         }
 
-        player.insideUnloadedChunk = !player.compensatedWorld.isChunkLoaded((int) player.position.x, (int) player.position.z);
-        // Don't try to predict player position in an unloaded chunk, it's not worth it and uh won't go well!
-        // Just keep teleporting the player back until they loaded in, that way we shouldn't false post teleport... I think!
-        // There isn't much room to abuse considering they're not loaded in any way... and the position is validated so
-        // the player can't just send a position 100000 blocks out to avoid for eg: velocity.
-        // TODO: Test properly uhhhh in some cases, I'm too lazy to care.
-        if (player.insideUnloadedChunk) {
-            player.getTeleportUtil().teleport(player.getTeleportUtil().getLastKnowValid());
-        }
-
         if (player.getTeleportUtil().isTeleporting()) {
             this.processQueuedTeleports(player, packet);
         } else {
@@ -103,6 +93,17 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
                     player.velocity = Vec3.ZERO.clone();
                 }
             }
+        }
+
+        player.insideUnloadedChunk = !player.compensatedWorld.isChunkLoaded((int) player.position.x, (int) player.position.z);
+        // Don't try to predict player position in an unloaded chunk, it's not worth it and uh won't go well!
+        // Just keep teleporting the player back until they loaded in, that way we shouldn't false post teleport... I think!
+        // There isn't much room to abuse considering they're not loaded in any way... and the position is validated so
+        // the player can't just send a position 100000 blocks out to avoid for eg: velocity.
+        // TODO: Test properly uhhhh in some cases, I'm too lazy to care.
+        if (player.insideUnloadedChunk) {
+            System.out.println("UNLOADED CHUNK!");
+            player.getTeleportUtil().teleport(player.getTeleportUtil().getLastKnowValid());
         }
 
         LegacyAuthInputPackets.doPostPrediction(player, packet);
