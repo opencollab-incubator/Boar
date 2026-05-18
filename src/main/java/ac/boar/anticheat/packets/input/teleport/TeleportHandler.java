@@ -93,7 +93,7 @@ public class TeleportHandler {
 
         player.onGround = rewind.isOnGround();
         player.velocity = rewind.getTickEnd();
-        player.setPos(rewind.getPosition().subtract(0, player.getYOffset(), 0));
+        player.setPos(rewind.getPosition().down(player.getYOffset()));
         player.prevUnvalidatedPosition = player.unvalidatedPosition = player.position.clone();
 
         player.getTeleportUtil().cacheRewindHistory(rewind.getTick(), rewind.getPosition());
@@ -128,7 +128,6 @@ public class TeleportHandler {
             }
 
             new PredictionRunner(player).run();
-            // player.getTeleportUtil().cachePosition(currentTick, player.position.add(0, player.getYOffset(), 0).toVector3f());
         }
     }
 

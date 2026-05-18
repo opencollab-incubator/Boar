@@ -66,7 +66,7 @@ public class TeleportUtil {
     private final Map<Long, RewindHistory> rewindHistory = new ConcurrentSkipListMap<>();
 
     public void rewind(long tick) {
-        this.rewind(new RewindHistory(player.tick, this.lastKnowValid, player.predictionResult));
+        this.rewind(new RewindHistory(tick, this.lastKnowValid, player.predictionResult));
     }
 
     public void rewind(final RewindHistory rewind) {
@@ -87,7 +87,6 @@ public class TeleportUtil {
         packet.setVehicleRotation(Vector2f.ZERO);
         packet.setPredictionType(player.vehicleData != null ? PredictionType.VEHICLE : PredictionType.PLAYER);
 
-        queue(new RewindData(tick, new Vec3(packet.getPosition()), new Vec3(packet.getDelta()), onGround));
         this.player.getBedrockSession().sendPacket(packet);
     }
 

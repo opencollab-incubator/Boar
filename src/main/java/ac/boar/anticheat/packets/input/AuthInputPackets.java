@@ -6,6 +6,7 @@ import ac.boar.anticheat.packets.input.legacy.LegacyAuthInputPackets;
 import ac.boar.anticheat.packets.input.teleport.TeleportHandler;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.prediction.PredictionRunner;
+import ac.boar.anticheat.teleport.data.RewindData;
 import ac.boar.anticheat.teleport.data.TeleportData;
 import ac.boar.anticheat.util.DimensionUtil;
 import ac.boar.anticheat.util.math.Vec3;
@@ -147,6 +148,10 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
             }
 
             player.getTeleportUtil().queue(new TeleportData(new Vec3(packet.getPosition())));
+        }
+
+        if (event.getPacket() instanceof CorrectPlayerMovePredictionPacket packet) {
+            player.getTeleportUtil().queue(new RewindData(packet.getTick(), new Vec3(packet.getPosition()), new Vec3(packet.getDelta()), packet.isOnGround()));
         }
     }
 }

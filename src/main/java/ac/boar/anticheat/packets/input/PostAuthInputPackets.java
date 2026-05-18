@@ -37,6 +37,9 @@ public class PostAuthInputPackets implements PacketListener {
                 event.setCancelled(true);
                 return;
             }
+            if (player.getTeleportUtil().isTeleporting()) {
+                return;
+            }
 
             if (player.tickSinceBlockResync > 0) player.tickSinceBlockResync--;
             player.getTeleportUtil().pollRewindHistory();
