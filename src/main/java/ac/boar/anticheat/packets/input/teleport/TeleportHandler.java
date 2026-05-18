@@ -56,6 +56,10 @@ public class TeleportHandler {
 
     private void processTeleport(final BoarPlayer player, final TeleportData data, final PlayerAuthInputPacket packet) {
         float distance = packet.getPosition().distance(data.getPosition().toVector3f());
+        if (packet.getInputData().contains(PlayerAuthInputData.HANDLE_TELEPORT)) {
+            System.out.println("handled teleport!");
+        }
+
         // I think I'm being a bit lenient but on Bedrock the position error seems to be a bit high.
         if (packet.getInputData().contains(PlayerAuthInputData.HANDLE_TELEPORT) && distance <= 1.0E-3F) {
             player.setPos(new Vec3(packet.getPosition().sub(0, player.getYOffset(), 0)));
@@ -71,6 +75,7 @@ public class TeleportHandler {
             if (!player.getTeleportUtil().isTeleporting()) {
                 player.getTeleportUtil().teleport(data.getPosition());
 
+                System.out.println("pos: " + packet.getPosition());
                 Boar.debug(player.getSession().name() + " rejected teleport with d=" + distance + ", resending teleport...", Boar.DebugMessage.INFO);
             }
         }

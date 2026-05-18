@@ -147,6 +147,7 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
                 packet.setMode(MovePlayerPacket.Mode.TELEPORT);
             }
 
+            System.out.println("teleport to: " + packet.getPosition() + "," + packet.getMode());
             player.getTeleportUtil().queue(new TeleportData(new Vec3(packet.getPosition())));
         }
 
