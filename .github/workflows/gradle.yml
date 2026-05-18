@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Change wrapper permissions
-        if: ${{ github.ref_name == 'master' }}
+        if: ${{ github.repository == 'opencollab-incubator/Boar' && github.ref_name == 'master' }}
         run: chmod +x ./gradlew
       - uses: gradle/actions/wrapper-validation@v4
       - uses: actions/setup-java@v4
@@ -24,17 +24,16 @@ jobs:
           distribution: 'temurin'
           java-version: 17
       - name: Build Project
-        if: ${{ github.ref_name == 'master' }}
         run: ./gradlew shadowJar
       - name: Upload Artifacts to GitHub
         uses: actions/upload-artifact@v4
-        if: ${{ success() && github.ref_name == 'master' }}
+        if: ${{ success() }}
         with:
           name: Boar
           path: build/libs/
           if-no-files-found: error
       - name: Publish to Modrinth
-        if: ${{ success() && github.ref_name == 'master' }}
+        if: ${{ success() && github.repository == 'opencollab-incubator/Boar' && github.ref_name == 'master' }}
         env:
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
         run: ./gradlew modrinth
