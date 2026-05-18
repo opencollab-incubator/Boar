@@ -102,7 +102,6 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
         // the player can't just send a position 100000 blocks out to avoid for eg: velocity.
         // TODO: Test properly uhhhh in some cases, I'm too lazy to care.
         if (player.insideUnloadedChunk) {
-            System.out.println("UNLOADED CHUNK!");
             player.getTeleportUtil().teleport(player.getTeleportUtil().getLastKnowValid());
         }
 
@@ -148,7 +147,6 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
                 packet.setMode(MovePlayerPacket.Mode.TELEPORT);
             }
 
-            System.out.println("teleport to: " + packet.getPosition() + "," + packet.getMode());
             player.getTeleportUtil().queue(new TeleportData(new Vec3(packet.getPosition())));
         }
 

@@ -33,7 +33,6 @@ public class TeleportUtil {
 
     public void teleport(final Vec3 vec3) {
         if (this.isTeleporting()) {
-            System.out.println("dont actually send anything....");
             return;
         }
 
