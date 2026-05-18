@@ -28,12 +28,8 @@ public class PredictionRunner {
         player.bestPossibility = Objects.requireNonNullElseGet(player.certainVelocity, () -> new Vector(VectorType.NORMAL, player.velocity.clone()));
         player.certainVelocity = null;
 
-        if (player.bestPossibility == null) {
-            return false;
-        }
-
         if (player.bestPossibility.getType() == VectorType.VELOCITY) {
-            Boar.debug("[velocity-debug] predict tick=" + player.tick + " velocity=" + player.bestPossibility.getVelocity() + " actualDelta=" + player.unvalidatedTickEnd + " pos=" + player.position + " unvalidated=" + player.unvalidatedPosition, Boar.DebugMessage.INFO);
+            Boar.debug("[velocity-debug] predict tick=" + player.tick + " velocity=" + player.bestPossibility.getVelocity() + " actualDelta=" + player.unvalidatedPosition.clone().subtract(player.prevUnvalidatedPosition.clone()) + " pos=" + player.position + " unvalidated=" + player.unvalidatedPosition, Boar.DebugMessage.INFO);
         }
 
         // We can start the ACTUAL prediction now.

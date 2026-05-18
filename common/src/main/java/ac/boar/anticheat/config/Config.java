@@ -50,7 +50,7 @@ public final class Config {
     }
 
     public float toleranceReach() {
-        return Math.max(3.0001F, toleranceReach);
+        return Math.max(2.9F, toleranceReach);
     }
 
     public float alertThreshold() {

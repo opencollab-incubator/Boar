@@ -56,7 +56,7 @@ public class LegacyAuthInputPackets {
             player.setPos(player.unvalidatedPosition.clone(), false);
         }
 
-        player.prevPosition = player.position;
+        //player.prevPosition = player.position.clone();
     }
 
     public static void correctInputData(final BoarPlayer player, final PlayerAuthInputPacket packet) {
@@ -92,7 +92,14 @@ public class LegacyAuthInputPackets {
         player.pitch = packet.getRotation().getX();
 
         player.rotation = packet.getRotation();
+
+        player.prevInteractRotUnchanged = player.prevInteractRotation.equals(player.interactRotation);
+        player.prevInteractRotation = player.interactRotation.clone();
         player.interactRotation = packet.getInteractRotation().clone();
+
+        if (player.interactRotation.lengthSquared() > 0) {
+            System.out.println("interaction_rotation=" + player.interactRotation);
+        }
 
         player.inputMode = packet.getInputMode();
 

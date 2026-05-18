@@ -19,9 +19,7 @@ public class ServerEntityPackets implements PacketListener {
         final BoarPlayer player = event.getPlayer();
         if (event.getPacket() instanceof RemoveEntityPacket packet) {
             player.sendLatencyStack(new EntityRemoveAck(packet.getUniqueEntityId()));
-        }
-
-        if (event.getPacket() instanceof AddEntityPacket packet) {
+        } else if (event.getPacket() instanceof AddEntityPacket packet) {
             final EntityCache entity = player.compensatedWorld.addToCache(player, packet.getRuntimeEntityId(), packet.getUniqueEntityId());
             if (entity == null) {
                 return;
@@ -33,9 +31,7 @@ public class ServerEntityPackets implements PacketListener {
             entity.interpolate(position, false);
 
             entity.setMetadata(packet.getMetadata());
-        }
-
-        if (event.getPacket() instanceof AddPlayerPacket packet) {
+        } else if (event.getPacket() instanceof AddPlayerPacket packet) {
             final EntityCache entity = player.compensatedWorld.addToCache(player, packet.getRuntimeEntityId(), packet.getUniqueEntityId());
             if (entity == null) {
                 return;
@@ -47,70 +43,70 @@ public class ServerEntityPackets implements PacketListener {
             entity.interpolate(position, false);
 
             entity.setMetadata(packet.getMetadata());
-        }
-
-        if (event.getPacket() instanceof MoveEntityDeltaPacket packet) {
+        } else if (event.getPacket() instanceof MoveEntityDeltaPacket packet) {
             final EntityCache entity = player.compensatedWorld.getEntity(packet.getRuntimeEntityId());
             if (entity == null) {
                 return;
             }
 
             final Set<MoveEntityDeltaPacket.Flag> flags = packet.getFlags();
-
-            final boolean useless = !flags.contains(MoveEntityDeltaPacket.Flag.HAS_X) && !flags.contains(MoveEntityDeltaPacket.Flag.HAS_Y) && !flags.contains(MoveEntityDeltaPacket.Flag.HAS_Z);
-            if (useless) {
-                return;
+            Float posX = null, posY = null, posZ = null;
+            if (flags.contains(MoveEntityDeltaPacket.Flag.HAS_X)) {
+                posX = packet.getX();
+            }
+            if (flags.contains(MoveEntityDeltaPacket.Flag.HAS_Y)) {
+                posY = packet.getY();
+            }
+            if (flags.contains(MoveEntityDeltaPacket.Flag.HAS_Z)) {
+                posZ = packet.getZ();
             }
 
-            float x = packet.getX(), y = packet.getY(), z = packet.getZ();
-            if (!flags.contains(MoveEntityDeltaPacket.Flag.HAS_X)) {
-                x = entity.getServerPosition().getX();
-            }
-            if (!flags.contains(MoveEntityDeltaPacket.Flag.HAS_Y)) {
-                y = entity.getServerPosition().getY();
-            }
-            if (!flags.contains(MoveEntityDeltaPacket.Flag.HAS_Z)) {
-                z = entity.getServerPosition().getZ();
-            }
-
-            this.queuePositionUpdate(event, entity, Vector3f.from(x, y, z), true);
-        }
-
-        if (event.getPacket() instanceof MoveEntityAbsolutePacket packet) {
-            final EntityCache entity = player.compensatedWorld.getEntity(packet.getRuntimeEntityId());
-            if (entity == null) {
-                return;
-            }
-
-            this.queuePositionUpdate(event, entity, packet.getPosition(), false);
-        }
-
-        if (event.getPacket() instanceof MovePlayerPacket packet) {
+            this.queuePositionUpdate(event, entity, posX, posY, posZ, true);
+        } else if (event.getPacket() instanceof MoveEntityAbsolutePacket packet) {
+            player.compensatedWorld
+                    .fetchEntity(packet.getRuntimeEntityId())
+                    .ifPresent(entity -> this.queuePositionUpdate(event, entity, packet.getPosition(), true));
+        } else if (event.getPacket() instanceof MovePlayerPacket packet) {
             if (packet.getRuntimeEntityId() == player.runtimeEntityId) {
                 return;
             }
 
-            final EntityCache entity = player.compensatedWorld.getEntity(packet.getRuntimeEntityId());
-            if (entity == null) {
-                return;
-            }
-
-            this.queuePositionUpdate(event, entity, packet.getPosition(), packet.getMode() == MovePlayerPacket.Mode.NORMAL);
+            player.compensatedWorld
+                    .fetchEntity(packet.getRuntimeEntityId())
+                    .ifPresent(entity -> this.queuePositionUpdate(event, entity, packet.getPosition(), packet.getMode() == MovePlayerPacket.Mode.NORMAL));
         }
     }
 
-    private void queuePositionUpdate(final CloudburstPacketEvent event, final EntityCache entity, final Vector3f raw, final boolean lerp) {
+    private void queuePositionUpdate(final CloudburstPacketEvent event, final EntityCache entity, final Vector3f raw, final boolean tryLerp) {
+        queuePositionUpdate(event, entity, raw.getX(), raw.getY(), raw.getZ(), tryLerp);
+    }
+
+    private void queuePositionUpdate(
+            final CloudburstPacketEvent event,
+            final EntityCache entity,
+            final Float posX,
+            Float posY,
+            final Float posZ,
+            final boolean tryLerp
+    ) {
         final BoarPlayer player = event.getPlayer();
-        final Vec3 position = new Vec3(raw.sub(0, entity.getYOffset(), 0));
-
-        final float distance = entity.getServerPosition().squaredDistanceTo(position);
-        if (distance < 1.0E-15) {
-            return;
+        final long runtimeId = entity.getRuntimeId();
+        if (posY != null) {
+            posY -= entity.getYOffset();
         }
 
-        entity.setServerPosition(position);
+        Vec3 newPos = entity.getServerPosition().clone();
+        if (posX != null) newPos.x = posX;
+        if (posY != null) newPos.y = posY;
+        if (posZ != null) newPos.z = posZ;
 
-        final long runtimeId = entity.getRuntimeId();
-        player.queueAcknowledgment(new EntityInterpolateAck(runtimeId, position, lerp && distance < 4096));
+        final float distance = entity.getServerPosition().squaredDistanceTo(newPos);
+        /* if (distance < 1.0E-15) {
+            return;
+        } */
+
+        entity.setServerPosition(newPos);
+        player.queueAcknowledgment(new EntityInterpolateAck(runtimeId, posX, posY, posZ, tryLerp && distance < 4096));
     }
+
 }

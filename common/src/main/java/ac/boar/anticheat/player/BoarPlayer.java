@@ -35,6 +35,7 @@ import ac.boar.mappings.block.BlockMappings;
 import ac.boar.mappings.entity.Entity;
 import ac.boar.mappings.entity.EntityDefinition;
 import ac.boar.mappings.entity.EntityDefinitions;
+import ac.boar.protocol.BoarHandlerAdaptor;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.SneakyThrows;
@@ -45,6 +46,7 @@ import org.cloudburstmc.protocol.bedrock.BedrockServerSession;
 import org.cloudburstmc.protocol.bedrock.data.Ability;
 import org.cloudburstmc.protocol.bedrock.data.PlayerAuthInputData;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
+import org.cloudburstmc.protocol.bedrock.packet.BedrockPacket;
 
 import java.util.Map;
 import java.util.UUID;
@@ -79,6 +81,9 @@ public final class BoarPlayer extends PlayerData {
     @Getter
     @Setter
     private BoarAcknowledgmentTransport ackTransport;
+
+    @Setter
+    private BoarHandlerAdaptor handlerAdaptor;
 
     // Lag compensation
     public final CompensatedWorldImpl compensatedWorld = new CompensatedWorldImpl(this);
@@ -154,6 +159,18 @@ public final class BoarPlayer extends PlayerData {
      */
     public void queueAcknowledgment(Acknowledgment ack) {
         this.ackTransport.attach(ack);
+    }
+
+    /**
+     * Replay a Bedrock packet inbound as if the client had just sent it. Used to forward
+     * an attack (or any other inbound packet) that was previously cancelled by a check.
+     * The synthetic packet skips Boar's listener chain on its way downstream, so the
+     * caller is responsible for any prior listener-side processing.
+     */
+    public void injectClientPacket(BedrockPacket packet) {
+        if (this.handlerAdaptor != null) {
+            this.handlerAdaptor.injectClientPacket(packet);
+        }
     }
 
     public boolean isMovementExempted() {
