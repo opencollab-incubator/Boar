@@ -86,7 +86,7 @@ public class CompensatedWorld {
     }
 
     public boolean isOutOfRadius(int chunkX, int chunkZ) {
-        Vec3 radiusCenter = new Vec3(this.radiusCenter).add(0.5f, 0.5f, 0.5f); // Properly correct eh?
+        Vec3 radiusCenter = new Vec3(this.radiusCenter.getX(), 0, this.radiusCenter.getZ());
 
         // Still unsure about this... should we get rid of chunk sections, or chunk?
         // Well since we're getting rid of chunks for now, let set the y pos to 0.
