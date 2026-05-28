@@ -114,7 +114,7 @@ public final class BoarPlayer extends PlayerData {
     }
 
     void serverTick() {
-        if (this.getLatencyUtil().sentQueue().isEmpty()) {
+        if (!this.getLatencyUtil().hasInFlight()) {
             // If acks are pending, the next outbound batch flush emits an NSL covering them — skip the keepalive to avoid an extra wire ping.
             // The BedrockPeer ticks every 50ms so the flush will happen well before any timeout threshold.
             if (this.ackTransport instanceof BoarBatchedAcknowledgmentTransport batched && batched.hasPending()) {

@@ -1,8 +1,6 @@
 package ac.boar.anticheat.ack;
 
-import ac.boar.anticheat.Boar;
 import ac.boar.anticheat.player.BoarPlayer;
-import ac.boar.anticheat.util.LatencyUtil;
 import lombok.RequiredArgsConstructor;
 import org.cloudburstmc.protocol.bedrock.packet.NetworkStackLatencyPacket;
 
@@ -65,20 +63,8 @@ public class BatchAcknowledgmentTransport implements BoarBatchedAcknowledgmentTr
 
     @Override
     public boolean onPingReceived(long id) {
-        final LatencyUtil latencyUtil = this.player.getLatencyUtil();
-        final LatencyUtil.Latency poll = latencyUtil.sentQueue().poll();
-
-        if (poll == null || poll.id() != id) {
-            this.player.kick("Invalid latency id, expected=" + (poll == null ? "none" : poll.id()) + ", actual=" + id);
-            return true;
-        }
-
-        poll.dispatch(this.player);
-        latencyUtil.onLatencyAccepted(poll);
-        latencyUtil.prevAcceptedTime = System.currentTimeMillis();
-        latencyUtil.prevAcceptedLatency = poll;
-
-        return poll.ours();
+        // Let the latency util handle this so that out-of-order NSL responses can still be handled.
+        return this.player.getLatencyUtil().onResponse(id);
     }
 
     public static long nextId() {

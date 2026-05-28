@@ -6,62 +6,35 @@ import ac.boar.anticheat.ack.BoarAcknowledgmentRegistry;
 import ac.boar.anticheat.check.api.Check;
 import ac.boar.anticheat.check.api.impl.PingBasedCheck;
 import ac.boar.anticheat.player.BoarPlayer;
-import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.ToString;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentLinkedDeque;
 
 @RequiredArgsConstructor
 public final class LatencyUtil {
     private final BoarPlayer player;
-    private final Deque<Latency> sentQueue = new ConcurrentLinkedDeque<>();
-    public Latency prevAcceptedLatency;
-    public long prevAcceptedTime = System.currentTimeMillis();
+    private final Map<Long, Latency> pending = new LinkedHashMap<>();
+    private volatile int inFlight = 0;
 
-    public Deque<Latency> sentQueue() {
-        return this.sentQueue;
+    public Latency prevAcceptedLatency;
+    public volatile long prevAcceptedTime = System.currentTimeMillis();
+
+    public boolean hasInFlight() {
+        return this.inFlight > 0;
     }
 
     public void queue(long id, boolean ours) {
-        this.sentQueue.add(new Latency(id, System.currentTimeMillis(), System.nanoTime(), ours, ours ? new ArrayList<>() : null));
+        add(new Latency(id, System.currentTimeMillis(), System.nanoTime(), ours, ours ? new ArrayList<>() : null));
     }
 
-    /**
-     * Append a Latency that already has acknowledgments attached. Used by the batch acknowledger,
-     * which has drained a snapshot of pending acks and assigned them an id atomically before the
-     * NSL packet hits the wire.
-     */
     public void queueWithAcks(long id, List<Acknowledgment> acks) {
-        this.sentQueue.add(new Latency(id, System.currentTimeMillis(), System.nanoTime(), true, new ArrayList<>(acks)));
+        add(new Latency(id, System.currentTimeMillis(), System.nanoTime(), true, new ArrayList<>(acks)));
     }
 
-    /**
-     * Attach an acknowledgment to whatever Latency is currently most-recently-in-flight, or
-     * dispatch inline if none is pending.
-     *
-     * <p>The "attach to last in-flight" semantic is preserved for legacy callers, but new code
-     * should go through {@code BoarPlayer.queueAcknowledgment} which routes to the pending bucket
-     * for batch-time NSL emission.
-     *
-     * <p>Synchronized on the target Latency to keep the null-check + list-create + add atomic with
-     * respect to other writers and with respect to {@link Latency#dispatch} on the channel event
-     * loop.
-     */
-    public void queue(Acknowledgment ack) {
-        Latency last = this.sentQueue.peekLast();
-        if (last == null) {
-            Boar.getInstance().getAcknowledgmentRegistry().dispatch(this.player, ack);
-            return;
-        }
-
-        synchronized (last) {
-            if (last.acknowledgments == null) {
-                last.acknowledgments = new ArrayList<>();
-            }
-            last.acknowledgments.add(ack);
-        }
+    private void add(Latency latency) {
+        this.pending.put(latency.id, latency);
+        this.inFlight = this.pending.size();
     }
 
     public void onLatencyAccepted(Latency latency) {
@@ -74,14 +47,52 @@ public final class LatencyUtil {
         }
     }
 
+    public boolean onResponse(long id) {
+        final Latency match = this.pending.get(id);
+        if (match == null) {
+            return false;
+        }
+
+        final boolean ours = match.ours;
+        int released = 0;
+        int releasedWithAcks = 0;
+        final Iterator<Latency> it = this.pending.values().iterator();
+        while (it.hasNext()) {
+            final Latency head = it.next();
+            it.remove();
+            // Snapshot size must be read before dispatch since it nulls the ack list
+            if (head.acknowledgments != null && !head.acknowledgments.isEmpty()) {
+                releasedWithAcks++;
+            }
+            head.dispatch(this.player);
+            onLatencyAccepted(head);
+            this.prevAcceptedTime = System.currentTimeMillis();
+            this.prevAcceptedLatency = head;
+            released++;
+            if (head == match) {
+                break;
+            }
+        }
+        this.inFlight = this.pending.size();
+
+        return ours;
+    }
+
     @ToString
-    @AllArgsConstructor
     public static final class Latency {
         private final long id;
         private final long ms;
         private final long ns;
         private boolean ours;
         private List<Acknowledgment> acknowledgments;
+
+        public Latency(long id, long ms, long ns, boolean ours, List<Acknowledgment> acknowledgments) {
+            this.id = id;
+            this.ms = ms;
+            this.ns = ns;
+            this.ours = ours;
+            this.acknowledgments = acknowledgments;
+        }
 
         public boolean ours() {
             return this.ours;
