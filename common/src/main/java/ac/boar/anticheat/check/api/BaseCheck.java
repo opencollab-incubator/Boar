@@ -2,6 +2,7 @@ package ac.boar.anticheat.check.api;
 
 import ac.boar.anticheat.Boar;
 import ac.boar.anticheat.player.BoarPlayer;
+import ac.boar.anticheat.violation.Violation;
 import ac.boar.api.anticheat.annotations.CheckInfo;
 import ac.boar.api.anticheat.annotations.Experimental;
 
@@ -53,18 +54,7 @@ public class BaseCheck implements Check {
     @Override
     public void fail(String verbose) {
         this.vl++;
-
-        final StringBuilder builder = new StringBuilder("§3" + getDisplayName() + "§7 failed§6 " + name);
-        if (!this.type.isBlank()) {
-            builder.append(" (").append(type).append(")");
-        }
-
-        if (this.experimental) {
-            builder.append(" §a(Experimental)");
-        }
-
-        builder.append(" §7x").append(vl).append(" ").append(verbose);
-        Boar.getInstance().getAlertManager().alert(builder.toString());
+        Boar.getInstance().getViolationRegistry().dispatch(new Violation(this.player, this, this.vl, verbose));
     }
 
     protected final String getDisplayName() {

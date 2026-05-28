@@ -2,7 +2,9 @@ package ac.boar.anticheat;
 
 import ac.boar.anticheat.ack.BoarAcknowledgmentRegistry;
 import ac.boar.anticheat.alert.AlertManager;
+import ac.boar.anticheat.alert.AlertViolationListener;
 import ac.boar.anticheat.check.api.BoarCheckRegistry;
+import ac.boar.anticheat.violation.BoarViolationRegistry;
 import ac.boar.anticheat.config.Config;
 import ac.boar.anticheat.config.ConfigLoader;
 import ac.boar.anticheat.data.block.BoarBlockStateInst;
@@ -30,6 +32,7 @@ public class Boar {
 
     private final BoarCheckRegistry checkRegistry = new BoarCheckRegistry();
     private final BoarAcknowledgmentRegistry acknowledgmentRegistry = new BoarAcknowledgmentRegistry();
+    private final BoarViolationRegistry violationRegistry = new BoarViolationRegistry();
 
     private BoarPlatform platform;
 
@@ -49,6 +52,8 @@ public class Boar {
 
         this.playerManager = platform.playerManager();
         this.alertManager = new AlertManager();
+        // default alert listener, you can clear the registry and register custom listeners instead
+        this.violationRegistry.register(new AlertViolationListener());
     }
 
     public void terminate(BoarPlatform platform) {
