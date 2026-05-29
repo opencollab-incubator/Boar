@@ -1,3 +1,7 @@
+plugins {
+    `maven-publish`
+}
+
 dependencies {
     api(project(":api"))
     compileOnlyApi(libs.lombok)
@@ -14,4 +18,12 @@ dependencies {
     implementation(libs.fastutil)
 
     implementation(libs.jackson.yaml)
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            from(components["java"])
+        }
+    }
 }
