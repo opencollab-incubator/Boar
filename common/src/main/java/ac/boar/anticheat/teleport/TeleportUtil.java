@@ -58,7 +58,7 @@ public class TeleportUtil {
         packet.setMode(MovePlayerPacket.Mode.TELEPORT);
         packet.setTeleportationCause(MovePlayerPacket.TeleportationCause.BEHAVIOR);
 
-        this.player.getBedrockSession().sendPacket(packet);
+        this.player.getConnection().sendPacket(packet);
         Boar.debug("[movement-debug] sent teleport pos=" + teleport.getPosition() + " lastKnown=" + this.lastKnowValid, Boar.DebugMessage.WARNING);
     }
 
@@ -100,7 +100,7 @@ public class TeleportUtil {
         packet.setPredictionType(player.vehicleData != null ? PredictionType.VEHICLE : PredictionType.PLAYER);
 
         queue(new TeleportCache.Rewind(tick, new Vec3(packet.getPosition()), new Vec3(packet.getDelta()), onGround));
-        this.player.getBedrockSession().sendPacketImmediately(packet);
+        this.player.getConnection().sendPacketImmediately(packet);
         Boar.debug("sent rewind tick=" + tick + " pos=" + packet.getPosition() + " delta=" + packet.getDelta() + " onGround=" + onGround, Boar.DebugMessage.WARNING);
     }
 

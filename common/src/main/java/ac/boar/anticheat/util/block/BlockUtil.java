@@ -18,14 +18,14 @@ public final class BlockUtil {
         updateBlockPacket.setBlockPosition(vector);
         updateBlockPacket.setDefinition(bedrockBlock);
         updateBlockPacket.getFlags().addAll(UpdateBlockPacket.FLAG_ALL_PRIORITY);
-        player.getBedrockSession().sendPacket(updateBlockPacket);
+        player.getConnection().sendPacket(updateBlockPacket);
 
         UpdateBlockPacket updateWaterPacket = new UpdateBlockPacket();
         updateWaterPacket.setDataLayer(1);
         updateWaterPacket.setBlockPosition(vector);
         updateWaterPacket.setDefinition(blockState.isWaterlogged() ? player.mappingInfo.waterDefinition() : player.mappingInfo.airDefinition());
         updateWaterPacket.getFlags().addAll(UpdateBlockPacket.FLAG_ALL_PRIORITY);
-        player.getBedrockSession().sendPacket(updateWaterPacket);
+        player.getConnection().sendPacket(updateWaterPacket);
 
         // Reset the item in hand to prevent "missing" blocks
         player.getInventoryAccessor().updateSlot(player.getInventoryAccessor().heldItemSlot()); // TODO test

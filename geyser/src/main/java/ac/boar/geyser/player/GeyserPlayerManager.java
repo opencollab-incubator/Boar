@@ -10,6 +10,8 @@ import ac.boar.anticheat.player.accessor.InventoryAccessor;
 import ac.boar.anticheat.player.accessor.WorldAccessor;
 import ac.boar.anticheat.player.data.BlockMappingInfo;
 import ac.boar.api.anticheat.model.NetworkSession;
+import ac.boar.protocol.BoarConnection;
+import ac.boar.protocol.CloudburstConnection;
 import ac.boar.geyser.anticheat.player.accessor.GeyserEntityAccessor;
 import ac.boar.geyser.anticheat.player.accessor.GeyserInventoryAccessor;
 import ac.boar.geyser.anticheat.player.accessor.GeyserWorldAccessor;
@@ -43,14 +45,14 @@ public class GeyserPlayerManager extends BoarPlayerManager<GeyserSession> {
     }
 
     @Override
-    protected BedrockServerSession getServerSession(GeyserSession connection) {
+    protected BoarConnection getConnection(GeyserSession connection) {
         try {
             final Field upstream = GeyserSession.class.getDeclaredField("upstream");
             upstream.setAccessible(true);
             final Object session = upstream.get(connection);
             final Field field = UpstreamSession.class.getDeclaredField("session");
             field.setAccessible(true);
-            return (BedrockServerSession) field.get(session);
+            return new CloudburstConnection((BedrockServerSession) field.get(session));
         } catch (Exception e) {
             throw new RuntimeException("Failed to get BedrockServerSession from GeyserSession", e);
         }

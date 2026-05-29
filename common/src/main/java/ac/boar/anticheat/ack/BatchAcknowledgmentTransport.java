@@ -37,7 +37,7 @@ public class BatchAcknowledgmentTransport implements BoarBatchedAcknowledgmentTr
         // at the end of whatever's currently buffered. Without this pre-flush, the inline
         // writeAndFlush below would land the keepalive NSL in BedrockBatchEncoder's queue *before*
         // BoarBatchAcknowledger.flush appends NSL_batch, leaving the keepalive mid-batch.
-        this.player.getBedrockSession().getPeer().getChannel().flush();
+        this.player.getConnection().getChannel().flush();
 
         // fromServer=false marks this NSL as Boar's own for the NetworkLatencyPackets listener observation - the listener flips it to true before it leaves the wire.
         final NetworkStackLatencyPacket packet = new NetworkStackLatencyPacket();
@@ -73,7 +73,7 @@ public class BatchAcknowledgmentTransport implements BoarBatchedAcknowledgmentTr
 
     protected void emitImmediate(NetworkStackLatencyPacket packet) {
         if (!this.player.isClosed()) {
-            this.player.getBedrockSession().sendPacketImmediately(packet);
+            this.player.getConnection().sendPacketImmediately(packet);
         }
     }
 }
