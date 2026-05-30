@@ -17,6 +17,7 @@ import ac.boar.protocol.api.CloudburstPacketEvent;
 import ac.boar.protocol.api.PacketListener;
 import org.cloudburstmc.protocol.bedrock.data.AuthoritativeMovementMode;
 import org.cloudburstmc.protocol.bedrock.data.GameType;
+import org.cloudburstmc.math.vector.Vector3i;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 import org.cloudburstmc.protocol.bedrock.packet.MovementPredictionSyncPacket;
@@ -82,9 +83,10 @@ public class ServerDataPackets implements PacketListener {
             Float height = packet.getMetadata().get(EntityDataTypes.HEIGHT);
             Float width = packet.getMetadata().get(EntityDataTypes.WIDTH);
             Float scale = packet.getMetadata().get(EntityDataTypes.SCALE);
+            Vector3i bedPosition = packet.getMetadata().get(EntityDataTypes.BED_POSITION);
 
             final EnumMap<EntityFlag, Boolean> flags = packet.getMetadata().getFlags();
-            if (flags == null && height == null && width == null && scale == null) {
+            if (flags == null && height == null && width == null && scale == null && bedPosition == null) {
                 return;
             }
 
@@ -101,7 +103,7 @@ public class ServerDataPackets implements PacketListener {
             }
 
             // Dimension seems to be controlled server-side as far as I know (tested with clumsy).
-            player.queueAcknowledgment(new PlayerMetadataAck(width, height, scale, flagsCopy));
+            player.queueAcknowledgment(new PlayerMetadataAck(width, height, scale, flagsCopy, bedPosition));
         }
 
         if (event.getPacket() instanceof UpdateAttributesPacket packet) {

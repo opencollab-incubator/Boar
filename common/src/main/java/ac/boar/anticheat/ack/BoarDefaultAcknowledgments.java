@@ -203,6 +203,10 @@ public final class BoarDefaultAcknowledgments {
         if (ack.scale() != null) {
             player.dimensions = player.dimensions.hardScaled(ack.scale());
         }
+
+        if (ack.bedPosition() != null) {
+            player.bedPosition = ack.bedPosition().equals(Vector3i.ZERO) ? null : ack.bedPosition();
+        }
     }
 
     private static void handleUpdateAttributes(BoarPlayer player, UpdateAttributesAck ack) {

@@ -20,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import org.cloudburstmc.math.vector.Vector2f;
 import org.cloudburstmc.math.vector.Vector3f;
+import org.cloudburstmc.math.vector.Vector3i;
 import org.cloudburstmc.protocol.bedrock.data.Ability;
 import org.cloudburstmc.protocol.bedrock.data.GameType;
 import org.cloudburstmc.protocol.bedrock.data.InputMode;
@@ -157,6 +158,8 @@ public class PlayerData {
     public boolean scaffoldDescend;
 
     public VehicleData vehicleData = null;
+
+    public Vector3i bedPosition = null;
 
     public int tickSinceBlockResync;
 
