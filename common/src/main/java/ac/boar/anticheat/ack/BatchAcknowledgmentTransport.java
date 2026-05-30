@@ -5,10 +5,12 @@ import lombok.RequiredArgsConstructor;
 import org.cloudburstmc.protocol.bedrock.packet.NetworkStackLatencyPacket;
 
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicLong;
 
 @RequiredArgsConstructor
 public class BatchAcknowledgmentTransport implements BoarBatchedAcknowledgmentTransport {
+    private static final AtomicLong ID_COUNTER = new AtomicLong();
+
     protected final BoarPlayer player;
     private final PendingAckBucket bucket = new PendingAckBucket();
 
@@ -68,7 +70,8 @@ public class BatchAcknowledgmentTransport implements BoarBatchedAcknowledgmentTr
     }
 
     public static long nextId() {
-        return ThreadLocalRandom.current().nextLong(-5000000L, 5000000L);
+        // we can use ordered IDs here since randomization doesn't really help with anything
+        return Math.floorMod(ID_COUNTER.getAndIncrement(), 1_000_000_000L);
     }
 
     protected void emitImmediate(NetworkStackLatencyPacket packet) {
