@@ -227,6 +227,19 @@ public final class BoarDefaultAcknowledgments {
             for (AttributeModifierData mod : data.getModifiers()) {
                 attribute.addTemporaryModifier(mod);
             }
+
+            if (Boar.getConfig() != null && Boar.getConfig().debugMode()) {
+                final StringBuilder mods = new StringBuilder();
+                for (AttributeModifierData mod : data.getModifiers()) {
+                    mods.append(' ').append(mod.getOperation()).append('=').append(mod.getAmount());
+                }
+                Boar.debug("[attribute-debug] name=" + data.getName()
+                        + " wireValue=" + data.getValue()
+                        + " wireDefault=" + data.getDefaultValue()
+                        + " wireMin=" + data.getMinimum() + " wireMax=" + data.getMaximum()
+                        + " modifiers=[" + mods + " ]"
+                        + " -> boarBase=" + attribute.getBaseValue() + " boarGetValue=" + attribute.getValue(), Boar.DebugMessage.INFO);
+            }
         }
     }
 

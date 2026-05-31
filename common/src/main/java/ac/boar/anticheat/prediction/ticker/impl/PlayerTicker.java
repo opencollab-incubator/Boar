@@ -3,7 +3,9 @@ package ac.boar.anticheat.prediction.ticker.impl;
 import ac.boar.anticheat.data.Fluid;
 import ac.boar.anticheat.data.FluidState;
 import ac.boar.anticheat.player.BoarPlayer;
+import ac.boar.anticheat.prediction.MovementDebug;
 import ac.boar.anticheat.util.MathUtil;
+import ac.boar.anticheat.util.math.Vec3;
 import org.cloudburstmc.protocol.bedrock.data.PlayerAuthInputData;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 
@@ -37,6 +39,7 @@ public class PlayerTicker extends LivingTicker {
     @Override
     protected void travel() {
         if (player.getFlagTracker().has(EntityFlag.SWIMMING)) {
+            final Vec3 velBeforeSwim = MovementDebug.enabled() ? player.velocity.clone() : null;
             float d = MathUtil.getRotationVector(player.pitch, player.yaw).y;
 
             // Seems to be the case, on JE they check for fluid state 0.9 blocks up to prevent player from resurfacing when swimming
@@ -55,6 +58,9 @@ public class PlayerTicker extends LivingTicker {
             if (player.unvalidatedTickEnd.y == 0 && player.ticksSinceSwimming > 0 && player.ticksSinceSwimming < 10 && player.getInputData().contains(PlayerAuthInputData.JUMPING)) {
                 player.velocity.y = 0;
             }
+
+            MovementDebug.log(player, "SWIM", "rotY=" + d + " velBefore=" + MovementDebug.vec(velBeforeSwim)
+                    + " velAfter=" + MovementDebug.vec(player.velocity) + " ticksSinceSwimming=" + player.ticksSinceSwimming);
         }
         super.travel();
     }

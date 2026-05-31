@@ -1,5 +1,6 @@
 package ac.boar.anticheat.packets.input.teleport;
 
+import ac.boar.anticheat.Boar;
 import ac.boar.anticheat.data.input.PredictionData;
 import ac.boar.anticheat.data.input.TickData;
 import ac.boar.anticheat.packets.input.legacy.LegacyAuthInputPackets;
@@ -113,6 +114,11 @@ public class TeleportHandler {
 
         // Keep running prediction until we catch up with the player current tick.
         long currentTick = rewind.getTick();
+        final long minTick = player.tick - Boar.getConfig().rewindHistory();
+        if (currentTick < minTick) {
+            currentTick = minTick;
+        }
+
         while (currentTick != player.tick) {
             if (currentTick != rewind.getTick() && player.position.distanceTo(player.unvalidatedPosition) > player.getMaxOffset()) {
                 player.unvalidatedPosition = player.position.clone();

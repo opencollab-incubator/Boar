@@ -7,6 +7,7 @@ import ac.boar.anticheat.data.effect.Effect;
 import ac.boar.anticheat.data.block.BoarBlockState;
 import ac.boar.anticheat.data.enchantment.Enchantment;
 import ac.boar.anticheat.player.BoarPlayer;
+import ac.boar.anticheat.prediction.MovementDebug;
 import ac.boar.anticheat.prediction.engine.base.PredictionEngine;
 import ac.boar.anticheat.prediction.engine.impl.GlidingPredictionEngine;
 import ac.boar.anticheat.prediction.engine.impl.GroundAndAirPredictionEngine;
@@ -70,6 +71,13 @@ public class LivingTicker extends EntityTicker {
 
         this.applyInput();
 
+        if (MovementDebug.enabled()) {
+            MovementDebug.log(player, "AI-STEP", "afterInput input=" + MovementDebug.vec(player.input)
+                    + " velAfterClean=" + MovementDebug.vec(player.velocity)
+                    + " frictionInfluencedSpeed=" + player.getFrictionInfluencedSpeed(player.onGround
+                            ? player.compensatedWorld.getBlockState(player.getBlockPosBelowThatAffectsMyMovement(), 0).getFriction() : 1.0f));
+        }
+
         // Prevent player from "elytra bouncing".
         if (player.getFlagTracker().has(EntityFlag.GLIDING) && player.onGround && player.getInputData().contains(PlayerAuthInputData.START_JUMPING)) {
             player.getTeleportUtil().rewind(player.tick - 1);
@@ -92,12 +100,19 @@ public class LivingTicker extends EntityTicker {
             }
         }
 
+        final Vec3 velBeforeJump = MovementDebug.enabled() ? player.velocity.clone() : null;
         if (inScaffolding && player.unvalidatedPosition.subtract(player.prevUnvalidatedPosition).y > 0) {
             if (player.getInputData().contains(PlayerAuthInputData.JUMPING) || player.getInputData().contains(PlayerAuthInputData.ASCEND_BLOCK)) {
                 player.velocity.y = 0.15F;
             }
         } else {
             player.velocity = player.jump(player.velocity);
+        }
+
+        if (MovementDebug.enabled()) {
+            MovementDebug.log(player, "JUMP", "inScaffolding=" + inScaffolding + " onScaffolding=" + onScaffolding
+                    + " jumpPower=" + player.getJumpPower() + " jumpBoost=" + player.getJumpBoostPower()
+                    + " velBefore=" + MovementDebug.vec(velBeforeJump) + " velAfter=" + MovementDebug.vec(player.velocity));
         }
 
         boolean descending = player.getInputData().contains(PlayerAuthInputData.SNEAKING) || player.getInputData().contains(PlayerAuthInputData.DESCEND_BLOCK);
@@ -112,6 +127,11 @@ public class LivingTicker extends EntityTicker {
             if (onScaffolding && Math.abs(player.unvalidatedTickEnd.y) - 0.15F < 0.01F) {
                 player.velocity.y = -0.15F;
                 player.scaffoldDescend = true;
+            }
+
+            if (MovementDebug.enabled()) {
+                MovementDebug.log(player, "DESCEND", "powderSnow=" + (state.is(Blocks.POWDER_SNOW) || player.getInBlockState().is(Blocks.POWDER_SNOW))
+                        + " scaffoldDescend=" + player.scaffoldDescend + " velY=" + player.velocity.y);
             }
         }
 
@@ -179,8 +199,11 @@ public class LivingTicker extends EntityTicker {
 
     protected void travel() {
         if (player.isInLava() || player.touchingWater) {
+            MovementDebug.log(player, "TRAVEL", "engine=FLUID (" + (player.touchingWater ? "WATER" : "LAVA")
+                    + ") velIn=" + MovementDebug.vec(player.velocity));
             this.travelInFluid();
         } else if (player.getFlagTracker().has(EntityFlag.GLIDING)) {
+            MovementDebug.log(player, "TRAVEL", "engine=GLIDING velIn=" + MovementDebug.vec(player.velocity));
 //            if (this.onClimbable()) {
 //                this.travelInAir(vec3);
 //                this.stopFallFlying();
@@ -188,6 +211,8 @@ public class LivingTicker extends EntityTicker {
 //            }
 
             player.velocity = new GlidingPredictionEngine(player).travel(player.velocity);
+            MovementDebug.log(player, "TRAVEL", "GLIDING velAfterEngine=" + MovementDebug.vec(player.velocity)
+                    + " glideBoostTicks=" + player.glideBoostTicks);
             this.doSelfMove(player.velocity.clone()); // this.move(MoverType.SELF, this.getDeltaMovement());
         } else {
             travelInAir();
@@ -197,8 +222,11 @@ public class LivingTicker extends EntityTicker {
     private void travelInAir() {
         final PredictionEngine engine = new GroundAndAirPredictionEngine(player);
         player.velocity = engine.travel(player.velocity);
+        MovementDebug.log(player, "TRAVEL", "GROUND_AIR velAfterEngine(input applied)=" + MovementDebug.vec(player.velocity)
+                + " gravity=" + player.getEffectiveGravity());
         this.doSelfMove(player.velocity.clone()); // this.move(MoverType.SELF, this.getDeltaMovement());
         engine.finalizeMovement();
+        MovementDebug.log(player, "FINALIZE", "GROUND_AIR velAfterFinalize(gravity+friction)=" + MovementDebug.vec(player.velocity));
     }
 
     private void travelInFluid() {
@@ -210,12 +238,18 @@ public class LivingTicker extends EntityTicker {
             engine = new LavaPredictionEngine(player);
         }
         player.velocity = engine.travel(player.velocity);
+        MovementDebug.log(player, "TRAVEL", (player.touchingWater ? "WATER" : "LAVA")
+                + " velAfterEngine(input applied)=" + MovementDebug.vec(player.velocity)
+                + " hasDepthStrider=" + player.hasDepthStrider);
         this.doSelfMove(player.velocity.clone());
         engine.finalizeMovement();
+        MovementDebug.log(player, "FINALIZE", (player.touchingWater ? "WATER" : "LAVA")
+                + " velAfterFinalize(gravity+friction)=" + MovementDebug.vec(player.velocity));
 
         Vec3 vec33 = player.velocity;
         if (player.horizontalCollision && player.doesNotCollide(vec33.x, vec33.y + 0.6f - player.position.y + d, vec33.z)) {
             player.velocity.y = 0.3F;
+            MovementDebug.log(player, "FINALIZE", "FLUID climb-out bump velY->0.3");
         }
     }
 }

@@ -124,6 +124,7 @@ public class ServerDataPackets implements PacketListener {
             }
 
             if (packet.getSpeed() != player.getSpeed()) {
+                Boar.debug("[attribute-debug] MovementPredictionSync clientSpeed=" + packet.getSpeed() + " boarSpeed=" + player.getSpeed() + " -> refreshAttributesToSelf()", Boar.DebugMessage.WARNING);
                 player.getEntity().refreshAttributesToSelf();
                 // Boar.getInstance().getAlertManager().alert("Speed doesn't match!");
             }

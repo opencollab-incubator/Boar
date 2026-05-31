@@ -5,6 +5,7 @@ import ac.boar.anticheat.data.Fluid;
 import ac.boar.anticheat.data.FluidState;
 import ac.boar.anticheat.data.block.BoarBlockState;
 import ac.boar.anticheat.player.BoarPlayer;
+import ac.boar.anticheat.prediction.MovementDebug;
 import ac.boar.anticheat.prediction.engine.data.VectorType;
 import ac.boar.anticheat.util.MathUtil;
 import ac.boar.anticheat.util.math.Box;
@@ -101,6 +102,8 @@ public class EntityTicker {
         if (vec3.lengthSquared() > 0.0D) {
             vec3 = vec3.normalize().multiply(speed);
             player.velocity = player.velocity.add(vec3);
+            MovementDebug.log(player, "FLUID-PUSH", tag + " push=" + MovementDebug.vec(vec3)
+                    + " velAfterPush=" + MovementDebug.vec(player.velocity) + " maxFluidHeight=" + maxFluidHeight);
         }
 
         if (tag == Fluid.LAVA) {
@@ -135,6 +138,8 @@ public class EntityTicker {
         }
 
         if (player.stuckSpeedMultiplier.lengthSquared() > 1.0E-7) {
+            MovementDebug.log(player, "COLLISION", "stuckSpeedMultiplier=" + MovementDebug.vec(player.stuckSpeedMultiplier)
+                    + " applied, velocity zeroed, move scaled to=" + MovementDebug.vec(vec3.multiply(player.stuckSpeedMultiplier)));
             vec3 = vec3.multiply(player.stuckSpeedMultiplier);
             player.stuckSpeedMultiplier = Vec3.ZERO;
             player.velocity = Vec3.ZERO.clone();
@@ -144,11 +149,25 @@ public class EntityTicker {
         Vec3 vec32 = Collider.collide(player, vec3 = Collider.maybeBackOffFromEdge(player, vec3));
         player.setPos(player.position.add(vec32));
 
+        if (MovementDebug.enabled() && (oldVec3.x != vec3.x || oldVec3.z != vec3.z)) {
+            MovementDebug.log(player, "COLLISION", "edge back-off: requested=" + MovementDebug.vec(oldVec3)
+                    + " afterBackOff=" + MovementDebug.vec(vec3));
+        }
+
         boolean bl = !MathUtil.equal(vec3.x, vec32.x);
         boolean bl2 = !MathUtil.equal(vec3.z, vec32.z);
         player.horizontalCollision = bl || bl2;
         player.verticalCollision = vec3.y != vec32.y;
         player.onGround = player.verticalCollision && vec3.y < 0.0;
+
+        if (MovementDebug.enabled()) {
+            MovementDebug.log(player, "COLLISION", "wanted=" + MovementDebug.vec(vec3)
+                    + " collided=" + MovementDebug.vec(vec32)
+                    + " collidedX=" + bl + " collidedZ=" + bl2
+                    + " hCollision=" + player.horizontalCollision + " vCollision=" + player.verticalCollision
+                    + " onGround=" + player.onGround
+                    + " newPos=" + MovementDebug.vec(player.position));
+        }
 
         // Hacks for when the player is taking zero velocity but still on ground next tick for whatever reason.
         // They will claim to be not colliding vertically this tick but still act like they're on ground next tick, nice.
@@ -183,5 +202,12 @@ public class EntityTicker {
 
         player.beforeCollision = vec3.clone();
         player.afterCollision = vec32.clone();
+
+        if (MovementDebug.enabled()) {
+            MovementDebug.log(player, "COLLISION", "post-adjust velocity=" + MovementDebug.vec(player.velocity)
+                    + " nearBamboo=" + player.nearBamboo
+                    + " beforeCollision=" + MovementDebug.vec(player.beforeCollision)
+                    + " afterCollision=" + MovementDebug.vec(player.afterCollision));
+        }
     }
 }
