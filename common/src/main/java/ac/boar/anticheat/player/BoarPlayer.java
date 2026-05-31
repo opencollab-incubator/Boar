@@ -156,6 +156,8 @@ public final class BoarPlayer extends PlayerData {
         this.ackTransport.attach(ack);
     }
 
+    public boolean loggedMovementExempt;
+
     public boolean isMovementExempted() {
         try { // Ye, well whatever.
             if (this.session.hasPermission("boar.exempt")) {
@@ -164,6 +166,16 @@ public final class BoarPlayer extends PlayerData {
         } catch (Exception ignored) {}
 
         return this.abilities.contains(Ability.MAY_FLY) || this.getFlagTracker().isFlying() || this.getFlagTracker().isWasFlying();
+    }
+
+    /** Debug breakdown of which isMovementExempted() condition(s) are currently true. */
+    public String movementExemptReason() {
+        boolean perm = false;
+        try { perm = this.session.hasPermission("boar.exempt"); } catch (Exception ignored) {}
+        return "perm=" + perm
+                + " mayFly=" + this.abilities.contains(Ability.MAY_FLY)
+                + " flying=" + this.getFlagTracker().isFlying()
+                + " wasFlying=" + this.getFlagTracker().isWasFlying();
     }
 
     public void kick(String reason) {
@@ -191,6 +203,9 @@ public final class BoarPlayer extends PlayerData {
     public void postTick() {
         this.glideBoostTicks--; // Glide boost should tick regardless if the player is gliding or not!
         this.getItemUseTracker().postTick();
+        // Decay wasFlying to the live flying state so the "just stopped flying" exemption lasts exactly
+        // one tick (the STOP_FLYING tick) instead of sticking on indefinitely. See FlagTracker#tickFlying.
+        this.getFlagTracker().tickFlying();
     }
 
     public float getYOffset() {

@@ -21,6 +21,10 @@ public final class FlagTracker {
         this.flying = flying;
     }
 
+    public void tickFlying() {
+        this.wasFlying = this.flying;
+    }
+
     public void clear() {
         this.flags.clear();
     }

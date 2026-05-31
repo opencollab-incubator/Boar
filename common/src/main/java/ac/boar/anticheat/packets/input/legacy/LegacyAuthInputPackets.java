@@ -1,5 +1,6 @@
 package ac.boar.anticheat.packets.input.legacy;
 
+import ac.boar.anticheat.Boar;
 import ac.boar.anticheat.check.api.Check;
 import ac.boar.anticheat.check.api.impl.OffsetHandlerCheck;
 import ac.boar.anticheat.compensated.cache.container.ContainerCache;
@@ -159,8 +160,14 @@ public class LegacyAuthInputPackets {
                 case START_SWIMMING -> player.getFlagTracker().set(EntityFlag.SWIMMING, true);
                 case STOP_SWIMMING -> player.getFlagTracker().set(EntityFlag.SWIMMING, false);
 
-                case START_FLYING -> player.getFlagTracker().setFlying(player.abilities.contains(Ability.MAY_FLY) || player.abilities.contains(Ability.FLYING));
-                case STOP_FLYING -> player.getFlagTracker().setFlying(false);
+                case START_FLYING -> {
+                    player.getFlagTracker().setFlying(player.abilities.contains(Ability.MAY_FLY) || player.abilities.contains(Ability.FLYING));
+                    Boar.debug("[fly-debug] input=START_FLYING tick=" + player.tick + " -> flying=" + player.getFlagTracker().isFlying() + " (mayFly=" + player.abilities.contains(Ability.MAY_FLY) + ")", Boar.DebugMessage.INFO);
+                }
+                case STOP_FLYING -> {
+                    player.getFlagTracker().setFlying(false);
+                    Boar.debug("[fly-debug] input=STOP_FLYING tick=" + player.tick + " -> flying=" + player.getFlagTracker().isFlying() + " wasFlying=" + player.getFlagTracker().isWasFlying(), Boar.DebugMessage.INFO);
+                }
 
                 case STOP_SPIN_ATTACK -> {
                     if (player.dirtySpinStop) {

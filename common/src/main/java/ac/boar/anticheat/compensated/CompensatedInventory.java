@@ -80,6 +80,9 @@ public class CompensatedInventory {
             }
 
             Enchantment bedrockEnchantment = Enchantment.byId(nbtMap.getShort("id"));
+            if (bedrockEnchantment == null) {
+                continue; // not a Boar-tracked enchantment so the provider returns null for those
+            }
             enchantmentMap.put(bedrockEnchantment, (int) nbtMap.getShort("lvl"));
         }
 

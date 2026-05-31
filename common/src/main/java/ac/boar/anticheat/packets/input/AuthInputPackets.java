@@ -81,7 +81,13 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
             return;
         }
 
-        if (player.isMovementExempted()) {
+        boolean movementExempt = player.isMovementExempted();
+        if (movementExempt != player.loggedMovementExempt) {
+            Boar.debug("[fly-debug] movement-exempt " + (movementExempt ? "ENTER" : "EXIT") + " tick=" + player.tick + " " + player.movementExemptReason(), Boar.DebugMessage.INFO);
+            player.loggedMovementExempt = movementExempt;
+        }
+
+        if (movementExempt) {
             player.setPos(player.unvalidatedPosition);
 
             // Clear velocity out manually since we haven't handled em.

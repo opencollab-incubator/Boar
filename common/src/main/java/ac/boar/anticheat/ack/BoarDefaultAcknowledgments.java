@@ -175,6 +175,12 @@ public final class BoarDefaultAcknowledgments {
             player.abilities.addAll(layer.getAbilityValues());
         }
         player.getFlagTracker().setFlying(player.abilities.contains(Ability.FLYING) || player.abilities.contains(Ability.MAY_FLY) && player.getFlagTracker().isFlying());
+        Boar.debug("[fly-debug] abilities-ack tick=" + player.tick
+                + " mayFly=" + player.abilities.contains(Ability.MAY_FLY)
+                + " fly=" + player.abilities.contains(Ability.FLYING)
+                + " noClip=" + player.abilities.contains(Ability.NO_CLIP)
+                + " -> flying=" + player.getFlagTracker().isFlying()
+                + " wasFlying=" + player.getFlagTracker().isWasFlying(), Boar.DebugMessage.INFO);
     }
 
     private static void handlePlayerMetadata(BoarPlayer player, PlayerMetadataAck ack) {
