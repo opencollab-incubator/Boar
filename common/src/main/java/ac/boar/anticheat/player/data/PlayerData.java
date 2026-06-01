@@ -80,8 +80,10 @@ public class PlayerData {
     @Getter
     private final FlagTracker flagTracker = new FlagTracker();
 
+    public float sneakingAttributeModifier;
+
     public int glideBoostTicks;
-    public int ticksSinceSwimming, ticksSinceCrawling;
+    public int ticksSinceSwimming, ticksSinceCrawling, ticksSinceCanSlowdown;
     private boolean serverSprinting;
     private boolean serverSprintingApplied = true;
     private boolean serverUpdatedMovementSpeed;

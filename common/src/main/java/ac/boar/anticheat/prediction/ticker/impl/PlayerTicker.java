@@ -1,13 +1,17 @@
 package ac.boar.anticheat.prediction.ticker.impl;
 
+import ac.boar.anticheat.compensated.CompensatedInventory;
 import ac.boar.anticheat.data.Fluid;
 import ac.boar.anticheat.data.FluidState;
+import ac.boar.anticheat.data.enchantment.Enchantment;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.prediction.MovementDebug;
 import ac.boar.anticheat.util.MathUtil;
 import ac.boar.anticheat.util.math.Vec3;
 import org.cloudburstmc.protocol.bedrock.data.PlayerAuthInputData;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
+
+import java.util.Map;
 
 public class PlayerTicker extends LivingTicker {
     public PlayerTicker(BoarPlayer player) {
@@ -18,8 +22,22 @@ public class PlayerTicker extends LivingTicker {
     public void applyInput() {
         super.applyInput();
         boolean sneaking = player.getFlagTracker().has(EntityFlag.SNEAKING) || player.getInputData().contains(PlayerAuthInputData.STOP_SNEAKING);
-        if ((sneaking || player.ticksSinceCrawling > 0) && !player.getFlagTracker().has(EntityFlag.GLIDING) && !player.isInLava() && !player.touchingWater) {
-            player.input = player.input.multiply(0.3F);
+        if ((sneaking || player.ticksSinceCrawling > 0 || player.getFlagTracker().has(EntityFlag.GLIDING)) && !player.isInLava() && !player.touchingWater) {
+            player.ticksSinceCanSlowdown++;
+
+            float sneakingMultiplier = 0.3f;
+
+            // Player don't get affected by swift sneak the first 2 ticks.
+            if (player.ticksSinceCanSlowdown > 2) {
+                final Map<Enchantment, Integer> enchantments = CompensatedInventory.getEnchantments(player.compensatedInventory.armorContainer.get(2).getData());
+                if (enchantments.containsKey(Enchantment.SWIFT_SNEAK)) {
+                    sneakingMultiplier += player.sneakingAttributeModifier;
+                }
+            }
+
+            player.input = player.input.multiply(Math.clamp(sneakingMultiplier, 0, 1));
+        } else {
+            player.ticksSinceCanSlowdown = 0;
         }
 
         if (player.getFlagTracker().has(EntityFlag.USING_ITEM) && !player.getItemUseTracker().isUsingSpear()) {
