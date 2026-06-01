@@ -35,7 +35,7 @@ public class PlayerTicker extends LivingTicker {
                 }
             }
 
-            player.input = player.input.multiply(Math.clamp(sneakingMultiplier, 0, 1));
+            player.input = player.input.multiply(MathUtil.clamp(sneakingMultiplier, 0, 1));
         } else {
             player.ticksSinceCanSlowdown = 0;
         }
