@@ -41,25 +41,14 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
         // -------------------------------------------------------------------------
         // Timer check start here.
         final long claimedTick = packet.getTick();
-        if (claimedTick < 0 || claimedTick <= player.tick) { // Impossible, no way this can happen.
+
+        if (claimedTick < 0) { // Impossible, no way this can happen.
             player.kick("Impossible tick id=" + claimedTick);
             return;
         }
 
-        // This is to prevent player skipping (more) ticks (than they're supposed to) after respawn to fuck up our rewind system.
-        long distanceSincePrev = System.currentTimeMillis() - player.sinceAuthInput;
-        if (distanceSincePrev < 50L) {
-            player.tick++;
-        } else {
-            player.tick += Math.min(claimedTick - player.tick, distanceSincePrev / 30L);
-        }
-
+        player.tick = claimedTick;
         player.sinceAuthInput = System.currentTimeMillis();
-
-        if (player.tick != packet.getTick()) {
-            player.kick("Invalid tick id, predicted=" + player.tick + ", actual=" + packet.getTick());
-            return;
-        }
 
         final Timer timer = (Timer) player.getCheckHolder().get(Timer.class);
         if (timer != null && timer.isInvalid()) {
