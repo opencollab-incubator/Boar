@@ -42,8 +42,7 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
         // Timer check start here.
         final long claimedTick = packet.getTick();
 
-        // TODO: Pretty sure this has happened before on production for multiple players (next PAI tick being lower than previous), look to review later
-        if (claimedTick < 0 || claimedTick <= player.tick) { // Impossible, no way this can happen.
+        if (claimedTick <= 0) { // Impossible, no way this can happen.
             player.kick("Impossible tick id=" + claimedTick);
             return;
         }

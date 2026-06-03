@@ -6,11 +6,15 @@ import ac.boar.anticheat.violation.Violation;
 import ac.boar.api.anticheat.annotations.CheckInfo;
 import ac.boar.api.anticheat.annotations.Experimental;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 public class BaseCheck implements Check {
     protected final BoarPlayer player;
 
     private final String name, type;
     private final boolean experimental;
+    private final Map<String, BaseCheck> typedChecks = new ConcurrentHashMap<>();
     private int vl = 0;
 
     public BaseCheck(BoarPlayer player) {
@@ -55,6 +59,20 @@ public class BaseCheck implements Check {
     public void fail(String verbose) {
         this.vl++;
         Boar.getInstance().getViolationRegistry().dispatch(new Violation(this.player, this, this.vl, verbose));
+    }
+
+    public void fail(Enum<?> type, String verbose) {
+        fail(type == null ? null : type.name(), verbose);
+    }
+
+    public void fail(String type, String verbose) {
+        String typedKey = type == null ? "" : type;
+        String disabledName = typedKey.isEmpty() ? this.name : this.name + "-" + typedKey;
+        if (Boar.getConfig().disabledChecks().contains(disabledName)) {
+            return;
+        }
+
+        typedChecks.computeIfAbsent(typedKey, key -> new BaseCheck(this.player, this.name, key, this.experimental)).fail(verbose);
     }
 
     protected final String getDisplayName() {
