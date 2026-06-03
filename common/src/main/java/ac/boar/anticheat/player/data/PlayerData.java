@@ -25,8 +25,6 @@ import org.cloudburstmc.protocol.bedrock.data.Ability;
 import org.cloudburstmc.protocol.bedrock.data.GameType;
 import org.cloudburstmc.protocol.bedrock.data.InputMode;
 import org.cloudburstmc.protocol.bedrock.data.PlayerAuthInputData;
-import org.cloudburstmc.protocol.bedrock.data.attribute.AttributeModifierData;
-import org.cloudburstmc.protocol.bedrock.data.attribute.AttributeOperation;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
 
@@ -39,9 +37,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 @RequiredArgsConstructor
 public class PlayerData {
-    private final static AttributeModifierData SPRINTING_SPEED_BOOST = new AttributeModifierData("D208FC00-42AA-4AAD-9276-D5446530DE43",
-            "Sprinting speed boost",
-            0.3F, AttributeOperation.MULTIPLY_TOTAL, 2, false);
+    private static final float SPRINTING_SPEED_MULTIPLIER = 1.3F;
 
     public final static float JUMP_HEIGHT = 0.42F;
     public final static float STEP_HEIGHT = 0.6F;
@@ -80,6 +76,9 @@ public class PlayerData {
 
     public int glideBoostTicks;
     public int ticksSinceSwimming, ticksSinceCrawling;
+    private boolean serverSprinting;
+    private boolean serverSprintingApplied = true;
+    private boolean serverUpdatedMovementSpeed;
 
     public boolean doingInventoryAction;
     public AtomicLong desyncedFlag = new AtomicLong(-1);
@@ -170,16 +169,61 @@ public class PlayerData {
 
     public final void setSprinting(boolean sprinting) {
         this.getFlagTracker().set(EntityFlag.SPRINTING, sprinting);
-        final AttributeInstance lv = this.attributes.get(Attribute.MOVEMENT.getIdentifier());
-        if (lv == null) {
-            // wtf?
+    }
+
+    public final void setServerSprinting(boolean sprinting) {
+        this.serverSprinting = sprinting;
+        this.serverSprintingApplied = false;
+    }
+
+    public final void updateSprintingState(boolean startSprinting, boolean stopSprinting) {
+        boolean needsSpeedAdjusted = false;
+
+        if (startSprinting && stopSprinting) {
+            this.setSprinting(false);
+            needsSpeedAdjusted = true;
+        } else if (!startSprinting && !stopSprinting && !this.serverSprintingApplied && this.serverSprinting != this.getFlagTracker().has(EntityFlag.SPRINTING)) {
+            this.setSprinting(this.serverSprinting);
+        } else if (startSprinting) {
+            this.setSprinting(true);
+            needsSpeedAdjusted = true;
+        } else if (stopSprinting) {
+            this.setSprinting(false);
+            needsSpeedAdjusted = !this.serverUpdatedMovementSpeed;
+        }
+
+        this.serverSprintingApplied = true;
+
+        if (needsSpeedAdjusted) {
+            this.updateMovementSpeedFromSprinting();
+        }
+    }
+
+    public final void setMovementSpeedFromServer(float value, float defaultValue) {
+        final AttributeInstance attribute = this.attributes.get(Attribute.MOVEMENT.getIdentifier());
+        if (attribute == null) {
             return;
         }
 
-        lv.removeModifier(SPRINTING_SPEED_BOOST.getId());
-        if (sprinting) {
-            lv.addTemporaryModifier(SPRINTING_SPEED_BOOST);
+        attribute.clearModifiers();
+        attribute.setBaseValue(defaultValue);
+        attribute.setValue(value);
+        this.serverUpdatedMovementSpeed = true;
+    }
+
+    private void updateMovementSpeedFromSprinting() {
+        final AttributeInstance attribute = this.attributes.get(Attribute.MOVEMENT.getIdentifier());
+        if (attribute == null) {
+            return;
         }
+
+        float movementSpeed = attribute.getBaseValue();
+        if (this.getFlagTracker().has(EntityFlag.SPRINTING)) {
+            movementSpeed *= SPRINTING_SPEED_MULTIPLIER;
+        }
+
+        attribute.setValue(movementSpeed);
+        this.serverUpdatedMovementSpeed = false;
     }
 
     public boolean isInLava() {

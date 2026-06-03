@@ -1,7 +1,6 @@
 package ac.boar.anticheat.data.vanilla;
 
 import lombok.Getter;
-import lombok.Setter;
 import org.cloudburstmc.protocol.bedrock.data.attribute.AttributeModifierData;
 import org.cloudburstmc.protocol.bedrock.data.attribute.AttributeOperation;
 
@@ -14,7 +13,6 @@ import java.util.Map;
 public class AttributeInstance {
     private float baseValue;
 
-    @Setter
     private float value;
     private boolean dirty = true;
 
@@ -31,6 +29,11 @@ public class AttributeInstance {
 
         this.baseValue = baseValue;
         this.setDirty();
+    }
+
+    public void setValue(float value) {
+        this.value = value;
+        this.dirty = false;
     }
 
     public void clearModifiers() {

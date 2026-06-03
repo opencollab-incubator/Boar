@@ -33,6 +33,7 @@ import ac.boar.anticheat.compensated.cache.container.impl.TradeContainerCache;
 import ac.boar.anticheat.compensated.cache.entity.EntityCache;
 import ac.boar.anticheat.data.EntityDimensions;
 import ac.boar.anticheat.data.inventory.ItemCache;
+import ac.boar.anticheat.data.vanilla.Attribute;
 import ac.boar.anticheat.data.vanilla.AttributeInstance;
 import ac.boar.anticheat.data.vanilla.StatusEffect;
 import ac.boar.anticheat.player.BoarPlayer;
@@ -46,6 +47,7 @@ import org.cloudburstmc.protocol.bedrock.data.Ability;
 import org.cloudburstmc.protocol.bedrock.data.AbilityLayer;
 import org.cloudburstmc.protocol.bedrock.data.AttributeData;
 import org.cloudburstmc.protocol.bedrock.data.attribute.AttributeModifierData;
+import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 import org.cloudburstmc.protocol.bedrock.data.inventory.CreativeItemData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.crafting.recipe.MultiRecipeData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.crafting.recipe.RecipeData;
@@ -185,6 +187,7 @@ public final class BoarDefaultAcknowledgments {
 
     private static void handlePlayerMetadata(BoarPlayer player, PlayerMetadataAck ack) {
         if (ack.flags() != null) {
+            player.setServerSprinting(ack.flags().contains(EntityFlag.SPRINTING));
             player.getFlagTracker().set(player, ack.flags());
         }
 
@@ -224,6 +227,11 @@ public final class BoarDefaultAcknowledgments {
             final AttributeInstance attribute = player.attributes.get(data.getName());
             if (attribute == null) {
                 return;
+            }
+
+            if (data.getName().equals(Attribute.MOVEMENT.getIdentifier())) {
+                player.setMovementSpeedFromServer(data.getValue(), data.getDefaultValue());
+                continue;
             }
 
             attribute.clearModifiers();

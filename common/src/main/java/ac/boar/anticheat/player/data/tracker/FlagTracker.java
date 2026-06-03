@@ -34,7 +34,7 @@ public final class FlagTracker {
     }
 
     public void set(final BoarPlayer player, final Set<EntityFlag> flags, boolean server) {
-        boolean sneaking = this.has(EntityFlag.SNEAKING), swimming = this.has(EntityFlag.SWIMMING);
+        boolean sneaking = this.has(EntityFlag.SNEAKING), swimming = this.has(EntityFlag.SWIMMING), sprinting = this.has(EntityFlag.SPRINTING);
 
         this.clear();
         this.flags.addAll(flags);
@@ -42,6 +42,7 @@ public final class FlagTracker {
         if (server) {
             this.set(EntityFlag.SNEAKING, sneaking);
             this.set(EntityFlag.SWIMMING, swimming);
+            this.set(EntityFlag.SPRINTING, sprinting);
         }
 
 //        System.out.println("Metadata using: " + flags.contains(EntityFlag.USING_ITEM));

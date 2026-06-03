@@ -99,14 +99,6 @@ public class LegacyAuthInputPackets {
 
         if (processInputData) {
             processInputData(player);
-
-            // Player isn't moving forward but is sprinting and their flag sync, this shouldn't happen.
-            if (player.input.z <= 0 && player.getFlagTracker().has(EntityFlag.SPRINTING) && player.desyncedFlag.get() == -1) {
-                player.getFlagTracker().set(EntityFlag.SPRINTING, false);
-
-                // Tell geyser that the player "want" to stop sprinting.
-                packet.getInputData().add(PlayerAuthInputData.STOP_SPRINTING);
-            }
         }
     }
 
@@ -127,6 +119,11 @@ public class LegacyAuthInputPackets {
             player.ticksSinceCrawling = 0;
         }
 
+        player.updateSprintingState(
+                player.getInputData().contains(PlayerAuthInputData.START_SPRINTING),
+                player.getInputData().contains(PlayerAuthInputData.STOP_SPRINTING)
+        );
+
         final Iterator<PlayerAuthInputData> iterator = player.getInputData().iterator();
         while (iterator.hasNext()) {
             final PlayerAuthInputData input = iterator.next();
@@ -142,18 +139,8 @@ public class LegacyAuthInputPackets {
                 }
                 case STOP_GLIDING -> player.getFlagTracker().set(EntityFlag.GLIDING, false);
 
-                // Don't let player do backwards sprinting!
-                case START_SPRINTING -> {
-                    boolean forwardMovement = player.input.getZ() > 0;
-                    player.setSprinting(forwardMovement);
-
-                    // Don't let player send an START_SPRINTING to force server to send back a sprinting attribute.
-                    // or trick Geyser in any way, since it's not really reliable...
-                    if (!forwardMovement) {
-                        iterator.remove();
-                    }
+                case START_SPRINTING, STOP_SPRINTING -> {
                 }
-                case STOP_SPRINTING -> player.setSprinting(false);
                 case START_SNEAKING -> player.getFlagTracker().set(EntityFlag.SNEAKING, true);
                 case STOP_SNEAKING -> player.getFlagTracker().set(EntityFlag.SNEAKING, false);
 

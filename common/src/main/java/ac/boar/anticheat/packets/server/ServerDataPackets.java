@@ -131,7 +131,8 @@ public class ServerDataPackets implements PacketListener {
 
             player.getFlagTracker().set(EntityFlag.SNEAKING, packet.getFlags().contains(EntityFlag.SNEAKING));
             player.getFlagTracker().set(EntityFlag.SWIMMING, packet.getFlags().contains(EntityFlag.SWIMMING) && player.touchingWater);
-            player.getFlagTracker().set(EntityFlag.SPRINTING, packet.getFlags().contains(EntityFlag.SPRINTING));
+            player.setServerSprinting(packet.getFlags().contains(EntityFlag.SPRINTING));
+            player.updateSprintingState(false, false);
 
             boolean using = packet.getFlags().contains(EntityFlag.USING_ITEM);
             if (!using) {
