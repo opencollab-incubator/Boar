@@ -58,7 +58,7 @@ public class TeleportHandler {
         float distance = packet.getPosition().distance(data.getPosition().toVector3f());
 
         // Do this regardless if the player accept teleport or what not, we're going to force them to accept anyway.
-        player.setPos(new Vec3(packet.getPosition().sub(0, player.getYOffset(), 0)));
+        player.setPos(data.getPosition().down(player.getYOffset()));
         player.unvalidatedPosition = player.prevUnvalidatedPosition = player.position.clone();
         player.velocity = Vec3.ZERO.clone();
         player.predictionResult = new PredictionData(Vec3.ZERO, Vec3.ZERO, Vec3.ZERO); // Yep!
