@@ -16,13 +16,9 @@ public class Collider {
         return player.compensatedWorld.noCollision(new Box(lv.minX + offsetX, lv.minY - f, lv.minZ + offsetZ, lv.maxX + offsetX, lv.minY, lv.maxZ + offsetZ));
     }
 
-    private static boolean isAboveGround(final BoarPlayer player) {
-        return player.onGround || player.fallDistance < 0.6F && !canFallAtLeast(player, 0, 0, 0.6F - player.fallDistance);
-    }
-
     public static Vec3 maybeBackOffFromEdge(final BoarPlayer player, final Vec3 movement) {
         final float f = PlayerData.STEP_HEIGHT * 1.01F;
-        if (movement.y <= 0.0 && player.getFlagTracker().has(EntityFlag.SNEAKING) && isAboveGround(player)) {
+        if (movement.y <= 0.0 && player.getFlagTracker().has(EntityFlag.SNEAKING) && player.onGround) {
             float d = movement.x;
             float e = movement.z;
             float h = MathUtil.sign(d) * 0.05F;
