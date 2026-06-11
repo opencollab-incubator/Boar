@@ -320,7 +320,8 @@ public final class BoarDefaultAcknowledgments {
         final CompensatedInventory inv = player.compensatedInventory;
         try {
             inv.openContainer = new TradeContainerCache(inv, ack.offers(), ack.containerId(), ack.containerType(), Vector3i.ZERO, ack.traderUniqueEntityId());
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            logAckException(player, ack, e);
         }
     }
 
@@ -330,7 +331,8 @@ public final class BoarDefaultAcknowledgments {
             final ItemCache cache;
             try {
                 cache = inv.getBundleCache().get(Objects.requireNonNull(ack.storageItem().getTag()).getInt("bundle_id"));
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                logAckException(player, ack, e);
                 return;
             }
             if (cache == null) {
@@ -356,7 +358,8 @@ public final class BoarDefaultAcknowledgments {
             final ItemCache cache;
             try {
                 cache = inv.getBundleCache().get(Objects.requireNonNull(ack.storageItem().getTag()).getInt("bundle_id"));
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                logAckException(player, ack, e);
                 return;
             }
             if (cache == null) {
@@ -403,5 +406,11 @@ public final class BoarDefaultAcknowledgments {
 
     private static void handleTeleportAccept(BoarPlayer player, TeleportAcceptAck ack) {
         ack.cache().setAccepted(true);
+    }
+
+    private static void logAckException(BoarPlayer player, Acknowledgment ack, Throwable throwable) {
+        System.out.println("[boar-temp-debug] exception handling ack player=" + player.getSession().name()
+                + " ack=" + ack);
+        throwable.printStackTrace(System.out);
     }
 }

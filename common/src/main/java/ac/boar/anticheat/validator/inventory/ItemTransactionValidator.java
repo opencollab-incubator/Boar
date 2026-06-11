@@ -17,6 +17,7 @@ import ac.boar.anticheat.validator.inventory.click.ItemRequestProcessor;
 import ac.boar.mappings.block.Block;
 import ac.boar.mappings.block.BlockMappings;
 import ac.boar.mappings.block.Blocks;
+import ac.boar.mappings.block.Property;
 import ac.boar.mappings.block.Properties;
 import ac.boar.mappings.item.Item;
 import ac.boar.mappings.item.ItemMappings;
@@ -131,7 +132,9 @@ public final class ItemTransactionValidator {
                     }
                 }
 
-                if (noActions && !validate(SD1, packet.getItemInHand())) {
+                // Air can be represented by different runtime IDs; treat semantic empty as matching.
+                boolean emptyHandInteraction = isEmpty(SD1) && isEmpty(packet.getItemInHand());
+                if (noActions && !emptyHandInteraction && !validate(SD1, packet.getItemInHand())) {
                     return false;
                 }
 
@@ -260,9 +263,10 @@ public final class ItemTransactionValidator {
                                 result = InteractionResult.SUCCESS;
                             }
 
-                            if (boarState.get(Properties.OPEN) != null) {
+                            Boolean open = getOrNull(boarState, Properties.OPEN);
+                            if (open != null) {
                                 player.compensatedWorld.updateBlock(position, 0,
-                                        player.mappingInfo.fromIntermediary().applyAsInt(boarState.with(Properties.OPEN, !boarState.get(Properties.OPEN)).intermediaryId()));
+                                        player.mappingInfo.fromIntermediary().applyAsInt(boarState.with(Properties.OPEN, !open).intermediaryId()));
                                 result = InteractionResult.SUCCESS;
                             }
 
@@ -437,6 +441,23 @@ public final class ItemTransactionValidator {
         }
 
         return ID1.getRuntimeId() == ID2.getRuntimeId();
+    }
+
+    private static boolean isEmpty(final ItemData itemData) {
+        if (itemData == null) {
+            return true;
+        }
+
+        int runtimeId = itemData.getDefinition().getRuntimeId();
+        return itemData.getCount() <= 0 || runtimeId == 0 || runtimeId == -1;
+    }
+
+    private static <T extends Comparable<T>> T getOrNull(final BoarBlockState state, final Property<T> property) {
+        try {
+            return state.get(property);
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
     }
 
     public static boolean validate(final ItemDefinition predicted, final ItemDefinition claimed) {

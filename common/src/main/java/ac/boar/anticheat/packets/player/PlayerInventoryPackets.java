@@ -24,15 +24,27 @@ public class PlayerInventoryPackets implements PacketListener {
         if (event.getPacket() instanceof InventoryTransactionPacket packet) {
             try { // In case I messed up.
                 boolean cancelled = !player.transactionValidator.handle(packet);
-//                if (cancelled) {
-//                    System.out.println("Cancel inventory action: " + packet);
-//                }
+                if (cancelled) {
+                    System.out.println("[boar-temp-debug] cancelling InventoryTransactionPacket player=" + player.getSession().name()
+                            + " type=" + packet.getTransactionType()
+                            + " action=" + packet.getActionType()
+                            + " slot=" + packet.getHotbarSlot()
+                            + " blockPos=" + packet.getBlockPosition()
+                            + " actions=" + packet.getActions().size()
+                            + " item=" + packet.getItemInHand());
+                }
                 event.setCancelled(cancelled);
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                logException(player, "InventoryTransactionPacket", packet, e);
+            }
         }
 
         if (event.getPacket() instanceof ItemStackRequestPacket packet) {
-            player.transactionValidator.handle(packet);
+            try {
+                player.transactionValidator.handle(packet);
+            } catch (Exception e) {
+                logException(player, "ItemStackRequestPacket", packet, e);
+            }
         }
 
         if (event.getPacket() instanceof InteractPacket packet) {
@@ -125,5 +137,11 @@ public class PlayerInventoryPackets implements PacketListener {
                 player.sendLatencyStack(new HotbarSlotAck(slot));
             }
         }
+    }
+
+    private static void logException(final BoarPlayer player, final String path, final BedrockPacket packet, final Throwable throwable) {
+        System.out.println("[boar-temp-debug] exception in " + path + " player=" + player.getSession().name()
+                + " packet=" + packet);
+        throwable.printStackTrace(System.out);
     }
 }

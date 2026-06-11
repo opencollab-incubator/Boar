@@ -20,6 +20,7 @@ public final class Blocks {
     public static final Reference<Block> CACTUS = create("cactus");
     public static final Reference<Block> CAKE = create("cake");
     public static final Reference<Block> CAULDRON = create("cauldron");
+    public static final Reference<Block> CHEST = create("chest");
     public static final Reference<Block> CAVE_AIR = create("cave_air");
     public static final Reference<Block> CHIPPED_ANVIL = create("chipped_anvil");
     public static final Reference<Block> CHISELED_BOOKSHELF = create("chiseled_bookshelf");
@@ -27,7 +28,7 @@ public final class Blocks {
     public static final Reference<Block> CONDUIT = create("conduit");
     public static final Reference<Block> DAMAGED_ANVIL = create("damaged_anvil");
     public static final Reference<Block> END_PORTAL_FRAME = create("end_portal_frame");
-    public static final Reference<Block> ENDER_CHEST =  create("ender_chest");
+    public static final Reference<Block> ENDER_CHEST = create("ender_chest");
     public static final Reference<Block> FROSTED_ICE = create("frosted_ice");
     public static final Reference<Block> FURNACE = create("furnace");
     public static final Reference<Block> HONEY_BLOCK = create("honey_block");
@@ -51,6 +52,7 @@ public final class Blocks {
     public static final Reference<Block> SOUL_SAND = create("soul_sand");
     public static final Reference<Block> SWEET_BERRY_BUSH = create("sweet_berry_bush");
     public static final Reference<Block> TNT = create("tnt");
+    public static final Reference<Block> TRAPPED_CHEST = create("trapped_chest");
     public static final Reference<Block> VAULT = create("vault");
     public static final Reference<Block> VOID_AIR = create("void_air");
     public static final Reference<Block> WATER = create("water");

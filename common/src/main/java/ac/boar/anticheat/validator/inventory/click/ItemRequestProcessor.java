@@ -35,18 +35,29 @@ public class ItemRequestProcessor {
             // System.out.println(action);
             try {
                 if (!this.handle(action)) {
-                    // We ignore this... for now!
+                    logActionFailure(request, action, null);
                 }
-            } catch (Exception ignored) {
+            } catch (Exception e) {
                 // Honestly, this inventory handling system is actually just half-baked system and I never actually
                 // got the motivation to finish it, if you want to, feel free to PR. But for now
                 // I'm just going to leave it as it is, it's good enough *for now*.
+                logActionFailure(request, action, e);
             }
         }
 
         this.queuedItems.clear();
 
         return true;
+    }
+
+    private void logActionFailure(final ItemStackRequest request, final ItemStackRequestAction action, final Throwable throwable) {
+        System.out.println("[boar-temp-debug] item stack request action failed player=" + this.player.getSession().name()
+                + " requestId=" + request.getRequestId()
+                + " actionType=" + action.getType()
+                + " action=" + action);
+        if (throwable != null) {
+            throwable.printStackTrace(System.out);
+        }
     }
 
     public boolean handle(final ItemStackRequestAction action) {

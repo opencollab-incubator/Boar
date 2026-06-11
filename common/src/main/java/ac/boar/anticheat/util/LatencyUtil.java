@@ -126,6 +126,9 @@ public final class LatencyUtil {
                     try {
                         registry.dispatch(player, ack);
                     } catch (Throwable t) {
+                        System.out.println("[boar-temp-debug] exception dispatching ack player=" + player.getSession().name()
+                                + " ack=" + ack);
+                        t.printStackTrace(System.out);
                     }
                 }
             }
