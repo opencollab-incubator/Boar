@@ -1,59 +1,82 @@
 package ac.boar.anticheat.util.math;
 
-import ac.boar.anticheat.Boar;
 import ac.boar.anticheat.compensated.cache.entity.EntityCache;
+import ac.boar.anticheat.compensated.cache.entity.state.CachedEntityState;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.util.MathUtil;
 import ac.boar.anticheat.util.Pair;
+import org.cloudburstmc.protocol.bedrock.data.InputInteractionModel;
 import org.cloudburstmc.protocol.bedrock.data.InputMode;
 
 public class ReachUtil {
-    public static float calculateReach(final BoarPlayer player, final Pair<Vec3, Vec3> pair, final EntityCache entity) {
-        float distance = Float.MAX_VALUE;
+    private static final int STEPS = 10;
+    private static final float STEPS_INC = 1f / STEPS;
 
-        final float MAX_RANGE = MathUtil.square(Boar.getConfig().toleranceReach());
-        float deltaTicks = 0;
+    private static final float REACH_RAY_LENGTH = 7F;
+    private static final float BOX_EXPANSION = 0.1F;
 
-        while (deltaTicks < 1 + 1.0E-3) {
-            final Vec3 rotationVec = getRotationVector(player, deltaTicks);
-            final Vec3 min = getEyePosition(player, pair, deltaTicks);
-            final Vec3 max = min.add(rotationVec.multiply(7F));
+    public static float calculateReach(
+            final BoarPlayer player,
+            final Pair<Vec3, Vec3> attackPositions,
+            final EntityCache entity,
+            final Pair<Vec3, Vec3> prevTickEntityPositions
+    ) {
+        final CachedEntityState entityState = entity.getCurrent();
+        float distanceSq = Float.MAX_VALUE;
 
-            final Vec3 hitResult = calculateHitResult(entity.getCurrent().calculateBoundingBox(), min, max);
-            if (hitResult != null) {
-                distance = Math.min(distance, hitResult.squaredDistanceTo(min));
+        // If the player is on touch controls and not using a crosshair, we don't have to interpolate the rotations when calculating reach.
+        final boolean isLikelyTouchSnap = player.inputMode == InputMode.TOUCH &&
+                (player.interactionModel == InputInteractionModel.TOUCH || (player.interactionModel == InputInteractionModel.CLASSIC && player.prevInteractRotUnchanged));
+
+        for (float f = 0; f <= 1f; f += STEPS_INC) {
+            final Vec3 rotationVec = getRotationVector(player, isLikelyTouchSnap ? 1.0f : f);
+            final Vec3 reachStart = getEyePosition(player, attackPositions, f);
+            final Vec3 reachEnd = reachStart.add(rotationVec.multiply(REACH_RAY_LENGTH));
+
+            final Vec3 primaryEntityPos = lerp(f, prevTickEntityPositions.a(), prevTickEntityPositions.b());
+            final Box primaryBox = entityState.calculateBoundingBox(primaryEntityPos);
+            final Vec3 primaryHit = calculateHitResult(primaryBox, reachStart, reachEnd);
+            if (primaryHit != null) {
+                distanceSq = Math.min(distanceSq, primaryHit.squaredDistanceTo(reachStart));
             }
 
-            // Valid hit, let exit to save performance!
-            if (distance <= MAX_RANGE) {
-                break;
+            final Box altBox = entityState.getBoundingBox(f);
+            final Vec3 altHit = calculateHitResult(altBox, reachStart, reachEnd);
+            if (altHit != null) {
+                distanceSq = Math.min(distanceSq, altHit.squaredDistanceTo(reachStart));
             }
-
-            deltaTicks += 0.01f;
         }
 
-        return distance == Float.MAX_VALUE ? distance : (float) Math.sqrt(distance);
+        return distanceSq == Float.MAX_VALUE ? distanceSq : (float) Math.sqrt(distanceSq);
     }
 
     private static Vec3 calculateHitResult(final Box box, final Vec3 min, final Vec3 max) {
-        Box lv5 = box.expand(0.1F);
-        if (lv5.contains(min)) {
+        Box expanded = box.expand(BOX_EXPANSION);
+        if (expanded.contains(min)) {
             return min;
         }
-        return lv5.clip(min, max).orElse(null);
+        return expanded.clip(min, max).orElse(null);
+    }
+
+    private static Vec3 lerp(float f, Vec3 a, Vec3 b) {
+        return new Vec3(
+                MathUtil.lerp(f, a.x, b.x),
+                MathUtil.lerp(f, a.y, b.y),
+                MathUtil.lerp(f, a.z, b.z)
+        );
     }
 
     private static Vec3 getRotationVector(BoarPlayer player, float f) {
         return MathUtil.getRotationVector(
-                player.inputMode == InputMode.TOUCH ? player.interactRotation.getX() : MathUtil.lerp(f, player.prevPitch, player.pitch),
-                player.inputMode == InputMode.TOUCH ? player.interactRotation.getY() : MathUtil.lerp(f, player.prevYaw, player.yaw)
+                MathUtil.lerp(f, player.prevInteractRotation.getX(), player.interactRotation.getX()),
+                MathUtil.lerp(f, player.prevInteractRotation.getY(), player.interactRotation.getY())
         );
     }
 
     private static Vec3 getEyePosition(BoarPlayer player, Pair<Vec3, Vec3> pair, float f) {
-        float d = MathUtil.lerp(f, pair.a().x, pair.b().x);
-        float e = MathUtil.lerp(f, pair.a().y, pair.b().y) + player.dimensions.eyeHeight();
-        float g = MathUtil.lerp(f, pair.a().z, pair.b().z);
-        return new Vec3(d, e, g);
+        float lerpX = MathUtil.lerp(f, pair.a().x, pair.b().x);
+        float lerpY = MathUtil.lerp(f, pair.a().y, pair.b().y) + player.dimensions.eyeHeight();
+        float lerpZ = MathUtil.lerp(f, pair.a().z, pair.b().z);
+        return new Vec3(lerpX, lerpY, lerpZ);
     }
 }

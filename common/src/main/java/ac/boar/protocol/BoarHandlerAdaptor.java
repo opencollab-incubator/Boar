@@ -24,6 +24,48 @@ public class BoarHandlerAdaptor extends MessageToMessageCodec<BedrockPacketWrapp
 
     public static final String NAME = "boar-packet-handler";
 
+    private ChannelHandlerContext ctx;
+
+    @Override
+    public void handlerAdded(ChannelHandlerContext ctx) {
+        this.ctx = ctx;
+    }
+
+    @Override
+    public void handlerRemoved(ChannelHandlerContext ctx) {
+        this.ctx = null;
+    }
+
+    /**
+     * Push a synthetic Bedrock packet downstream as if the client had just sent it.
+     *
+     * The packet is fired from this handler's context, so it skips the {@link PacketListener}
+     * chain on its way to the next handler. Callers that buffer a packet for replay must
+     * retain any reference-counted payload before caching — the wrapper built here releases
+     * the packet when its own refcount drops to zero.
+     */
+    public void injectClientPacket(BedrockPacket packet) {
+        final ChannelHandlerContext ctx = this.ctx;
+        if (ctx == null || player.isClosed()) {
+            return;
+        }
+
+        Runnable task = () -> {
+            if (player.isClosed()) {
+                return;
+            }
+            BedrockPacketWrapper wrapper = BedrockPacketWrapper.create(
+                    this.codec.getPacketId(packet), 0, 0, packet, null);
+            ctx.fireChannelRead(wrapper);
+        };
+
+        if (ctx.executor().inEventLoop()) {
+            task.run();
+        } else {
+            ctx.executor().execute(task);
+        }
+    }
+
     @Override
     protected void encode(ChannelHandlerContext ctx, BedrockPacketWrapper msg, List<Object> out) {
         if (player.isClosed()) {

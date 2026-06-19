@@ -156,7 +156,7 @@ public final class BoarDefaultAcknowledgments {
     private static void handleEntityInterpolate(BoarPlayer player, EntityInterpolateAck ack) {
         final EntityCache entity = player.compensatedWorld.getEntity(ack.runtimeEntityId());
         if (entity != null) {
-            entity.interpolate(ack.position(), ack.lerp());
+            entity.interpolate(ack.posX(), ack.posY(), ack.posZ(), ack.lerp());
         }
     }
 

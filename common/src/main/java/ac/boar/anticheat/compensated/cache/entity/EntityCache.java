@@ -68,13 +68,22 @@ public final class EntityCache {
     }
 
     public void interpolate(Vec3 pos, boolean lerp) {
+        this.interpolate(pos.x, pos.y, pos.z, lerp);
+    }
+
+    public void interpolate(Float posX, Float posY, Float posZ, boolean lerp) {
+        final PositionInterpolator lv = this.current.getInterpolator();
+        Vec3 pos = (lv == null || lv.getTargetPos() == null ?
+                this.current.getPos() : lv.getTargetPos()).clone();
+        if (posX != null) pos.x = posX;
+        if (posY != null) pos.y = posY;
+        if (posZ != null) pos.z = posZ;
+
         if (!lerp) {
             this.current.setTeleportPos(pos);
-        } else {
-            final PositionInterpolator lv = this.current.getInterpolator();
-            if (lv != null) {
-                lv.refreshPositionAndAngles(pos);
-            }
+        } else if (lv != null) {
+            lv.refreshPositionAndAngles(pos);
         }
     }
+
 }
