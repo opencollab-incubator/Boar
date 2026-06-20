@@ -1,6 +1,5 @@
 package ac.boar.anticheat.packets.input;
 
-import ac.boar.anticheat.data.input.TickData;
 import ac.boar.anticheat.packets.input.legacy.LegacyAuthInputPackets;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.protocol.api.CloudburstPacketEvent;
@@ -19,8 +18,6 @@ public class PostAuthInputPackets implements PacketListener {
             player.doingInventoryAction = false;
             player.hasDepthStrider = false;
             player.nearBamboo = false;
-
-            player.getTeleportUtil().getAuthInputHistory().put(packet.getTick(), new TickData(packet, player.getFlagTracker().cloneFlags(), player.dimensions));
 
             if (player.vehicleData != null && player.getEntity().vehicle() == null) {
                 event.setCancelled(true);
@@ -43,7 +40,6 @@ public class PostAuthInputPackets implements PacketListener {
             }
 
             if (player.tickSinceBlockResync > 0) player.tickSinceBlockResync--;
-            player.getTeleportUtil().pollRewindHistory();
         }
     }
 }

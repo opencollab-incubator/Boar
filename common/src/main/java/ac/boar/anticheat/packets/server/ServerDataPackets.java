@@ -43,7 +43,6 @@ public class ServerDataPackets implements PacketListener {
             player.currentLoadingScreen = null;
             player.inLoadingScreen = true;
 
-            // We need this to do rewind teleport.
             start.setAuthoritativeMovementMode(AuthoritativeMovementMode.SERVER_WITH_REWIND);
             start.setRewindHistorySize(Boar.getConfig().rewindHistory());
             player.serverBreakBlockValidator = new ServerBreakBlockValidator(player);

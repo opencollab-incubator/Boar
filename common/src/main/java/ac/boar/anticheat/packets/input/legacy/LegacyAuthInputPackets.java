@@ -29,7 +29,7 @@ public class LegacyAuthInputPackets {
 
     public static void doPostPrediction(final BoarPlayer player, final PlayerAuthInputPacket packet) {
         player.postTick();
-        player.getTeleportUtil().cachePosition(player.tick, player.position.add(0, player.getYOffset(), 0).toVector3f());
+        player.getTeleportUtil().updateLastKnownValid(player.position.add(0, player.getYOffset(), 0).toVector3f());
 
         final UncertainRunner uncertainRunner = new UncertainRunner(player);
 
@@ -47,13 +47,24 @@ public class LegacyAuthInputPackets {
             }
         }
 
+        // Don't adopt the client's reported position/velocity while a correction is in flight or
+        // settling (cooldown tick) - during that window the client is still on its pre-correction
+        // path, so we must hold our predicted authority instead.
+        final boolean hasPendingCorrection = player.getTeleportUtil().hasPendingCorrection();
+        final boolean inCorrectionCooldown = player.getTeleportUtil().isCorrectionCooldown();
+        final boolean canAcceptClient = !hasPendingCorrection && !inCorrectionCooldown;
+
         // Have to do this due to loss precision, especially elytra!
-        if (player.velocity.distanceTo(player.unvalidatedTickEnd) - extraOffset < player.getMaxOffset()) {
+        if (canAcceptClient && player.velocity.distanceTo(player.unvalidatedTickEnd) - extraOffset < player.getMaxOffset()) {
             player.velocity = player.unvalidatedTickEnd.clone();
         }
         correctInputData(player, packet);
 
-        if (offset < player.getMaxOffset()) {
+        if (!hasPendingCorrection && inCorrectionCooldown) {
+            player.getTeleportUtil().setCorrectionCooldown(false);
+        }
+
+        if (canAcceptClient && offset < player.getMaxOffset()) {
             player.setPos(player.unvalidatedPosition.clone(), false);
         }
 

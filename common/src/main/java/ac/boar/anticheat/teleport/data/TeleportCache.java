@@ -31,19 +31,4 @@ public class TeleportCache {
             super(position);
         }
     }
-
-    @ToString
-    @Getter
-    public static class Rewind extends TeleportCache {
-        private final long tick;
-        private final Vec3 tickEnd;
-        private final boolean onGround;
-
-        public Rewind(long tick, Vec3 position, Vec3 tickEnd, boolean onGround) {
-            super(position);
-            this.tick = tick;
-            this.tickEnd = tickEnd;
-            this.onGround = onGround;
-        }
-    }
 }

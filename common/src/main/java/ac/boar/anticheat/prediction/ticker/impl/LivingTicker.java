@@ -78,9 +78,10 @@ public class LivingTicker extends EntityTicker {
                             ? player.compensatedWorld.getBlockState(player.getBlockPosBelowThatAffectsMyMovement(), 0).getFriction() : 1.0f));
         }
 
-        // Prevent player from "elytra bouncing".
-        if (player.getFlagTracker().has(EntityFlag.GLIDING) && player.onGround && player.getInputData().contains(PlayerAuthInputData.START_JUMPING)) {
-            player.getTeleportUtil().rewind(player.tick - 1);
+        // Grounded gliding is invalid; stop it in the authority before jump/travel can use it.
+        final boolean stoppedGroundedGlide = player.getFlagTracker().has(EntityFlag.GLIDING) && player.onGround;
+        if (stoppedGroundedGlide) {
+            player.getFlagTracker().set(EntityFlag.GLIDING, false);
         }
 
         boolean inScaffolding = false, onScaffolding = false;
@@ -111,6 +112,7 @@ public class LivingTicker extends EntityTicker {
 
         if (MovementDebug.enabled()) {
             MovementDebug.log(player, "JUMP", "inScaffolding=" + inScaffolding + " onScaffolding=" + onScaffolding
+                    + " stoppedGroundedGlide=" + stoppedGroundedGlide
                     + " jumpPower=" + player.getJumpPower() + " jumpBoost=" + player.getJumpBoostPower()
                     + " velBefore=" + MovementDebug.vec(velBeforeJump) + " velAfter=" + MovementDebug.vec(player.velocity));
         }
@@ -135,7 +137,7 @@ public class LivingTicker extends EntityTicker {
             }
         }
 
-        if (player.getFlagTracker().has(EntityFlag.GLIDING) && (player.onGround || player.vehicleData != null || player.hasEffect(Effect.LEVITATION))) {
+        if (player.getFlagTracker().has(EntityFlag.GLIDING) && (player.vehicleData != null || player.hasEffect(Effect.LEVITATION))) {
             player.getFlagTracker().set(EntityFlag.GLIDING, false);
         }
 
