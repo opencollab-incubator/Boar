@@ -1,5 +1,5 @@
 [versions]
-geyser = "2.9.4-SNAPSHOT"
+geyser = "2.10.1-SNAPSHOT"
 fastutil = "8.5.15"
 lombok = "1.18.36"
 guava = "33.6.0-jre"

@@ -4,6 +4,7 @@ import ac.boar.anticheat.collision.Collider;
 import ac.boar.anticheat.data.Fluid;
 import ac.boar.anticheat.data.FluidState;
 import ac.boar.anticheat.data.block.BoarBlockState;
+import ac.boar.anticheat.data.block.impl.BedBlockState;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.prediction.MovementDebug;
 import ac.boar.anticheat.prediction.engine.data.VectorType;
@@ -154,16 +155,16 @@ public class EntityTicker {
                     + " afterBackOff=" + MovementDebug.vec(vec3));
         }
 
-        boolean bl = !MathUtil.equal(vec3.x, vec32.x);
-        boolean bl2 = !MathUtil.equal(vec3.z, vec32.z);
-        player.horizontalCollision = bl || bl2;
+        boolean collidedX = !MathUtil.equal(vec3.x, vec32.x);
+        boolean collidedZ = !MathUtil.equal(vec3.z, vec32.z);
+        player.horizontalCollision = collidedX || collidedZ;
         player.verticalCollision = vec3.y != vec32.y;
         player.onGround = player.verticalCollision && vec3.y < 0.0;
 
         if (MovementDebug.enabled()) {
             MovementDebug.log(player, "COLLISION", "wanted=" + MovementDebug.vec(vec3)
                     + " collided=" + MovementDebug.vec(vec32)
-                    + " collidedX=" + bl + " collidedZ=" + bl2
+                    + " collidedX=" + collidedX + " collidedZ=" + collidedZ
                     + " hCollision=" + player.horizontalCollision + " vCollision=" + player.verticalCollision
                     + " onGround=" + player.onGround
                     + " newPos=" + MovementDebug.vec(player.position));
@@ -179,8 +180,8 @@ public class EntityTicker {
         // The player is near bamboo, we don't know what the offsetting is so we let player decide this...
         if (player.nearBamboo && player.getInputData().contains(PlayerAuthInputData.HORIZONTAL_COLLISION)) {
             player.horizontalCollision = true;
-            bl = player.unvalidatedTickEnd.x == 0;
-            bl2 = player.unvalidatedTickEnd.z == 0;
+            collidedX = player.unvalidatedTickEnd.x == 0;
+            collidedZ = player.unvalidatedTickEnd.z == 0;
         }
 
         // Sneaking hacks, this is not entirely correct but works, not much room to abuse.
@@ -188,16 +189,22 @@ public class EntityTicker {
             player.velocity = new Vec3(player.unvalidatedTickEnd.x == 0 ? 0 : player.velocity.x, player.velocity.y, player.unvalidatedTickEnd.z == 0 ? 0 : player.velocity.z);
         }
 
-        if (player.horizontalCollision) {
-            player.velocity = new Vec3(bl ? 0 : player.velocity.x, player.velocity.y, bl2 ? 0 : player.velocity.z);
-        }
-
         // TODO: What the actual value actually? Player still able to bounce on slime despite being .375 block higher.
         Vector3i blockPos = player.getOnPos(0.378F);
         BoarBlockState blockState = player.compensatedWorld.getBlockState(blockPos, 0);
 
-        if (player.verticalCollision) {
-            blockState.updateEntityMovementAfterFallOn(player, true);
+        if (player.getSession().is26_20OrHigher()) {
+            if (Math.abs(player.velocity.y) > 0 && player.verticalCollision || player.horizontalCollision) {
+                restituteMovementAfterCollisions(blockState, collidedX, collidedZ, vec32);
+            }
+        } else {
+            if (player.horizontalCollision) {
+                player.velocity = new Vec3(collidedX ? 0 : player.velocity.x, player.velocity.y, collidedZ ? 0 : player.velocity.z);
+            }
+
+            if (player.verticalCollision) {
+                blockState.updateEntityMovementAfterFallOn(player, true);
+            }
         }
 
         player.beforeCollision = vec3.clone();
@@ -209,5 +216,43 @@ public class EntityTicker {
                     + " beforeCollision=" + MovementDebug.vec(player.beforeCollision)
                     + " afterCollision=" + MovementDebug.vec(player.afterCollision));
         }
+    }
+
+    private void restituteMovementAfterCollisions(final BoarBlockState state, final boolean xCollision, final boolean zCollision, final Vec3 movement) {
+        float restitution = 0 /* this.isSuppressingBounce() ? 0.0 : this.getEntityBounciness() */;
+        Vec3 currentMovement = player.velocity;
+        Vec3 movementAfterBounce = currentMovement.clone();
+        if (xCollision) {
+            movementAfterBounce.x = -currentMovement.x * restitution;
+        }
+
+        if (zCollision) {
+            movementAfterBounce.z = currentMovement.z * restitution;
+        }
+
+        if (player.verticalCollision) {
+            if (player.onGround) {
+                restitution = !(-currentMovement.y < player.getEffectiveGravity()) && !player.getFlagTracker().has(EntityFlag.SNEAKING) && !state.is(Blocks.HONEY_BLOCK) ? Math.max(restitution, state.getBlockBounciness()) : 0.0f;
+            }
+
+            float gravityCompensation;
+            float effectiveDrag;
+            if (restitution > 0) {
+                float portionWithMovement = movement.y / currentMovement.y;
+                gravityCompensation = portionWithMovement * player.getEffectiveGravity();
+                // TODO: Properly implement this, I can't figure this out, it def differ from Java.
+                // We're currently hacking around this in UncertainRunner#resolveUncertainBouncing
+                effectiveDrag = state instanceof BedBlockState ? 1.25f : 1f; // The value here is not correct, but whatever, it's just for the hacks.
+                player.bounce = true;
+            } else {
+                gravityCompensation = 0;
+                effectiveDrag = 1;
+            }
+
+            movementAfterBounce.y = (gravityCompensation - currentMovement.y) * effectiveDrag * restitution;
+            player.minBounceYVel = (gravityCompensation - currentMovement.y) * 0.91f * restitution; // 0.91 is a bit ehhhhhh but sure.
+        }
+
+        player.velocity = movementAfterBounce;
     }
 }

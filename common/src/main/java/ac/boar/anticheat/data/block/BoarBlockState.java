@@ -1,11 +1,13 @@
 package ac.boar.anticheat.data.block;
 
 import ac.boar.anticheat.data.FluidState;
+import ac.boar.anticheat.data.block.impl.BedBlockState;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.util.Reference;
 import ac.boar.anticheat.util.math.Box;
 import ac.boar.anticheat.util.math.Mutable;
 import ac.boar.mappings.block.Block;
+import ac.boar.mappings.block.Blocks;
 import ac.boar.mappings.block.Property;
 import org.cloudburstmc.math.vector.Vector3i;
 import org.cloudburstmc.protocol.bedrock.data.definitions.BlockDefinition;
@@ -68,6 +70,16 @@ public interface BoarBlockState {
     boolean is(Reference<Block> block);
 
     <T extends Comparable<T>> T get(Property<T> property);
+
+    default float getBlockBounciness() {
+        if (is(Blocks.SLIME_BLOCK)) {
+            return 1;
+        } else if (this instanceof BedBlockState) {
+            return 0.75f;
+        }
+
+        return 0;
+    }
 
     static BoarBlockState create(int blockId, Vector3i pos, int layer) {
         return BoarBlockStateInst.factory().create(blockId, pos, layer);

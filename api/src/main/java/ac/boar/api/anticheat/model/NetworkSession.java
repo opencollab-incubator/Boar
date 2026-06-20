@@ -7,4 +7,6 @@ public interface NetworkSession extends MessageRecipient, Identifiable, Permissi
     void disconnect(String reason);
 
     boolean requiresPingMagnitude();
+
+    boolean is26_20OrHigher();
 }

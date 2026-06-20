@@ -2,6 +2,7 @@ package ac.boar.geyser.model;
 
 import ac.boar.api.anticheat.model.NetworkSession;
 import org.geysermc.api.util.BedrockPlatform;
+import org.geysermc.geyser.network.GameProtocol;
 import org.geysermc.geyser.session.GeyserSession;
 
 import java.util.Objects;
@@ -49,6 +50,11 @@ public record GeyserNetworkSession(GeyserSession session) implements NetworkSess
     @Override
     public boolean requiresPingMagnitude() {
         return this.session.platform() == BedrockPlatform.PS4;
+    }
+
+    @Override
+    public boolean is26_20OrHigher() {
+        return GameProtocol.is26_20orHigher(this.session.protocolVersion());
     }
 
     @Override

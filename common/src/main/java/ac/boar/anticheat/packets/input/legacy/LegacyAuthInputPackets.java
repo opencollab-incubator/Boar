@@ -39,6 +39,7 @@ public class LegacyAuthInputPackets {
         offset -= extraOffset;
         offset -= uncertainRunner.extraOffsetNonTickEnd(offset);
         uncertainRunner.uncertainPushTowardsTheClosetSpace();
+        uncertainRunner.resolveUncertainBouncing();
 
         for (Map.Entry<Class<?>, Check> entry : player.getCheckHolder().entrySet()) {
             Check v = entry.getValue();
