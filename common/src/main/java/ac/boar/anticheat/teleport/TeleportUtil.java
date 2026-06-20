@@ -27,16 +27,17 @@ import java.util.concurrent.ConcurrentSkipListMap;
 public class TeleportUtil {
     private final BoarPlayer player;
 
-    private Vector3f lastKnowValid = Vector3f.ZERO;
+    private Vector3f lastKnownValid = Vector3f.ZERO;
 
     // Normal teleport part.
     private final Queue<TeleportCache> queuedTeleports = new ConcurrentLinkedQueue<>();
+
     public boolean isTeleporting() {
         return !this.queuedTeleports.isEmpty();
     }
 
     public void teleportTo(final Vector3f position) {
-        this.teleportTo(new TeleportCache.Normal(new Vec3(position)));
+        this.teleportTo(new TeleportCache.Normal(new Vec3(position), false));
     }
 
     public void teleportTo(final TeleportCache cache) {
@@ -48,23 +49,23 @@ public class TeleportUtil {
         if (cache instanceof TeleportCache.Rewind) {
             throw new RuntimeException("You're not suppose to pass rewind teleport to this method!");
         }
-        final TeleportCache.Normal teleport = (TeleportCache.Normal) cache;
 
+        final TeleportCache.Normal teleport = (TeleportCache.Normal) cache;
         final MovePlayerPacket packet = new MovePlayerPacket();
         packet.setRuntimeEntityId(player.runtimeEntityId);
         packet.setPosition(teleport.getPosition().toVector3f());
         packet.setRotation(player.rotation);
-        packet.setOnGround(false);
+        packet.setOnGround(teleport.isOnGround());
         packet.setMode(MovePlayerPacket.Mode.TELEPORT);
         packet.setTeleportationCause(MovePlayerPacket.TeleportationCause.BEHAVIOR);
 
         this.player.getConnection().sendPacket(packet);
-        Boar.debug("[movement-debug] sent teleport pos=" + teleport.getPosition() + " lastKnown=" + this.lastKnowValid, Boar.DebugMessage.WARNING);
+        Boar.debug("[movement-debug] sent teleport pos=" + teleport.getPosition() + " lastKnown=" + this.lastKnownValid, Boar.DebugMessage.WARNING);
     }
 
-    public void queueTeleport(final Vec3 position) {
-        queue(new TeleportCache.Normal(position));
-        this.lastKnowValid = position.toVector3f();
+    public void queueTeleport(final Vec3 position, final boolean onGround) {
+        queue(new TeleportCache.Normal(position, onGround));
+        this.lastKnownValid = position.toVector3f();
     }
 
     public void queue(TeleportCache cache) {
@@ -77,7 +78,7 @@ public class TeleportUtil {
     private final Map<Long, RewindData> rewindHistory = new ConcurrentSkipListMap<>();
 
     public void rewind(long tick) {
-        this.rewind(this.rewindHistory.getOrDefault(tick, new RewindData(player.tick, this.lastKnowValid, player.predictionResult)));
+        this.rewind(this.rewindHistory.getOrDefault(tick, new RewindData(player.tick, this.lastKnownValid, player.predictionResult)));
     }
 
     public void rewind(final RewindData rewind) {
@@ -87,9 +88,7 @@ public class TeleportUtil {
         }
 
         final PredictionData data = rewind.data();
-
         final boolean onGround = data.before().y != data.after().y && data.before().y < 0;
-
         final long tick = rewind.tick();
         final CorrectPlayerMovePredictionPacket packet = new CorrectPlayerMovePredictionPacket();
         packet.setPosition(rewind.position().add(data.after().toVector3f()));
@@ -105,8 +104,8 @@ public class TeleportUtil {
     }
 
     public void cachePosition(long tick, Vector3f position) {
-        this.rewindHistory.put(tick, new RewindData(tick, this.lastKnowValid.clone(), player.predictionResult));
-        this.lastKnowValid = position;
+        this.rewindHistory.put(tick, new RewindData(tick, this.lastKnownValid.clone(), player.predictionResult));
+        this.lastKnownValid = position;
     }
 
     public void pollRewindHistory() {

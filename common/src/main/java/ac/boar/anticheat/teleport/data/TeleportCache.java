@@ -10,6 +10,7 @@ import lombok.ToString;
 @ToString
 @Getter
 public class TeleportCache {
+
     private final Vec3 position;
 
     @Setter
@@ -17,8 +18,11 @@ public class TeleportCache {
 
     @Getter
     public static class Normal extends TeleportCache {
-        public Normal(Vec3 position) {
+        private final boolean onGround;
+
+        public Normal(Vec3 position, boolean onGround) {
             super(position);
+            this.onGround = onGround;
         }
     }
 

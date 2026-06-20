@@ -111,7 +111,7 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
 
         // TODO: Test properly uhhhh in some cases, I'm too lazy to care.
         if (player.insideUnloadedChunk) {
-            player.getTeleportUtil().teleportTo(player.getTeleportUtil().getLastKnowValid());
+            player.getTeleportUtil().teleportTo(player.getTeleportUtil().getLastKnownValid());
         }
 
         this.processQueuedTeleports(player, packet);
@@ -130,22 +130,19 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
             player.queueAcknowledgment(new DimensionSwitchAck(dimension, packet.getLoadingScreenId()));
         }
 
-        if (event.getPacket() instanceof MovePlayerPacket packet) {
-            if (packet.getMode() == MovePlayerPacket.Mode.HEAD_ROTATION) {
-                return;
-            }
-
-            if (player.runtimeEntityId != packet.getRuntimeEntityId()) {
-                return;
-            }
-
-            // I think... there is some interpolation or some kind of smoothing when we use NORMAL?
-            // Well it's a pain in the ass the support it, so just send teleport....
-            if (packet.getMode() == MovePlayerPacket.Mode.NORMAL) {
+        if (event.getPacket() instanceof MovePlayerPacket packet
+                && packet.getRuntimeEntityId() == player.runtimeEntityId
+                && packet.getMode() != MovePlayerPacket.Mode.HEAD_ROTATION) {
+            /*
+             * TODO: We should be able to support smoothed-teleports for servers that want to use it in the future.
+             * For now, just setting these to normal teleports should help us not break anything else.
+             * Also, FUCK the RESPAWN/RESET mode, it behaves differently from teleport and messes up the simulation so
+             * we'll just convert that to a normal teleport as well. What could possibly go wrong?
+             */
+            if (packet.getMode() == MovePlayerPacket.Mode.NORMAL || packet.getMode() == MovePlayerPacket.Mode.RESPAWN) {
                 packet.setMode(MovePlayerPacket.Mode.TELEPORT);
             }
-
-            player.getTeleportUtil().queueTeleport(new Vec3(packet.getPosition()));
+            player.getTeleportUtil().queueTeleport(new Vec3(packet.getPosition()), packet.isOnGround());
         }
     }
 }
