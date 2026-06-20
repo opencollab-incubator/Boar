@@ -139,6 +139,9 @@ public class PlayerData {
     public Vec3 beforeCollision = Vec3.ZERO, afterCollision = Vec3.ZERO;
 
     public boolean onGround;
+    public boolean bounce;
+    public float minBounceYVel;
+
     public Vec3 stuckSpeedMultiplier = Vec3.ZERO;
 
     public float fallDistance = 0;

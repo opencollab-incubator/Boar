@@ -1,6 +1,7 @@
 package ac.boar.anticheat.data.block;
 
 import ac.boar.anticheat.collision.BedrockCollision;
+import ac.boar.anticheat.data.block.impl.BedBlockState;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.util.block.BlockUtil;
 import ac.boar.anticheat.util.math.Box;
@@ -174,5 +175,15 @@ public class BoarBlockState {
         }
 
         return 0.6F;
+    }
+
+    public float getBlockBounciness() {
+        if (state.is(Blocks.SLIME_BLOCK)) {
+            return 1;
+        } else if (this instanceof BedBlockState) {
+            return 0.75f;
+        }
+
+        return 0;
     }
 }
