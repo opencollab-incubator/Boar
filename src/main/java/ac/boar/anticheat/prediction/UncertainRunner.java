@@ -50,7 +50,7 @@ public class UncertainRunner {
         player.nearBamboo = false;
 
         // Let's check to see if the player is actually inside a block...
-        final List<Box> collisions = player.compensatedWorld.collectColliders(new ArrayList<>(), player.boundingBox.expand(1.0E-3F));
+        final List<Box> collisions = player.compensatedWorld.collectColliders(new ArrayList<>(), player.boundingBox.contract(1.0E-3F));
         if (collisions.isEmpty() && !player.nearBamboo) {
             // Nope, again the player is likely cheating, or we're falsing something else, also allow bamboo to bypass this.
             return;
