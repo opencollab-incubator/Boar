@@ -1,5 +1,8 @@
 # This contains the anti-cheat related configurations.
 
+prefix: "&3Boar &7>&r "
+bedrock-prefix: "&sBoar &i>&r "
+
 # How many ticks of history are contained in the client's rolling window for use when receiving corrections.
 # At 20 ticks per second a history size of 40 means that a correction could still be processed with rewind with
 # two seconds of two-way latency

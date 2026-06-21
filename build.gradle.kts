@@ -25,6 +25,8 @@ dependencies {
 
     compileOnly("com.google.code.gson:gson:2.3.1")
     testImplementation("com.google.code.gson:gson:2.3.1")
+    testImplementation("org.junit.jupiter:junit-jupiter:5.14.4")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.14.4")
 
     implementation("it.unimi.dsi:fastutil:8.5.15")
 
@@ -32,6 +34,10 @@ dependencies {
 }
 
 tasks {
+    test {
+        useJUnitPlatform()
+    }
+
     shadowJar {
         archiveFileName = "boar.jar"
 

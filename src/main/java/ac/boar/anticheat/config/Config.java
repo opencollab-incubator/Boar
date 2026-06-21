@@ -40,6 +40,12 @@ public final class Config {
     @JsonProperty("debug-mode")
     @JsonSetter(nulls = Nulls.SKIP)
     private boolean debugMode;
+    @JsonProperty("prefix")
+    @JsonSetter(nulls = Nulls.SKIP)
+    private String prefix = "§3Boar §7>§r ";
+    @JsonProperty("bedrock-prefix")
+    @JsonSetter(nulls = Nulls.SKIP)
+    private String bedrockPrefix = "§sBoar §i>§r ";
 
     public int rewindHistory() {
         return rewindHistory;
@@ -75,5 +81,17 @@ public final class Config {
 
     public boolean debugMode() {
         return debugMode;
+    }
+
+    public String prefix() {
+        return formatPrefix(prefix);
+    }
+
+    public String bedrockPrefix() {
+        return formatPrefix(bedrockPrefix);
+    }
+
+    private String formatPrefix(String prefix) {
+        return prefix.replace('&', '§');
     }
 }
