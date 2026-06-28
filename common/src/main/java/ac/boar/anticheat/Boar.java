@@ -4,6 +4,7 @@ import ac.boar.anticheat.ack.BoarAcknowledgmentRegistry;
 import ac.boar.anticheat.alert.AlertManager;
 import ac.boar.anticheat.alert.AlertViolationListener;
 import ac.boar.anticheat.check.api.BoarCheckRegistry;
+import ac.boar.anticheat.compensated.world.cache.ChunkSectionCache;
 import ac.boar.anticheat.violation.BoarViolationRegistry;
 import ac.boar.anticheat.config.Config;
 import ac.boar.anticheat.config.ConfigLoader;
@@ -33,6 +34,7 @@ public class Boar {
     private final BoarCheckRegistry checkRegistry = new BoarCheckRegistry();
     private final BoarAcknowledgmentRegistry acknowledgmentRegistry = new BoarAcknowledgmentRegistry();
     private final BoarViolationRegistry violationRegistry = new BoarViolationRegistry();
+    private final ChunkSectionCache chunkCache = new ChunkSectionCache();
 
     private BoarPlatform platform;
 
@@ -58,6 +60,7 @@ public class Boar {
 
     public void terminate(BoarPlatform platform) {
         PacketEvents.getApi().terminate();
+        this.chunkCache.clear();
         this.playerManager.clear();
 
         ConfigLoader.save(this.platform, platform.getClass(), config);
