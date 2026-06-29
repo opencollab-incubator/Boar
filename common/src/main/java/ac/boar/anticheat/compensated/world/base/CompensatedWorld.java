@@ -21,6 +21,7 @@ import lombok.Setter;
 import org.cloudburstmc.math.vector.Vector3i;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -99,7 +100,7 @@ public class CompensatedWorld {
 
     public void put(int x, int z, BoarChunkSection[] chunks) {
         long chunkPosition = MathUtil.chunkPositionToLong(x, z);
-        this.chunks.put(chunkPosition, new BoarChunk(chunks, new ArrayList<>()));
+        this.chunks.put(chunkPosition, new BoarChunk(Arrays.copyOf(chunks, chunks.length), new ArrayList<>()));
     }
 
     public void updateSection(int chunkX, int chunkZ, int sectionY, BoarChunkSection section) {
@@ -138,22 +139,25 @@ public class CompensatedWorld {
         }
 
         if (y < getMinY() || ((y - getMinY()) >> 4) > column.length - 1) {
-            // Y likely goes above or below the height limit of this world
             return;
         }
 
-        BoarChunkSection palette = column[(y - getMinY()) >> 4];
-        if (palette == null) {
+        final int index = (y - getMinY()) >> 4;
+        BoarChunkSection section = column[index];
+        if (section == null) {
             if (block != 0) {
-                // A previously empty chunk, which is no longer empty as a block has been added to it
-                column[(y - getMinY()) >> 4] = palette = new BoarChunkSection(this.player.mappingInfo.airId());
+                section = new BoarChunkSection(this.player.mappingInfo.airId());
+                column[index] = section;
             } else {
-                // Nothing to update
                 return;
             }
+        } else if (section.isShared()) {
+            // COW so that we never modify a section shared with other players worlds
+            section = section.copy();
+            column[index] = section;
         }
 
-        palette.setFullBlock(x & 0xF, y & 0xF, z & 0xF, layer, block);
+        section.setFullBlock(x & 0xF, y & 0xF, z & 0xF, layer, block);
     }
 
     public BoarBlockState getBlockState(Mutable vector3i, int layer) {

@@ -28,26 +28,51 @@ package ac.boar.anticheat.util.geyser;
 import ac.boar.anticheat.util.MathUtil;
 import org.cloudburstmc.protocol.common.util.Preconditions;
 
-// Geyser chunk section
-public record BoarChunkSection(BlockStorage[] storage) {
+public final class BoarChunkSection {
+    private final BlockStorage[] storage;
+    private boolean shared;
+
+    public BoarChunkSection(BlockStorage[] storage) {
+        this.storage = storage;
+    }
+
     public BoarChunkSection(int initialBlockId) {
         this(new BlockStorage[]{new BlockStorage(initialBlockId), new BlockStorage(initialBlockId)});
+    }
+
+    public BlockStorage[] storage() {
+        return this.storage;
+    }
+
+    public boolean isShared() {
+        return this.shared;
+    }
+
+    public void markShared() {
+        this.shared = true;
+    }
+
+    public BoarChunkSection copy() {
+        final BlockStorage[] copy = new BlockStorage[this.storage.length];
+        for (int i = 0; i < this.storage.length; i++) {
+            copy[i] = this.storage[i] == null ? null : this.storage[i].copy();
+        }
+        return new BoarChunkSection(copy);
     }
 
     public int getFullBlock(int x, int y, int z, int layer) {
         if (layer < 0 || layer >= this.storage.length) {
             return Integer.MIN_VALUE;
         }
-
         checkBounds(x, y, z);
         return this.storage[layer].getFullBlock(MathUtil.blockPosition(x, y, z));
     }
 
     public void setFullBlock(int x, int y, int z, int layer, int block) {
+        Preconditions.checkArgument(!this.shared, "attempted to mutate a shared chunk section (needs CoW)");
         if (layer < 0 || layer >= this.storage.length) {
             return;
         }
-
         checkBounds(x, y, z);
         this.storage[layer].setFullBlock(MathUtil.blockPosition(x, y, z), block);
     }
