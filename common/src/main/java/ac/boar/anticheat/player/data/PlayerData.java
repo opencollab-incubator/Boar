@@ -153,6 +153,7 @@ public class PlayerData {
     public boolean hasDepthStrider;
     public boolean touchingWater;
     public boolean horizontalCollision, verticalCollision;
+    public boolean stuckInCollider, penetratedLastFrame;
     public boolean soulSandBelow;
 
     public boolean nearBamboo;

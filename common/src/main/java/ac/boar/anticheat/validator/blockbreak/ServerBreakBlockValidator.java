@@ -1,5 +1,6 @@
 package ac.boar.anticheat.validator.blockbreak;
 
+import ac.boar.anticheat.Boar;
 import ac.boar.anticheat.data.BreakingData;
 import ac.boar.anticheat.data.block.BoarBlockState;
 import ac.boar.anticheat.player.BoarPlayer;
@@ -41,29 +42,31 @@ public class ServerBreakBlockValidator {
         }
 
         final List<PlayerBlockActionData> validActions = new ArrayList<>();
-
         for (final PlayerBlockActionData action : packet.getPlayerActions()) {
             final PlayerActionType actionType = action.getAction();
             final int face = action.getFace();
 
             // These action are shouldn't be process, and likely won't be process by Geyser anyway.
             if (!ALLOWED_ACTIONS.contains(actionType) || action.getBlockPosition() == null || !MathUtil.isValid(action.getBlockPosition())) {
+                Boar.debug(actionType + " is not an allowed action", Boar.DebugMessage.INFO);
                 continue;
             }
 
             if (actionType != ABORT_BREAK && (face < 0 || face >= Direction.VALUES.length)) {
+                Boar.debug("Invalid face: " + face + " for action: " + actionType, Boar.DebugMessage.INFO);
                 continue;
             }
 
             final Vector3i blockPosition = action.getBlockPosition();
-
             if (blockPosition.distance(player.position.toVector3i()) > 12) {
                 BlockUtil.restoreCorrectBlock(player, blockPosition);
+                Boar.debug("Player tried to break block outside of range: " + blockPosition + " w/ distance: " + blockPosition.distance(player.position.toVector3i()), Boar.DebugMessage.INFO);
                 continue;
             }
 
             final BoarBlockState state = player.compensatedWorld.getBlockState(blockPosition, 0);
             if (!BlockUtil.determineCanBreak(player, state)) {
+                Boar.debug("Player tried to break block that cannot be broken: " + blockPosition + " state: " + state, Boar.DebugMessage.INFO);
                 continue;
             }
 
@@ -71,7 +74,7 @@ public class ServerBreakBlockValidator {
                 case START_BREAK, BLOCK_CONTINUE_DESTROY  -> {
                     if (this.breakingData == null) {
                         this.breakingData = new BreakingData(START_BREAK, action.getBlockPosition(), face);
-//                        System.out.println("Start break: " + this.breakingData);
+                        Boar.debug("Start break: " + this.breakingData, Boar.DebugMessage.INFO);
                     } else {
                         this.breakingData.setState(BLOCK_CONTINUE_DESTROY);
                     }
@@ -80,7 +83,7 @@ public class ServerBreakBlockValidator {
                         BlockUtil.restoreCorrectBlock(player, this.breakingData.getPosition());
 
                         this.breakingData = new BreakingData(START_BREAK, action.getBlockPosition(), face);
-//                        System.out.println("Bedrock moment start break: " + this.breakingData);
+                        Boar.debug("Bedrock moment start break: " + this.breakingData, Boar.DebugMessage.INFO);
                     }
 
                     // TODO: Properly implement breaking progress.
@@ -94,9 +97,10 @@ public class ServerBreakBlockValidator {
                     }
 
                     if (this.breakingData.getBreakingProcess() >= 1) {
-//                        System.out.println("Finish break: " + this.breakingData);
+                        Boar.debug("Finish break: " + this.breakingData, Boar.DebugMessage.INFO);
                         player.compensatedWorld.updateBlock(breakingData.getPosition(), 0, player.mappingInfo.airId());
                     } else {
+                        Boar.debug("Player tried to break block too early: " + this.breakingData, Boar.DebugMessage.INFO);
                         continue;
                     }
                     this.breakingData = null;
@@ -107,9 +111,13 @@ public class ServerBreakBlockValidator {
             validActions.add(action);
         }
 
+        var oldSize = packet.getPlayerActions().size();
         packet.getPlayerActions().clear();
         packet.getPlayerActions().addAll(validActions);
 
+        if (oldSize != validActions.size()) {
+            Boar.debug("originalSize=" + oldSize + " newSize=" + validActions.size(), Boar.DebugMessage.INFO);
+        }
         if (packet.getPlayerActions().isEmpty()) {
             packet.getInputData().remove(PlayerAuthInputData.PERFORM_BLOCK_ACTIONS);
         }

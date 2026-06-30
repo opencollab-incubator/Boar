@@ -147,7 +147,11 @@ public class EntityTicker {
         }
 
         Vec3 oldVec3 = vec3.clone();
-        Vec3 vec32 = Collider.collide(player, vec3 = Collider.maybeBackOffFromEdge(player, vec3));
+        Vec3 penetration = new Vec3(0, 0, 0);
+        Vec3 vec32 = Collider.collide(player, vec3 = Collider.maybeBackOffFromEdge(player, vec3), player.stuckInCollider, penetration);
+        boolean hasPenetration = penetration.lengthSquared() >= 9.999999999999999e-12F;
+        player.stuckInCollider = player.penetratedLastFrame && hasPenetration;
+        player.penetratedLastFrame = hasPenetration;
         player.setPos(player.position.add(vec32));
 
         if (MovementDebug.enabled() && (oldVec3.x != vec3.x || oldVec3.z != vec3.z)) {

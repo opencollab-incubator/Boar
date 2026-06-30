@@ -132,7 +132,7 @@ public class ServerChunkPackets implements PacketListener {
             }
         } else if (event.getPacket() instanceof UpdateBlockPacket packet) {
             // Ugly hack.
-            if (packet.getDataLayer() == 0 && Boar.getConfig().ignoreGhostBlock() && !player.inLoadingScreen && player.sinceLoadingScreen >= 2) {
+            /* if (packet.getDataLayer() == 0 && Boar.getConfig().ignoreGhostBlock() && !player.inLoadingScreen && player.sinceLoadingScreen >= 2) {
                 boolean newBlockIsAir = player.mappingInfo.airIds().contains(packet.getDefinition().getRuntimeId());
                 boolean oldBlockIsAir = player.mappingInfo.airIds().contains(player.compensatedWorld.getRawBlockAt(packet.getBlockPosition().getX(), packet.getBlockPosition().getY(), packet.getBlockPosition().getZ(), 0));
 
@@ -143,7 +143,7 @@ public class ServerChunkPackets implements PacketListener {
                         world.updateBlock(packet.getBlockPosition(), packet.getDataLayer(), packet.getDefinition().getRuntimeId());
                     }
                 }
-            }
+            } */
 
             // Avoid spamming latency if possible, unless the player is seriously lagging then this shouldn't false.
             /* boolean send = player.position.distanceTo(new Vec3(packet.getBlockPosition())) <= 16;
