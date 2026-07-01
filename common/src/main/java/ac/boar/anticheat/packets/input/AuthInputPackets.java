@@ -4,7 +4,7 @@ import ac.boar.anticheat.Boar;
 import ac.boar.anticheat.ack.types.DimensionSwitchAck;
 import ac.boar.anticheat.check.impl.reach.Reach;
 import ac.boar.anticheat.check.impl.timer.Timer;
-import ac.boar.anticheat.data.input.PredictionData;
+import ac.boar.anticheat.data.input.PredictionResult;
 import ac.boar.anticheat.packets.input.legacy.LegacyAuthInputPackets;
 import ac.boar.anticheat.packets.input.teleport.TeleportHandler;
 import ac.boar.anticheat.player.BoarPlayer;
@@ -91,7 +91,7 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
             player.certainVelocity = null;
 
             // This is fine, we only need tick end and use before and after to calculate ground.
-            player.predictionResult = new PredictionData(Vec3.ZERO, player.velocity.y < 0 && player.getInputData().contains(PlayerAuthInputData.VERTICAL_COLLISION) ? new Vec3(0, 1, 0) : Vec3.ZERO, player.unvalidatedTickEnd);
+            player.predictionResult = new PredictionResult(Vec3.ZERO, player.velocity.y < 0 && player.getInputData().contains(PlayerAuthInputData.VERTICAL_COLLISION) ? new Vec3(0, 1, 0) : Vec3.ZERO, player.unvalidatedTickEnd);
             player.velocity = player.unvalidatedTickEnd.clone();
 
             player.bestPossibility = Vector.NONE;

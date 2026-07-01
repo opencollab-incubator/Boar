@@ -1,6 +1,6 @@
 package ac.boar.anticheat.packets.input.teleport;
 
-import ac.boar.anticheat.data.input.PredictionData;
+import ac.boar.anticheat.data.input.PredictionResult;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.teleport.data.TeleportCache;
 import ac.boar.anticheat.util.math.Vec3;
@@ -45,14 +45,14 @@ public class TeleportHandler {
         player.setPos(new Vec3(dimension.getPosition().subtract(0, player.getYOffset(), 0).toVector3f()));
         player.unvalidatedPosition = player.prevUnvalidatedPosition = player.position.clone();
         player.velocity = Vec3.ZERO.clone();
-        player.predictionResult = new PredictionData(Vec3.ZERO, Vec3.ZERO, Vec3.ZERO);
+        player.predictionResult = new PredictionResult(Vec3.ZERO, Vec3.ZERO, Vec3.ZERO);
     }
 
     private void processTeleport(final BoarPlayer player, final TeleportCache.Normal teleport, final PlayerAuthInputPacket packet) {
         player.setPos(new Vec3(teleport.getPosition().subtract(0, player.getYOffset(), 0).toVector3f()));
         player.unvalidatedPosition = player.prevUnvalidatedPosition = player.position.clone();
         player.velocity = Vec3.ZERO.clone();
-        player.predictionResult = new PredictionData(Vec3.ZERO, Vec3.ZERO, Vec3.ZERO);
+        player.predictionResult = new PredictionResult(Vec3.ZERO, Vec3.ZERO, Vec3.ZERO);
         player.onGround = teleport.isOnGround();
     }
 }

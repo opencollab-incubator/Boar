@@ -79,6 +79,15 @@ public class AttributeInstance {
         this.dirty = true;
     }
 
+    public AttributeInstance copy() {
+        final AttributeInstance instance = new AttributeInstance(this.baseValue);
+        instance.modifiers.putAll(this.modifiers);
+        instance.value = this.value;
+        instance.dirty = this.dirty;
+
+        return instance;
+    }
+
     private float computeValue() {
         float base = this.getBaseValue();
         for (final Map.Entry<String, AttributeModifierData> entry : this.modifiers.entrySet()) {

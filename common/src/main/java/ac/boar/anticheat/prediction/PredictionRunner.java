@@ -1,8 +1,9 @@
 package ac.boar.anticheat.prediction;
 
 import ac.boar.anticheat.Boar;
-import ac.boar.anticheat.data.input.PredictionData;
+import ac.boar.anticheat.data.input.PredictionResult;
 import ac.boar.anticheat.player.BoarPlayer;
+import ac.boar.anticheat.player.data.SimulationData;
 import ac.boar.anticheat.prediction.engine.data.Vector;
 import ac.boar.anticheat.prediction.engine.data.VectorType;
 import ac.boar.anticheat.prediction.ticker.impl.PlayerTicker;
@@ -33,8 +34,28 @@ public class PredictionRunner {
                     + " | inputData=" + player.getInputData());
         }
 
+        this.simulate();
+    }
+
+    /**
+     * Runs one simulation tick for the given branch state without leaving any of it behind on the player: a movement
+     * branch is installed, ticked, captured, and the player's canonical state restored before this returns.
+     * The returned SimulationData is the branch's end-of-tick state, including its prediction outputs (such as predictionResult/beforeCollision/afterCollision).
+     */
+    public SimulationData runBranch(final SimulationData branch) {
+        final SimulationData canonical = SimulationData.from(player);
+
+        branch.apply(player);
+        this.simulate();
+        final SimulationData result = SimulationData.from(player);
+
+        canonical.apply(player);
+        return result;
+    }
+
+    private void simulate() {
         new PlayerTicker(player).tick();
-        player.predictionResult = new PredictionData(player.beforeCollision.clone(), player.afterCollision.clone(), player.velocity.clone());
+        player.predictionResult = new PredictionResult(player.beforeCollision.clone(), player.afterCollision.clone(), player.velocity.clone());
         player.lastTickFinalVelocity = player.velocity.clone();
 
         if (MovementDebug.enabled()) {

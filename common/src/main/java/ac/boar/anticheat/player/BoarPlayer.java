@@ -318,7 +318,6 @@ public final class BoarPlayer extends PlayerData {
         return position.down(0.1F).toVector3i();
     }
 
-    public Vector3i cachedOnPos;
     public Vector3i getOnPos(final float offset) {
         if (this.cachedOnPos == null) {
             Vector3i blockPos = null;

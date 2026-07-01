@@ -80,4 +80,11 @@ public final class FlagTracker {
 
         return flags;
     }
+
+    public void restore(final Set<EntityFlag> flags, final boolean flying, final boolean wasFlying) {
+        this.flags.clear();
+        this.flags.addAll(flags);
+        this.flying = flying;
+        this.wasFlying = wasFlying;
+    }
 }

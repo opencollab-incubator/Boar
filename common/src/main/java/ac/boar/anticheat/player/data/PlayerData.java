@@ -8,7 +8,7 @@ import ac.boar.anticheat.data.Fluid;
 import ac.boar.anticheat.data.block.BoarBlockState;
 import ac.boar.anticheat.data.effect.Effect;
 import ac.boar.anticheat.data.enchantment.Enchantment;
-import ac.boar.anticheat.data.input.PredictionData;
+import ac.boar.anticheat.data.input.PredictionResult;
 import ac.boar.anticheat.data.vanilla.AttributeInstance;
 import ac.boar.anticheat.data.vanilla.StatusEffect;
 import ac.boar.anticheat.player.data.tracker.FlagTracker;
@@ -26,8 +26,6 @@ import org.cloudburstmc.protocol.bedrock.data.GameType;
 import org.cloudburstmc.protocol.bedrock.data.InputMode;
 import org.cloudburstmc.protocol.bedrock.data.PlayerAuthInputData;
 import org.cloudburstmc.protocol.bedrock.data.*;
-import org.cloudburstmc.protocol.bedrock.data.attribute.AttributeModifierData;
-import org.cloudburstmc.protocol.bedrock.data.attribute.AttributeOperation;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
 
@@ -84,9 +82,13 @@ public class PlayerData {
 
     public int glideBoostTicks;
     public int ticksSinceSwimming, ticksSinceCrawling, ticksSinceCanSlowdown;
-    private boolean serverSprinting;
-    private boolean serverSprintingApplied = true;
-    private boolean serverUpdatedMovementSpeed;
+
+    @Getter
+    boolean serverSprinting;
+    @Getter
+    boolean serverSprintingApplied = true;
+    @Getter
+    boolean serverUpdatedMovementSpeed;
 
     public boolean doingInventoryAction;
     public AtomicLong desyncedFlag = new AtomicLong(-1);
@@ -138,7 +140,7 @@ public class PlayerData {
 
     public Vec3 velocity = Vec3.ZERO, lastTickFinalVelocity = Vec3.ZERO;
 
-    public PredictionData predictionResult = new PredictionData(Vec3.ZERO, Vec3.ZERO, Vec3.ZERO);
+    public PredictionResult predictionResult = new PredictionResult(Vec3.ZERO, Vec3.ZERO, Vec3.ZERO);
     public Vector bestPossibility = Vector.NONE;
     public Vec3 beforeCollision = Vec3.ZERO, afterCollision = Vec3.ZERO;
 
@@ -166,6 +168,7 @@ public class PlayerData {
     }
 
     public BoarBlockState inBlockState;
+    public Vector3i cachedOnPos;
     public boolean scaffoldDescend;
 
     public VehicleData vehicleData = null;
