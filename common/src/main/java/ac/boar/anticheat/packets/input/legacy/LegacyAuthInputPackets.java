@@ -65,7 +65,7 @@ public class LegacyAuthInputPackets {
             player.getTeleportUtil().setCorrectionCooldown(false);
         }
 
-        if (canAcceptClient && offset < player.getMaxOffset()) {
+        if (canAcceptClient && offset < player.getPositionOffset()) {
             player.setPos(player.unvalidatedPosition.clone(), false);
         }
 

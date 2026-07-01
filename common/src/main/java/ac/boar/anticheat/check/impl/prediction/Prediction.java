@@ -33,11 +33,11 @@ public class Prediction extends BaseCheck implements OffsetHandlerCheck {
 
     @Override
     public void onPredictionComplete(float offset) {
-        if (player.tick < 10 || offset < player.getMaxOffset()) {
+        if (player.tick < 10 || offset < player.getPositionOffset()) {
             return;
         }
 
-        Boar.debug("[movement-debug] prediction offset tick=" + player.tick + " offset=" + offset + " max=" + player.getMaxOffset() + " alert=" + Boar.getConfig().alertThreshold() + " type=" + player.bestPossibility.getType() + " predictedPos=" + player.position + " actualPos=" + player.unvalidatedPosition + " predictedDelta=" + player.velocity + " actualDelta=" + player.unvalidatedTickEnd, Boar.DebugMessage.WARNING);
+        Boar.debug("[movement-debug] prediction offset tick=" + player.tick + " offset=" + offset + " max=" + player.getPositionOffset() + " alert=" + Boar.getConfig().alertThreshold() + " type=" + player.bestPossibility.getType() + " predictedPos=" + player.position + " actualPos=" + player.unvalidatedPosition + " predictedDelta=" + player.velocity + " actualDelta=" + player.unvalidatedTickEnd, Boar.DebugMessage.WARNING);
 
         if (!shouldDoFail() || offset < Boar.getConfig().alertThreshold()) {
             Boar.debug("[movement-debug] correction reason=prediction-soft tick=" + player.tick + " offset=" + offset, Boar.DebugMessage.WARNING);

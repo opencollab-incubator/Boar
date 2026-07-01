@@ -6,10 +6,11 @@
 # NOTE: This is not "that" important on Boar.
 player-rewind-history-size-ticks: 20
   
-# This is the tolerance of discrepancies between the Client and Server Player position. This helps prevent sending corrections too frequently
-# NOTE: Again, Boar can handle small offset just fine and does account for lag, however keep in mind that Boar can't handle (that well)
-# any offset smaller than 5.0E-5
-player-position-acceptance-threshold: 1.0E-4
+# This is the tolerance of discrepancies between the Client and Server Player position. This helps prevent sending corrections too frequently.
+# This value is the base/minimum window: 0.001 is enforced as the floor even if you set something smaller. On top of it, Boar automatically
+# widens the window at large coordinates to account for 32-bit float precision loss (e.g. at X=100000 a float's granularity is already ~0.0078,
+# well above 0.001), so legitimate players far from spawn aren't corrected just because of representational error.
+player-position-acceptance-threshold: 1.0E-3
 
 # This is the max reach that Boar going to tolerance before flagging, it does account for lag so no worry :)
 max-tolerance-compensated-reach: 3.005

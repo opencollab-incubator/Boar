@@ -20,7 +20,7 @@ public final class Config {
     private int rewindHistory = 20;
     @JsonProperty("player-position-acceptance-threshold")
     @JsonSetter(nulls = Nulls.SKIP)
-    private float acceptanceThreshold = 1.0E-4F;
+    private float acceptanceThreshold = 1.0E-3F;
     @JsonProperty("max-tolerance-compensated-reach")
     @JsonSetter(nulls = Nulls.SKIP)
     private float toleranceReach = 3.005F;
@@ -48,7 +48,7 @@ public final class Config {
     }
 
     public float acceptanceThreshold() {
-        return acceptanceThreshold;
+        return Math.max(1.0E-3F, acceptanceThreshold);
     }
 
     public float toleranceReach() {

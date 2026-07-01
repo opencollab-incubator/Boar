@@ -14,6 +14,7 @@ import org.cloudburstmc.protocol.bedrock.data.PredictionType;
 import org.cloudburstmc.protocol.bedrock.packet.CorrectPlayerMovePredictionPacket;
 import org.cloudburstmc.protocol.bedrock.packet.MovePlayerPacket;
 
+import java.util.Locale;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -117,5 +118,9 @@ public class TeleportUtil {
         this.player.sendLatencyStack(new MovementCorrectionAck());
         this.player.getConnection().sendPacketImmediately(packet);
         Boar.debug("[movement-debug] sent correction tick=" + player.tick + " pos=" + packet.getPosition() + " delta=" + packet.getDelta() + " onGround=" + player.onGround, Boar.DebugMessage.WARNING);
+
+        // Notify the corrected player (bright red): how far their reported position was from our prediction, and the sim tick.
+        final float difference = player.position.distanceTo(player.unvalidatedPosition);
+        this.player.getSession().sendMessage("§cYou were corrected! Position difference: " + String.format(Locale.ROOT, "%.5f", difference) + " (simulation tick " + player.tick + ")");
     }
 }

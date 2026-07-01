@@ -24,13 +24,15 @@ public class DebugOffsetA extends BaseCheck implements OffsetHandlerCheck {
         final AlertManager alertManager = Boar.getInstance().getAlertManager();
 
         final float maxOffset = player.getMaxOffset();
+        // Position offsets use the coordinate-aware window; the EOT/delta offset stays on the flat base.
+        final float positionOffset = player.getPositionOffset();
         float eotOffset = player.unvalidatedTickEnd.distanceTo(player.velocity);
 
         Vec3 predicted = player.position.subtract(player.prevUnvalidatedPosition);
         Vec3 actual = player.unvalidatedPosition.subtract(player.prevUnvalidatedPosition);
-        if (actual.length() > 1e-5 || offset > maxOffset || eotOffset > maxOffset) {
-            String colorOffset = offset > maxOffset ? "§c" : offset > 1.0E-5 ? "§6" : "§a";
-            if (player.position.distanceTo(player.unvalidatedPosition) > maxOffset && offset < maxOffset) {
+        if (actual.length() > 1e-5 || offset > positionOffset || eotOffset > maxOffset) {
+            String colorOffset = offset > positionOffset ? "§c" : offset > 1.0E-5 ? "§6" : "§a";
+            if (player.position.distanceTo(player.unvalidatedPosition) > positionOffset && offset < positionOffset) {
                 colorOffset = "§7";
             }
 

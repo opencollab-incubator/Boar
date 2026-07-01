@@ -179,6 +179,27 @@ public class PlayerData {
         return Boar.getConfig().acceptanceThreshold();
     }
 
+    // Headroom (in ULPs per axis) above the raw representational granularity, to absorb the extra
+    // float rounding that accumulates across a tick's worth of movement math on both client and server.
+    private static final float POSITION_PRECISION_FACTOR = 2.0F;
+
+    // Acceptance window for a server-vs-client *position* difference.
+    //
+    // World coordinates are stored as 32-bit floats (see Vec3), whose granularity grows with magnitude:
+    // Math.ulp(100000f) is already ~0.0078, an order of magnitude past the 0.001 base. A flat threshold
+    // would therefore false-correct legitimate players the further they get from the origin. So we widen
+    // the window by the combined per-axis representational error, and never go below getMaxOffset().
+    //
+    // Only position differences need this - velocity/delta comparisons stay on getMaxOffset() since their
+    // magnitude is tiny regardless of where in the world the player is.
+    public final float getPositionOffset() {
+        final float ulpX = Math.ulp(Math.max(Math.abs(position.x), Math.abs(unvalidatedPosition.x)));
+        final float ulpY = Math.ulp(Math.max(Math.abs(position.y), Math.abs(unvalidatedPosition.y)));
+        final float ulpZ = Math.ulp(Math.max(Math.abs(position.z), Math.abs(unvalidatedPosition.z)));
+        final float precision = (float) Math.sqrt(ulpX * ulpX + ulpY * ulpY + ulpZ * ulpZ) * POSITION_PRECISION_FACTOR;
+        return Math.max(getMaxOffset(), precision);
+    }
+
     public final void setSprinting(boolean sprinting) {
         this.getFlagTracker().set(EntityFlag.SPRINTING, sprinting);
     }
