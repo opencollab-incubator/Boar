@@ -41,6 +41,47 @@ tasks {
     }
 }
 
+// Runs a standalone Geyser proxy with the freshly built Boar extension loaded.
+// Everything (config, logs, extensions) lives under run/geyser so it survives between runs.
+tasks.register<JavaExec>("runGeyser") {
+    group = "boar"
+    description = "Runs a standalone Geyser proxy with the Boar extension."
+
+    dependsOn(tasks.shadowJar)
+
+    val geyserDir = layout.projectDirectory.dir("run/geyser")
+    val geyserJar = geyserDir.file("Geyser.jar")
+    val extensionsDir = geyserDir.dir("extensions")
+
+    // Deploy the built boar.jar into the Geyser extensions folder, clearing any
+    // stale boar jars first so Geyser doesn't try to load two copies of the extension.
+    doFirst {
+        val extDir = extensionsDir.asFile
+        extDir.mkdirs()
+        extDir.listFiles { file ->
+            file.isFile && file.name.startsWith("boar") && file.name.endsWith(".jar")
+        }?.forEach { it.delete() }
+
+        copy {
+            from(tasks.shadowJar.get().archiveFile)
+            into(extDir)
+        }
+
+        if (!geyserJar.asFile.exists()) {
+            throw GradleException("Geyser.jar not found at ${geyserJar.asFile}. Place a standalone Geyser build there first.")
+        }
+    }
+
+    workingDir = geyserDir.asFile
+    classpath = files(geyserJar)
+    mainClass.set("org.geysermc.geyser.platform.standalone.GeyserStandaloneBootstrap")
+
+    // Forward console input so Geyser's interactive commands work, and default to
+    // headless mode (pass --args="..." to override).
+    standardInput = System.`in`
+    args("--nogui")
+}
+
 modrinth {
     token = System.getenv("MODRINTH_TOKEN")
     versionName.set(getCommitHash())
