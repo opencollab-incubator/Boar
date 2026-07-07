@@ -138,6 +138,7 @@ public final class BoarDefaultAcknowledgments {
     }
 
     private static void handleDimensionSwitch(BoarPlayer player, DimensionSwitchAck ack) {
+        player.getBranchTracker().discardBranches("dimension-switch");
         if (player.compensatedWorld.getDimension() != ack.dimension()) {
             player.currentLoadingScreen = ack.loadingScreenId();
             player.inLoadingScreen = true;
@@ -151,6 +152,7 @@ public final class BoarDefaultAcknowledgments {
     private static void handleEntityRemove(BoarPlayer player, EntityRemoveAck ack) {
         if (player.vehicleData != null && player.vehicleData.vehicleRuntimeId == ack.uniqueEntityId()) {
             player.vehicleData = null;
+            player.getBranchTracker().discardBranches("vehicle-entity-removed");
         }
         player.compensatedWorld.removeEntity(ack.uniqueEntityId());
     }
@@ -174,6 +176,7 @@ public final class BoarDefaultAcknowledgments {
     }
 
     private static void handleUpdateAbilities(BoarPlayer player, UpdateAbilitiesAck ack) {
+        player.getBranchTracker().discardBranches("update-abilities");
         player.abilities.clear();
         for (AbilityLayer layer : ack.layers()) {
             player.abilities.addAll(layer.getAbilityValues());
@@ -189,6 +192,12 @@ public final class BoarDefaultAcknowledgments {
 
     private static void handlePlayerMetadata(BoarPlayer player, PlayerMetadataAck ack) {
         if (ack.flags() != null) {
+            final boolean sprintForced = ack.flags().contains(EntityFlag.SPRINTING) != player.getFlagTracker().has(EntityFlag.SPRINTING);
+            final boolean sneakForced = ack.flags().contains(EntityFlag.SNEAKING) != player.getFlagTracker().has(EntityFlag.SNEAKING);
+            if (sprintForced || sneakForced) {
+                player.getBranchTracker().discardBranches("player-metadata-flag-forced");
+            }
+
             player.setServerSprinting(ack.flags().contains(EntityFlag.SPRINTING));
             player.getFlagTracker().set(player, ack.flags());
         }
@@ -231,17 +240,16 @@ public final class BoarDefaultAcknowledgments {
                 return;
             }
 
-            if (data.getName().equals(Attribute.MOVEMENT.getIdentifier())) {
-                player.setMovementSpeedFromServer(data.getValue(), data.getDefaultValue());
-                continue;
-            }
-
             attribute.clearModifiers();
             attribute.setBaseValue(data.getDefaultValue());
             attribute.setValue(data.getValue());
-
             for (AttributeModifierData mod : data.getModifiers()) {
                 attribute.addTemporaryModifier(mod);
+            }
+
+            if (data.getName().equals(Attribute.MOVEMENT.getIdentifier())) {
+                player.pendingServerMovementSpeed = attribute.getValue();
+                player.serverUpdatedMovementSpeed = true;
             }
 
             if (Boar.getConfig() != null && Boar.getConfig().debugMode()) {
@@ -253,6 +261,7 @@ public final class BoarDefaultAcknowledgments {
                         + " wireValue=" + data.getValue()
                         + " wireDefault=" + data.getDefaultValue()
                         + " wireMin=" + data.getMinimum() + " wireMax=" + data.getMaximum()
+                        + " wireDefaultMin=" + data.getDefaultMinimum() + " wireDefaultMax=" + data.getDefaultMaximum()
                         + " modifiers=[" + mods + " ]"
                         + " -> boarBase=" + attribute.getBaseValue() + " boarGetValue=" + attribute.getValue(), Boar.DebugMessage.INFO);
             }
@@ -265,6 +274,7 @@ public final class BoarDefaultAcknowledgments {
     }
 
     private static void handleGlideBoost(BoarPlayer player, GlideBoostAck ack) {
+        player.getBranchTracker().discardBranches("glide-boost");
         if (player.glideBoostTicks == 0 && ack.duration() == 0 || ack.duration() == Integer.MAX_VALUE) {
             player.glideBoostTicks = 1;
             return;
@@ -390,6 +400,7 @@ public final class BoarDefaultAcknowledgments {
     }
 
     private static void handleMobEffect(BoarPlayer player, MobEffectAck ack) {
+        player.getBranchTracker().discardBranches("mob-effect");
         if (ack.event() == MobEffectPacket.Event.ADD || ack.event() == MobEffectPacket.Event.MODIFY) {
             player.getActiveEffects().put(ack.effect(), new StatusEffect(ack.effect(), ack.amplifier(), ack.duration() + 1));
         } else if (ack.event() == MobEffectPacket.Event.REMOVE) {
@@ -398,10 +409,12 @@ public final class BoarDefaultAcknowledgments {
     }
 
     private static void handleVehicleClear(BoarPlayer player, VehicleClearAck ack) {
+        player.getBranchTracker().discardBranches("vehicle-clear");
         player.vehicleData = null;
     }
 
     private static void handleVehicleSet(BoarPlayer player, VehicleSetAck ack) {
+        player.getBranchTracker().discardBranches("vehicle-set");
         player.vehicleData = new VehicleData();
         player.vehicleData.vehicleRuntimeId = ack.vehicleRuntimeId();
     }

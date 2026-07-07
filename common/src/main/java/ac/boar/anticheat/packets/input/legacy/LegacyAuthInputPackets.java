@@ -7,7 +7,9 @@ import ac.boar.anticheat.compensated.cache.container.ContainerCache;
 import ac.boar.anticheat.data.ItemUseTracker;
 import ac.boar.anticheat.data.inventory.BoarItemStack;
 import ac.boar.anticheat.player.BoarPlayer;
+import ac.boar.anticheat.prediction.MovementDebug;
 import ac.boar.anticheat.prediction.UncertainRunner;
+import ac.boar.anticheat.prediction.uncertainty.UncertaintyEnvelope;
 import ac.boar.anticheat.util.InputUtil;
 import ac.boar.anticheat.util.math.Vec3;
 import ac.boar.mappings.item.Items;
@@ -38,7 +40,15 @@ public class LegacyAuthInputPackets {
         float extraOffset = uncertainRunner.extraOffset(offset);
         offset -= extraOffset;
         offset -= uncertainRunner.extraOffsetNonTickEnd(offset);
-        uncertainRunner.uncertainPushTowardsTheClosetSpace();
+        if (MovementDebug.enabled()) {
+            final UncertaintyEnvelope envelope = uncertainRunner.buildEnvelope();
+            final Vec3 diff = player.unvalidatedPosition.subtract(player.position);
+            final float envelopeOffset = envelope.distanceOutside(diff);
+            if (Math.abs(envelopeOffset - offset) > 1.0E-6F) {
+                MovementDebug.log(player, "ENVELOPE-SHADOW", "legacy=" + offset + " envelope=" + envelopeOffset + " env=" + envelope.describe());
+            }
+        }
+        uncertainRunner.uncertainPushTowardsClosestSpace();
         uncertainRunner.resolveUncertainBouncing();
 
         for (Map.Entry<Class<?>, Check> entry : player.getCheckHolder().entrySet()) {
@@ -68,6 +78,9 @@ public class LegacyAuthInputPackets {
         if (canAcceptClient && offset < player.getPositionOffset()) {
             player.setPos(player.unvalidatedPosition.clone(), false);
         }
+
+        player.pendingServerMovementSpeed = null;
+        player.getBranchTracker().rebaseSurvivorsOntoAccepted(player);
 
         //player.prevPosition = player.position.clone();
     }
@@ -142,6 +155,11 @@ public class LegacyAuthInputPackets {
                 player.getInputData().contains(PlayerAuthInputData.START_SPRINTING),
                 player.getInputData().contains(PlayerAuthInputData.STOP_SPRINTING)
         );
+        player.updateSneakingState(
+                player.getInputData().contains(PlayerAuthInputData.START_SNEAKING),
+                player.getInputData().contains(PlayerAuthInputData.STOP_SNEAKING),
+                player.getInputData().contains(PlayerAuthInputData.SNEAKING)
+        );
 
         final Iterator<PlayerAuthInputData> iterator = player.getInputData().iterator();
         while (iterator.hasNext()) {
@@ -157,11 +175,6 @@ public class LegacyAuthInputPackets {
                     }
                 }
                 case STOP_GLIDING -> player.getFlagTracker().set(EntityFlag.GLIDING, false);
-
-                case START_SPRINTING, STOP_SPRINTING -> {
-                }
-                case START_SNEAKING -> player.getFlagTracker().set(EntityFlag.SNEAKING, true);
-                case STOP_SNEAKING -> player.getFlagTracker().set(EntityFlag.SNEAKING, false);
 
                 case START_SWIMMING -> player.getFlagTracker().set(EntityFlag.SWIMMING, true);
                 case STOP_SWIMMING -> player.getFlagTracker().set(EntityFlag.SWIMMING, false);

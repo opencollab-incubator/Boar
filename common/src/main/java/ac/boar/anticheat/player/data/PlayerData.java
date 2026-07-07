@@ -26,19 +26,36 @@ import org.cloudburstmc.protocol.bedrock.data.GameType;
 import org.cloudburstmc.protocol.bedrock.data.InputMode;
 import org.cloudburstmc.protocol.bedrock.data.PlayerAuthInputData;
 import org.cloudburstmc.protocol.bedrock.data.*;
+import org.cloudburstmc.protocol.bedrock.data.attribute.AttributeModifierData;
+import org.cloudburstmc.protocol.bedrock.data.attribute.AttributeOperation;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 @RequiredArgsConstructor
 public class PlayerData {
     private static final float SPRINTING_SPEED_MULTIPLIER = 1.3F;
+
+    public record SprintContext(
+            boolean startEdge,
+            boolean stopEdge,
+            boolean serverFlagPending,
+            boolean uncertain,
+            boolean assumedSprinting,
+            float preUpdateMovementSpeed,
+            boolean serverSpeedUpdateActive
+    ) {}
+
+    public record SneakContext(
+            boolean startEdge,
+            boolean stopEdge,
+            boolean serverFlagPending,
+            boolean uncertain,
+            boolean assumedSneaking
+    ) {}
 
     public final static float JUMP_HEIGHT = 0.42F;
     public final static float STEP_HEIGHT = 0.6F;
@@ -87,8 +104,18 @@ public class PlayerData {
     boolean serverSprinting;
     @Getter
     boolean serverSprintingApplied = true;
+    public SprintContext sprintContext;
+
     @Getter
-    boolean serverUpdatedMovementSpeed;
+    boolean serverSneaking;
+    @Getter
+    boolean serverSneakingApplied = true;
+    public SneakContext sneakContext;
+
+    @Getter
+    public boolean serverUpdatedMovementSpeed;
+    public Float pendingServerMovementSpeed;
+    public Float airSpeedOverride;
 
     public boolean doingInventoryAction;
     public AtomicLong desyncedFlag = new AtomicLong(-1);
@@ -213,6 +240,29 @@ public class PlayerData {
     }
 
     public final void updateSprintingState(boolean startSprinting, boolean stopSprinting) {
+        final boolean serverFlagPending = !this.serverSprintingApplied;
+        final boolean currentSprinting = this.getFlagTracker().has(EntityFlag.SPRINTING);
+        final boolean assumedSprinting;
+        if (startSprinting && stopSprinting) {
+            assumedSprinting = false;
+        } else if (!startSprinting && !stopSprinting && serverFlagPending && this.serverSprinting != currentSprinting) {
+            assumedSprinting = this.serverSprinting;
+        } else if (startSprinting) {
+            assumedSprinting = true;
+        } else if (stopSprinting) {
+            assumedSprinting = false;
+        } else {
+            assumedSprinting = currentSprinting;
+        }
+        final AttributeInstance movement = this.attributes.get(Attribute.MOVEMENT.getIdentifier());
+        final float preUpdateMovementSpeed = movement != null ? movement.getValue() : 0.0F;
+        final boolean uncertain = this.isSprintTransitionUncertain(startSprinting, stopSprinting, serverFlagPending, currentSprinting);
+        this.sprintContext = new SprintContext(
+                startSprinting, stopSprinting, serverFlagPending,
+                uncertain, assumedSprinting,
+                preUpdateMovementSpeed, this.serverUpdatedMovementSpeed
+        );
+
         boolean needsSpeedAdjusted = false;
 
         if (startSprinting && stopSprinting) {
@@ -225,7 +275,9 @@ public class PlayerData {
             needsSpeedAdjusted = true;
         } else if (stopSprinting) {
             this.setSprinting(false);
-            needsSpeedAdjusted = !this.serverUpdatedMovementSpeed;
+            if (this.input.z > 0.0F) {
+                needsSpeedAdjusted = !this.serverUpdatedMovementSpeed;
+            }
         }
 
         this.serverSprintingApplied = true;
@@ -235,16 +287,129 @@ public class PlayerData {
         }
     }
 
-    public final void setMovementSpeedFromServer(float value, float defaultValue) {
-        final AttributeInstance attribute = this.attributes.get(Attribute.MOVEMENT.getIdentifier());
-        if (attribute == null) {
-            return;
+    private boolean isSprintTransitionUncertain(final boolean startSprinting, final boolean stopSprinting, final boolean serverFlagPending, final boolean currentSprinting) {
+        final boolean pendingConflicts = serverFlagPending && this.serverSprinting != currentSprinting;
+
+        if (startSprinting || stopSprinting) {
+            final boolean speedDerivable = this.sprintSpeedLocallyDerivable();
+            final boolean cleanStartEdge = startSprinting && !stopSprinting && this.input.z > 0.0F && speedDerivable;
+            final boolean cleanStopEdge = stopSprinting && !startSprinting && this.input.z <= 0.0F && speedDerivable;
+            return !((cleanStartEdge || cleanStopEdge) && !pendingConflicts);
         }
 
-        attribute.clearModifiers();
-        attribute.setBaseValue(defaultValue);
-        attribute.setValue(value);
-        this.serverUpdatedMovementSpeed = true;
+        return pendingConflicts;
+    }
+
+    public final void setSneaking(boolean sneaking) {
+        this.flagTracker.set(EntityFlag.SNEAKING, sneaking);
+    }
+
+    public final void updateSneakingState(boolean startSneak, boolean stopSneak, boolean sneakingInput) {
+        final boolean serverFlagPending = !this.serverSneakingApplied;
+        final boolean currentSneaking = this.flagTracker.has(EntityFlag.SNEAKING);
+
+        final boolean assumedSneaking;
+        if (!startSneak && !stopSneak && serverFlagPending && this.serverSneaking != currentSneaking) {
+            assumedSneaking = this.serverSneaking;
+        } else {
+            assumedSneaking = sneakingInput;
+        }
+
+        final boolean uncertain = this.isSneakTransitionUncertain(startSneak, stopSneak, sneakingInput, serverFlagPending, currentSneaking, assumedSneaking);
+        this.sneakContext = new SneakContext(startSneak, stopSneak, serverFlagPending, uncertain, assumedSneaking);
+
+        this.setSneaking(assumedSneaking);
+        this.serverSneakingApplied = true;
+    }
+
+    private boolean isSneakTransitionUncertain(
+            final boolean startSneak,
+            final boolean stopSneak,
+            final boolean sneakingInput,
+            final boolean serverFlagPending,
+            final boolean currentSneaking,
+            final boolean assumedSneaking
+    ) {
+        final boolean pendingConflicts = serverFlagPending && this.serverSneaking != currentSneaking;
+        if (startSneak || stopSneak) {
+            final boolean cleanStartEdge = startSneak && !stopSneak && sneakingInput;
+            final boolean cleanStopEdge = stopSneak && !startSneak && !sneakingInput;
+            return !((cleanStartEdge || cleanStopEdge) && !pendingConflicts);
+        }
+
+        return pendingConflicts || assumedSneaking != currentSneaking;
+    }
+
+    private boolean sprintSpeedLocallyDerivable() {
+        final AttributeInstance attribute = this.attributes.get(Attribute.MOVEMENT.getIdentifier());
+        if (attribute == null) {
+            return false;
+        }
+        if (attribute.getModifiers().isEmpty()) {
+            return true;
+        }
+
+        for (final AttributeModifierData modifier : attribute.getModifiers().values()) {
+            if (modifier.getOperation() != AttributeOperation.ADDITION) {
+                return false;
+            }
+        }
+
+        final float addSum = this.movementAdditionModifierSum();
+        final float cleanBase = attribute.getNonModifiedBaseValue();
+        return addSum > 0.0F && cleanBase > 0.0F
+                && Math.abs(addSum - cleanBase * (SPRINTING_SPEED_MULTIPLIER - 1.0F)) < 1.0E-5F;
+    }
+
+    public float deriveMovementSpeed(boolean sprinting) {
+        final AttributeInstance attribute = this.attributes.get(Attribute.MOVEMENT.getIdentifier());
+        if (attribute == null) {
+            return 0.0F;
+        }
+
+        final float addSum = this.movementAdditionModifierSum();
+        final float cleanBase = attribute.getNonModifiedBaseValue();
+        if (addSum > 0.0F && cleanBase > 0.0F
+                && Math.abs(addSum - cleanBase * (SPRINTING_SPEED_MULTIPLIER - 1.0F)) < 1.0E-5F) {
+            return sprinting ? attribute.getBaseValue() : cleanBase;
+        }
+
+        float movementSpeed = attribute.getBaseValue();
+        if (sprinting) {
+            movementSpeed *= SPRINTING_SPEED_MULTIPLIER;
+        }
+
+        return movementSpeed;
+    }
+
+    public float movementAdditionModifierSum() {
+        final AttributeInstance attribute = this.attributes.get(Attribute.MOVEMENT.getIdentifier());
+        if (attribute == null) {
+            return 0.0F;
+        }
+
+        float sum = 0.0F;
+        for (final AttributeModifierData modifier : attribute.getModifiers().values()) {
+            if (modifier.getOperation() == AttributeOperation.ADDITION) {
+                sum += modifier.getAmount();
+            }
+        }
+        return sum;
+    }
+
+    public Float movementSpeedWithoutAdditions() {
+        final AttributeInstance attribute = this.attributes.get(Attribute.MOVEMENT.getIdentifier());
+        if (attribute == null || attribute.getModifiers().isEmpty()) {
+            return null;
+        }
+
+        final float sum = this.movementAdditionModifierSum();
+        if (sum <= 0.0F) {
+            return null;
+        }
+
+        final float withoutAdditions = attribute.getNonModifiedBaseValue();
+        return withoutAdditions > 0.0F ? withoutAdditions : null;
     }
 
     private void updateMovementSpeedFromSprinting() {
@@ -253,12 +418,7 @@ public class PlayerData {
             return;
         }
 
-        float movementSpeed = attribute.getBaseValue();
-        if (this.getFlagTracker().has(EntityFlag.SPRINTING)) {
-            movementSpeed *= SPRINTING_SPEED_MULTIPLIER;
-        }
-
-        attribute.setValue(movementSpeed);
+        attribute.setValue(this.deriveMovementSpeed(this.getFlagTracker().has(EntityFlag.SPRINTING)));
         this.serverUpdatedMovementSpeed = false;
     }
 

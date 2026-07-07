@@ -4,10 +4,12 @@ import ac.boar.anticheat.Boar;
 import ac.boar.anticheat.ack.types.MovementCorrectionAck;
 import ac.boar.anticheat.ack.types.TeleportAcceptAck;
 import ac.boar.anticheat.player.BoarPlayer;
+import ac.boar.anticheat.prediction.branch.BranchTracker;
 import ac.boar.anticheat.teleport.data.TeleportCache;
 import ac.boar.anticheat.util.math.Vec3;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import org.cloudburstmc.math.vector.Vector2f;
 import org.cloudburstmc.math.vector.Vector3f;
 import org.cloudburstmc.protocol.bedrock.data.PredictionType;
@@ -25,6 +27,7 @@ public class TeleportUtil {
 
     private Vector3f lastKnownValid = Vector3f.ZERO;
     private int pendingCorrections;
+    @Setter
     private boolean correctionCooldown;
 
     // Normal teleport part.
@@ -53,6 +56,7 @@ public class TeleportUtil {
         packet.setMode(MovePlayerPacket.Mode.TELEPORT);
         packet.setTeleportationCause(MovePlayerPacket.TeleportationCause.BEHAVIOR);
 
+        this.player.getBranchTracker().discardBranches("teleport-sent");
         this.player.getConnection().sendPacket(packet);
         Boar.debug("[movement-debug] sent teleport pos=" + teleport.getPosition() + " lastKnown=" + this.lastKnownValid, Boar.DebugMessage.WARNING);
     }
@@ -63,6 +67,7 @@ public class TeleportUtil {
     }
 
     public void queue(TeleportCache cache) {
+        this.player.getBranchTracker().discardBranches("teleport-queued");
         this.queuedTeleports.add(cache);
         player.sendLatencyStack(new TeleportAcceptAck(cache));
     }
@@ -83,10 +88,6 @@ public class TeleportUtil {
 
     public void updateLastKnownValid(Vector3f position) {
         this.lastKnownValid = position;
-    }
-
-    public void setCorrectionCooldown(boolean correctionCooldown) {
-        this.correctionCooldown = correctionCooldown;
     }
 
     public void correct() {
@@ -117,10 +118,11 @@ public class TeleportUtil {
         this.correctionCooldown = true;
         this.player.sendLatencyStack(new MovementCorrectionAck());
         this.player.getConnection().sendPacketImmediately(packet);
+        this.player.getBranchTracker().discardBranches("movement-correction");
+        this.player.getBranchTracker().enterDormancy(BranchTracker.Dormancy.SPRINT);
         Boar.debug("[movement-debug] sent correction tick=" + player.tick + " pos=" + packet.getPosition() + " delta=" + packet.getDelta() + " onGround=" + player.onGround, Boar.DebugMessage.WARNING);
 
-        // Notify the corrected player (bright red): how far their reported position was from our prediction, and the sim tick.
-        final float difference = player.position.distanceTo(player.unvalidatedPosition);
-        this.player.getSession().sendMessage("§cYou were corrected! Position difference: " + String.format(Locale.ROOT, "%.5f", difference) + " (simulation tick " + player.tick + ")");
+        final Vec3 diff = player.position.subtract(player.unvalidatedPosition);
+        this.player.getSession().sendMessage("§cCORRECTION! posDiff=" + String.format(Locale.ROOT, "[%.4f, %.4f, %.4f] (total=%.5f)", diff.getX(), diff.getY(), diff.getZ(), diff.length()) + " simTick=" + player.tick);
     }
 }

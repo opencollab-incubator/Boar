@@ -42,6 +42,7 @@ public class TeleportHandler {
     }
 
     private void processDimensionSwitch(final BoarPlayer player, final TeleportCache.DimensionSwitch dimension, final PlayerAuthInputPacket packet) {
+        player.getBranchTracker().discardBranches("teleport-dimension-switch");
         player.setPos(new Vec3(dimension.getPosition().subtract(0, player.getYOffset(), 0).toVector3f()));
         player.unvalidatedPosition = player.prevUnvalidatedPosition = player.position.clone();
         player.velocity = Vec3.ZERO.clone();
@@ -49,6 +50,7 @@ public class TeleportHandler {
     }
 
     private void processTeleport(final BoarPlayer player, final TeleportCache.Normal teleport, final PlayerAuthInputPacket packet) {
+        player.getBranchTracker().discardBranches("teleport");
         player.setPos(new Vec3(teleport.getPosition().subtract(0, player.getYOffset(), 0).toVector3f()));
         player.unvalidatedPosition = player.prevUnvalidatedPosition = player.position.clone();
         player.velocity = Vec3.ZERO.clone();

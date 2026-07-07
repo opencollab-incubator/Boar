@@ -11,7 +11,9 @@ import java.util.Map;
 // of setting dirty to true, and dirty will only be set to true IF baseValue is updated.
 @Getter
 public class AttributeInstance {
+
     private float baseValue;
+    private float nonModifiedBaseValue;
 
     private float value;
     private boolean dirty = true;
@@ -20,6 +22,7 @@ public class AttributeInstance {
 
     public AttributeInstance(float baseValue) {
         this.baseValue = baseValue;
+        this.nonModifiedBaseValue = baseValue;
     }
 
     public void setBaseValue(float baseValue) {
@@ -28,6 +31,8 @@ public class AttributeInstance {
         }
 
         this.baseValue = baseValue;
+        this.nonModifiedBaseValue = baseValue;
+
         this.setDirty();
     }
 
@@ -56,19 +61,39 @@ public class AttributeInstance {
     }
 
     private void addModifier(AttributeModifierData modifier) {
-        final AttributeModifierData lv = this.modifiers.putIfAbsent(modifier.getId(), modifier);
-        if (lv == null) {
-            this.update();
-        }
+        this.modifiers.put(modifier.getId(), modifier);
+        this.update();
     }
 
     protected void update() {
-        this.value = this.computeValue();
+        float newBase = this.nonModifiedBaseValue;
+        for (final Map.Entry<String, AttributeModifierData> entry : this.modifiers.entrySet()) {
+            final AttributeModifierData modifier = entry.getValue();
+            if (modifier.getOperation() == AttributeOperation.ADDITION) {
+                newBase += modifier.getAmount();
+            }
+        }
+        this.baseValue = newBase;
+
+        float newValue = this.baseValue;
+        for (final Map.Entry<String, AttributeModifierData> entry : this.modifiers.entrySet()) {
+            final AttributeModifierData modifier = entry.getValue();
+            if (modifier.getOperation() == AttributeOperation.MULTIPLY_BASE) {
+                newValue += (newBase * modifier.getAmount());
+            }
+        }
+        for (final Map.Entry<String, AttributeModifierData> entry : this.modifiers.entrySet()) {
+            final AttributeModifierData modifier = entry.getValue();
+            if (modifier.getOperation() == AttributeOperation.MULTIPLY_TOTAL) {
+                newValue *= (1.0F + modifier.getAmount());
+            }
+        }
+        this.value = newValue;
     }
 
     public float getValue() {
         if (this.dirty) {
-            this.value = this.computeValue();
+            this.update();
             this.dirty = false;
         }
 
@@ -80,7 +105,8 @@ public class AttributeInstance {
     }
 
     public AttributeInstance copy() {
-        final AttributeInstance instance = new AttributeInstance(this.baseValue);
+        final AttributeInstance instance = new AttributeInstance(this.nonModifiedBaseValue);
+        instance.baseValue = this.baseValue;
         instance.modifiers.putAll(this.modifiers);
         instance.value = this.value;
         instance.dirty = this.dirty;
@@ -88,28 +114,4 @@ public class AttributeInstance {
         return instance;
     }
 
-    private float computeValue() {
-        float base = this.getBaseValue();
-        for (final Map.Entry<String, AttributeModifierData> entry : this.modifiers.entrySet()) {
-            final AttributeModifierData modifier = entry.getValue();
-            if (modifier.getOperation() == AttributeOperation.ADDITION) {
-                base += modifier.getAmount();
-            }
-        }
-        float value = base;
-        for (final Map.Entry<String, AttributeModifierData> entry : this.modifiers.entrySet()) {
-            final AttributeModifierData modifier = entry.getValue();
-            if (modifier.getOperation() == AttributeOperation.MULTIPLY_BASE) {
-                value += (base * modifier.getAmount());
-            }
-        }
-        for (final Map.Entry<String, AttributeModifierData> entry : this.modifiers.entrySet()) {
-            final AttributeModifierData modifier = entry.getValue();
-            if (modifier.getOperation() == AttributeOperation.MULTIPLY_TOTAL) {
-                value *= (1.0F + modifier.getAmount());
-            }
-        }
-
-        return value;
-    }
 }

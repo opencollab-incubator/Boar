@@ -61,6 +61,10 @@ public final class SimulationData {
     private Vec3 input;
 
     private boolean serverSprinting, serverSprintingApplied, serverUpdatedMovementSpeed;
+    private boolean serverSneaking, serverSneakingApplied;
+    private Float pendingServerMovementSpeed, airSpeedOverride;
+    private PlayerData.SprintContext sprintContext;
+    private PlayerData.SneakContext sneakContext;
 
     private SimulationData() {
     }
@@ -116,16 +120,19 @@ public final class SimulationData {
         data.flying = player.getFlagTracker().isFlying();
         data.wasFlying = player.getFlagTracker().isWasFlying();
 
-        data.attributes = HashMap.newHashMap(player.attributes.size());
-        for (final Map.Entry<String, AttributeInstance> entry : player.attributes.entrySet()) {
-            data.attributes.put(entry.getKey(), entry.getValue().copy());
-        }
+        data.attributes = copyAttributes(player.attributes);
 
         data.input = player.input.clone();
 
         data.serverSprinting = player.serverSprinting;
         data.serverSprintingApplied = player.serverSprintingApplied;
+        data.serverSneaking = player.serverSneaking;
+        data.serverSneakingApplied = player.serverSneakingApplied;
         data.serverUpdatedMovementSpeed = player.serverUpdatedMovementSpeed;
+        data.pendingServerMovementSpeed = player.pendingServerMovementSpeed;
+        data.airSpeedOverride = player.airSpeedOverride;
+        data.sprintContext = player.sprintContext;
+        data.sneakContext = player.sneakContext;
 
         return data;
     }
@@ -180,16 +187,19 @@ public final class SimulationData {
         player.abilities.addAll(this.abilities);
         player.getFlagTracker().restore(this.entityFlags, this.flying, this.wasFlying);
 
-        player.attributes.clear();
-        for (final Map.Entry<String, AttributeInstance> entry : this.attributes.entrySet()) {
-            player.attributes.put(entry.getKey(), entry.getValue().copy());
-        }
+        copyAttributesInto(this.attributes, player.attributes);
 
         player.input = this.input.clone();
 
         player.serverSprinting = this.serverSprinting;
         player.serverSprintingApplied = this.serverSprintingApplied;
+        player.serverSneaking = this.serverSneaking;
+        player.serverSneakingApplied = this.serverSneakingApplied;
         player.serverUpdatedMovementSpeed = this.serverUpdatedMovementSpeed;
+        player.pendingServerMovementSpeed = this.pendingServerMovementSpeed;
+        player.airSpeedOverride = this.airSpeedOverride;
+        player.sprintContext = this.sprintContext;
+        player.sneakContext = this.sneakContext;
 
         player.inBlockState = null;
         player.cachedOnPos = null;
@@ -246,18 +256,34 @@ public final class SimulationData {
         data.flying = this.flying;
         data.wasFlying = this.wasFlying;
 
-        data.attributes = HashMap.newHashMap(this.attributes.size());
-        for (final Map.Entry<String, AttributeInstance> entry : this.attributes.entrySet()) {
-            data.attributes.put(entry.getKey(), entry.getValue().copy());
-        }
+        data.attributes = copyAttributes(this.attributes);
 
         data.input = this.input.clone();
 
         data.serverSprinting = this.serverSprinting;
         data.serverSprintingApplied = this.serverSprintingApplied;
+        data.serverSneaking = this.serverSneaking;
+        data.serverSneakingApplied = this.serverSneakingApplied;
         data.serverUpdatedMovementSpeed = this.serverUpdatedMovementSpeed;
+        data.pendingServerMovementSpeed = this.pendingServerMovementSpeed;
+        data.airSpeedOverride = this.airSpeedOverride;
+        data.sprintContext = this.sprintContext;
+        data.sneakContext = this.sneakContext;
 
         return data;
+    }
+
+    private static Map<String, AttributeInstance> copyAttributes(final Map<String, AttributeInstance> source) {
+        final Map<String, AttributeInstance> copy = HashMap.newHashMap(source.size());
+        copyAttributesInto(source, copy);
+        return copy;
+    }
+
+    private static void copyAttributesInto(final Map<String, AttributeInstance> source, final Map<String, AttributeInstance> target) {
+        target.clear();
+        for (final Map.Entry<String, AttributeInstance> entry : source.entrySet()) {
+            target.put(entry.getKey(), entry.getValue().copy());
+        }
     }
 
     private static Vector copyOf(final Vector vector) {

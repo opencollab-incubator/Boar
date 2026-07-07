@@ -36,7 +36,10 @@ public class DebugOffsetA extends BaseCheck implements OffsetHandlerCheck {
                 colorOffset = "§7";
             }
 
-            String predDebug = colorOffset + "O:" + offset + ", T: " + player.bestPossibility.getType() + ", P: " + predicted.x + "," + predicted.y + "," + predicted.z + ", pos=" + player.position;
+            final String branchDebug = player.getBranchTracker().isBranchingEngagedThisTick(player.tick)
+                    ? ", B:" + player.getBranchTracker().getLastBranchCount() + " W:" + player.getBranchTracker().getLastWinnerSummary()
+                    : "";
+            String predDebug = colorOffset + "O:" + offset + ", T: " + player.bestPossibility.getType() + ", P: " + predicted.x + "," + predicted.y + "," + predicted.z + ", pos=" + player.position + branchDebug;
             alertManager.alertToPlayers(player.getTrackedDebugPlayers().values().stream().toList(), predDebug);
             alertManager.alertToPlayers(player.getTrackedDebugPlayers().values().stream().toList(), colorOffset + "A: " + actual.x + "," + actual.y + "," + actual.z + ", " + "SPRINTING=" + player.getFlagTracker().has(EntityFlag.SPRINTING) + ", SNEAKING=" + player.getFlagTracker().has(EntityFlag.SNEAKING) + ", water=" + player.touchingWater);
             alertManager.alertToPlayers(player.getTrackedDebugPlayers().values().stream().toList(), "A EOT: " + player.velocity.toVector3f().toString());

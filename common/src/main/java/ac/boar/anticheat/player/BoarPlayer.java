@@ -21,6 +21,7 @@ import ac.boar.anticheat.player.accessor.InventoryAccessor;
 import ac.boar.anticheat.player.accessor.WorldAccessor;
 import ac.boar.anticheat.player.data.BlockMappingInfo;
 import ac.boar.anticheat.player.data.PlayerData;
+import ac.boar.anticheat.prediction.branch.BranchTracker;
 import ac.boar.anticheat.teleport.TeleportUtil;
 import ac.boar.anticheat.util.LatencyUtil;
 import ac.boar.anticheat.util.MathUtil;
@@ -49,6 +50,7 @@ import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 import org.cloudburstmc.protocol.bedrock.packet.BedrockPacket;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
@@ -71,6 +73,9 @@ public final class BoarPlayer extends PlayerData {
 
     @Getter
     private final TeleportUtil teleportUtil = new TeleportUtil(this);
+
+    @Getter
+    private final BranchTracker branchTracker = new BranchTracker(this);
 
     @Getter
     private final CheckHolder checkHolder = new CheckHolder(this);
@@ -252,7 +257,7 @@ public final class BoarPlayer extends PlayerData {
             return speed;
         }
 
-        return this.getFlagTracker().has(EntityFlag.SPRINTING) ? 0.026F : 0.02F;
+        return Objects.requireNonNullElseGet(this.airSpeedOverride, () -> this.getFlagTracker().has(EntityFlag.SPRINTING) ? 0.026F : 0.02F);
     }
 
     public BoarBlockState getInBlockState() {

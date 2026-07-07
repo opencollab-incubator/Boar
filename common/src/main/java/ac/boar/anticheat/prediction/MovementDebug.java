@@ -4,6 +4,7 @@ import ac.boar.anticheat.Boar;
 import ac.boar.anticheat.config.Config;
 import ac.boar.anticheat.data.Fluid;
 import ac.boar.anticheat.player.BoarPlayer;
+import ac.boar.anticheat.prediction.branch.MovementBranch;
 import ac.boar.anticheat.util.math.Vec3;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 
@@ -21,6 +22,10 @@ public final class MovementDebug {
         }
 
         Boar.debug("[movement-debug] tick=" + player.tick + " [" + stage + "] " + details, Boar.DebugMessage.INFO);
+    }
+
+    public static void branch(final BoarPlayer player, final int id, final MovementBranch branch) {
+        log(player, "BRANCH", "id=" + id + " " + branch.describe());
     }
 
     // Full-precision vector formatting; movement bugs hinge on tiny deltas so we never round here.

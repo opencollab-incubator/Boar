@@ -4,6 +4,7 @@ import ac.boar.anticheat.compensated.CompensatedInventory;
 import ac.boar.anticheat.data.effect.Effect;
 import ac.boar.anticheat.data.enchantment.Enchantment;
 import ac.boar.anticheat.player.BoarPlayer;
+import ac.boar.anticheat.prediction.uncertainty.UncertaintyEnvelope;
 import ac.boar.anticheat.util.MathUtil;
 import ac.boar.anticheat.util.math.Box;
 import ac.boar.anticheat.util.math.Vec3;
@@ -18,6 +19,28 @@ import java.util.List;
 @RequiredArgsConstructor
 public class UncertainRunner {
     private final BoarPlayer player;
+
+    public UncertaintyEnvelope buildEnvelope() {
+        final UncertaintyEnvelope envelope = new UncertaintyEnvelope(MovementDebug.enabled());
+
+        final float ulpX = Math.ulp(Math.max(Math.abs(player.position.x), Math.abs(player.unvalidatedPosition.x)));
+        final float ulpY = Math.ulp(Math.max(Math.abs(player.position.y), Math.abs(player.unvalidatedPosition.y)));
+        final float ulpZ = Math.ulp(Math.max(Math.abs(player.position.z), Math.abs(player.unvalidatedPosition.z)));
+        envelope.widenSymmetric(2.0F * ulpX, 2.0F * ulpY, 2.0F * ulpZ, "float-precision");
+
+        final boolean haveSoulSpeed = CompensatedInventory.getEnchantments(player.compensatedInventory.armorContainer.get(3).getData()).containsKey(Enchantment.SOUL_SPEED);
+        if (player.soulSandBelow && !haveSoulSpeed) {
+            final Vec3 predicted = player.position.subtract(player.prevUnvalidatedPosition);
+            envelope.includeDelta(new Vec3(-predicted.x, 0.0F, -predicted.z), "soul-sand-slowdown");
+        }
+
+        if (player.beingPushByLava) {
+            envelope.widenX(-0.007F, 0.007F, "lava-flow-push");
+            envelope.widenZ(-0.007F, 0.007F, "lava-flow-push");
+        }
+
+        return envelope;
+    }
 
     public void resolveUncertainBouncing() {
         if (!player.bounce) {
@@ -68,7 +91,7 @@ public class UncertainRunner {
         I can't remember the max value to be pushed out, maybe around 0.8+? but yep. You can either do uncertainty or calculate it that way.
         However, without the flag getting into crawling mode is annoying and who knows is mojang going to break it or not.
     **/
-    public void uncertainPushTowardsTheClosetSpace() {
+    public void uncertainPushTowardsClosestSpace() {
         // Close enough, no uncertainty here, we're sure.
         if (player.velocity.distanceTo(player.unvalidatedTickEnd) <= 1.0E-4) {
             // TODO: Should we enforce this to prevent cheater from not being pushed out of block?
@@ -81,11 +104,11 @@ public class UncertainRunner {
             return;
         }
         // Assuming that we're missing the push out of block velocity, then subtracting velocity will do the job.
-        Vec3 pushTowardsClosetSpaceVel = player.unvalidatedTickEnd.subtract(player.velocity);
+        Vec3 pushTowardsClosestSpaceVel = player.unvalidatedTickEnd.subtract(player.velocity);
 
         // The push towards velocity should ALWAYS be normalized in a way that the squared length will always be smaller than 0.01 or at least equals (unless small floating point errors).
         // So if the player push towards velocity is any larger than this... They're cheating.
-        if (pushTowardsClosetSpaceVel.horizontalLengthSquared() > 0.01 + 1.0E-3F) {
+        if (pushTowardsClosestSpaceVel.horizontalLengthSquared() > 0.01 + 1.0E-3F) {
             return;
         }
 
@@ -98,7 +121,7 @@ public class UncertainRunner {
             return;
         }
 
-        final int signX = MathUtil.sign(pushTowardsClosetSpaceVel.x), signZ = MathUtil.sign(pushTowardsClosetSpaceVel.z);
+        final int signX = MathUtil.sign(pushTowardsClosestSpaceVel.x), signZ = MathUtil.sign(pushTowardsClosestSpaceVel.z);
         final int targetX = GenericMath.floor(player.position.x) + signX, targetZ = GenericMath.floor(player.position.z) + signZ;
         final Box box = new Box(targetX, player.boundingBox.minY, targetZ, targetX + 1, player.boundingBox.maxY, targetZ + 1).contract(1.0E-3F);
 
@@ -117,7 +140,7 @@ public class UncertainRunner {
 
         Vec3 actual = player.unvalidatedPosition.subtract(player.prevUnvalidatedPosition);
         Vec3 predicted = player.position.subtract(player.prevUnvalidatedPosition);
-        boolean validYOffset = Math.abs(player.position.y - player.unvalidatedPosition.y) - extra <= player.getMaxOffset();
+        boolean validYOffset = Math.abs(player.position.y - player.unvalidatedPosition.y) <= player.getMaxOffset();
         boolean actualSpeedSmallerThanPredicted = actual.horizontalLengthSquared() < predicted.horizontalLengthSquared();
         boolean sameDirection = MathUtil.sameDirection(actual, predicted);
         boolean sameDirectionOrZero = (MathUtil.sign(actual.x) == MathUtil.sign(predicted.x) || actual.x == 0)

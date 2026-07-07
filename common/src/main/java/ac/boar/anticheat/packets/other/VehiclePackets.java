@@ -22,6 +22,7 @@ public class VehiclePackets implements PacketListener {
 
             if (packet.getAction() == InteractPacket.Action.LEAVE_VEHICLE) {
                 player.vehicleData = null;
+                player.getBranchTracker().discardBranches("leave-vehicle");
             }
         }
     }
@@ -58,10 +59,12 @@ public class VehiclePackets implements PacketListener {
             player.getTeleportUtil().getQueuedTeleports().clear();
 
             if (link.getType() == EntityLinkData.Type.REMOVE) {
+                player.getBranchTracker().discardBranches("vehicle-link-remove");
                 player.queueAcknowledgment(new VehicleClearAck());
                 return;
             }
 
+            player.getBranchTracker().discardBranches("vehicle-link-set");
             player.queueAcknowledgment(new VehicleSetAck(entityId));
         }
     }

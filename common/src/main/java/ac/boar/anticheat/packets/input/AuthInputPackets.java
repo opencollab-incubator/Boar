@@ -71,10 +71,14 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
 
         if (player.vehicleData != null) { // TODO: Vehicle prediction.
             player.position = player.unvalidatedPosition;
+            player.getBranchTracker().discardBranches("in-vehicle");
+            player.pendingServerMovementSpeed = null;
             return;
         }
 
         if (player.getEntity().bedPosition() != null) {
+            player.getBranchTracker().discardBranches("in-bed");
+            player.pendingServerMovementSpeed = null;
             return;
         }
 
@@ -89,6 +93,7 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
 
             // Clear velocity out manually since we haven't handled em.
             player.certainVelocity = null;
+            player.getBranchTracker().discardBranches("movement-exempt");
 
             // This is fine, we only need tick end and use before and after to calculate ground.
             player.predictionResult = new PredictionResult(Vec3.ZERO, player.velocity.y < 0 && player.getInputData().contains(PlayerAuthInputData.VERTICAL_COLLISION) ? new Vec3(0, 1, 0) : Vec3.ZERO, player.unvalidatedTickEnd);
@@ -111,6 +116,7 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
 
         // TODO: Test properly uhhhh in some cases, I'm too lazy to care.
         if (player.insideUnloadedChunk) {
+            player.getBranchTracker().discardBranches("unloaded-chunk");
             player.getTeleportUtil().teleportTo(player.getTeleportUtil().getLastKnownValid());
         }
 
