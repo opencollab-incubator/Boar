@@ -11,7 +11,7 @@ import lombok.Setter;
 import lombok.ToString;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataMap;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
-import org.geysermc.geyser.entity.EntityDefinition;
+import org.geysermc.geyser.entity.EntityTypeDefinition;
 import org.geysermc.mcprotocollib.protocol.data.game.entity.type.EntityType;
 
 @ToString
@@ -21,7 +21,7 @@ import org.geysermc.mcprotocollib.protocol.data.game.entity.type.EntityType;
 public final class EntityCache {
     private final BoarPlayer player;
     private final EntityType type;
-    private final EntityDefinition<?> definition;
+    private final EntityTypeDefinition<?> definition;
     private final long runtimeId;
 
     private EntityDimensions dimensions;
@@ -41,7 +41,8 @@ public final class EntityCache {
         }
         
         // This is a hacky workaround for boat since boat is real weird when it comes to collision, at least on GeyserMC.
-        if (this.definition.identifier().equalsIgnoreCase("minecraft:boat") || this.definition.identifier().equalsIgnoreCase("minecraft:chest_boat")) {
+        if (this.definition.type().identifier().toString().equalsIgnoreCase("minecraft:boat") ||
+                this.definition.type().identifier().toString().equalsIgnoreCase("minecraft:chest_boat")) {
             // This is from debugging which is... ehhhhh, I really don't get why it different from the collision box in behaviour json.
             // TODO: This is still wrong.
             this.dimensions = EntityDimensions.fixed(1.6F, 0.575F);

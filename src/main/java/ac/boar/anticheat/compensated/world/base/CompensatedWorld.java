@@ -19,7 +19,7 @@ import lombok.Setter;
 import org.cloudburstmc.math.vector.Vector3i;
 import org.cloudburstmc.protocol.bedrock.data.BlockChangeEntry;
 import org.cloudburstmc.protocol.bedrock.packet.UpdateSubChunkBlocksPacket;
-import org.geysermc.geyser.entity.EntityDefinition;
+import org.geysermc.geyser.entity.EntityTypeDefinition;
 import org.geysermc.geyser.entity.type.Entity;
 import org.geysermc.geyser.level.BedrockDimension;
 import org.geysermc.geyser.level.block.Blocks;
@@ -56,15 +56,17 @@ public class CompensatedWorld {
 
     public EntityCache addToCache(final BoarPlayer player, final long runtimeId, final long uniqueId) {
         final Entity entity = player.getSession().getEntityCache().getEntityByGeyserId(runtimeId);
-        if (entity == null || entity.getDefinition() == null || runtimeId == player.runtimeEntityId) {
+        if (entity == null || entity.getJavaDefinition() == null || runtimeId == player.runtimeEntityId) {
             return null;
         }
 
-        final EntityDefinition<?> definition = entity.getDefinition();
-        boolean affectedByOffset = definition.entityType() == EntityType.PLAYER || definition.identifier().equalsIgnoreCase("minecraft:boat") || definition.identifier().equalsIgnoreCase("minecraft:chest_boat");
+        final EntityTypeDefinition<?> definition = entity.getJavaDefinition();
+        boolean affectedByOffset = definition.is(EntityType.PLAYER) ||
+                definition.type().identifier().toString().equalsIgnoreCase("minecraft:boat") ||
+                definition.type().identifier().toString().equalsIgnoreCase("minecraft:chest_boat");
 
         player.sendLatencyStack();
-        final EntityCache cache = new EntityCache(player, definition.entityType(), definition, runtimeId);
+        final EntityCache cache = new EntityCache(player, definition.type().mcpl(), definition, runtimeId);
         cache.setAffectedByOffset(affectedByOffset);
         // Default back to default bounding box if there ain't anything.
         cache.setDimensions(EntityDimensions.fixed(definition.width(), definition.height()));

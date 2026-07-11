@@ -99,8 +99,8 @@ public class TeleportHandler {
 
         // Rewind can cause some problem if the tick we use have a different bounding width/height, so this is a bit of a hack but welp.
         final SessionPlayerEntity entity = player.getSession().getPlayerEntity();
-        entity.getDirtyMetadata().put(EntityDataTypes.WIDTH, entity.getBoundingBoxWidth());
-        entity.getDirtyMetadata().put(EntityDataTypes.HEIGHT, entity.getBoundingBoxHeight());
+        entity.getMetadata().put(EntityDataTypes.WIDTH, entity.getBoundingBoxWidth());
+        entity.getMetadata().put(EntityDataTypes.HEIGHT, entity.getBoundingBoxHeight());
         entity.updateBedrockMetadata();
 
         // Keep running prediction until we catch up with the player current tick.
