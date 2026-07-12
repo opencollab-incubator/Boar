@@ -1,5 +1,6 @@
 package ac.boar.anticheat.collision;
 
+import ac.boar.anticheat.data.EntityDimensions;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.player.data.PlayerData;
 import ac.boar.anticheat.util.MathUtil;
@@ -18,6 +19,12 @@ public class Collider {
 
     private static boolean isAboveGround(final BoarPlayer player) {
         return player.onGround || player.fallDistance < 0.6F && !canFallAtLeast(player, 0, 0, 0.6F - player.fallDistance);
+    }
+
+    public static boolean canStandUp(final BoarPlayer player) {
+        // should we just use 1.8 here??? maybe account for scaling and whatnot later on
+        final Box standing = EntityDimensions.changing(player.dimensions.width(), 1.8F).getBoxAt(player.position).contract(1.0E-4F);
+        return player.compensatedWorld.noCollision(standing);
     }
 
     public static Vec3 maybeBackOffFromEdge(final BoarPlayer player, final Vec3 movement) {

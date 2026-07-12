@@ -1,4 +1,5 @@
 import java.net.URI
+import java.util.zip.ZipFile
 
 plugins {
     id("java")
@@ -70,6 +71,14 @@ tasks.register<Exec>("runGeyser") {
         extensionsDir.mkdirs()
         val src = builtJar.get().asFile
         val dst = extensionsDir.resolve("boar-geyser.jar")
+
+        extensionsDir.listFiles { f -> f.isFile && f.extension == "jar" && f != dst }?.forEach { jar ->
+            if (readExtensionId(jar) == "boar") {
+                jar.delete()
+                logger.lifecycle("[runGeyser] removed stale Boar extension ${jar.name}")
+            }
+        }
+
         src.copyTo(dst, overwrite = true)
         logger.lifecycle("[runGeyser] installed ${src.name} -> $dst")
         logger.lifecycle("[runGeyser] launching Geyser standalone in $geyserDir")
@@ -78,6 +87,24 @@ tasks.register<Exec>("runGeyser") {
     workingDir = geyserDir
     commandLine("java", "-jar", "Geyser.jar")
     standardInput = System.`in`
+}
+
+// Read the `id` field from a Geyser extension.yml inside a jar, or null if it isn't an extension.
+fun readExtensionId(jar: File): String? {
+    return try {
+        ZipFile(jar).use { zip ->
+            val entry = zip.getEntry("extension.yml") ?: return null
+            zip.getInputStream(entry).bufferedReader().useLines { lines ->
+                lines.map { it.trim() }
+                    .firstOrNull { it.startsWith("id:") }
+                    ?.substringAfter("id:")
+                    ?.trim()
+                    ?.trim('"', '\'')
+            }
+        }
+    } catch (e: Exception) {
+        null
+    }
 }
 
 fun getCommitMessage(): String {

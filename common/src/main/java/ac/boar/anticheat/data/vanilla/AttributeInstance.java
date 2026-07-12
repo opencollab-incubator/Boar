@@ -29,7 +29,7 @@ public class AttributeInstance {
             return;
         }
 
-        this.baseValue = value;
+        this.baseValue = baseValue;
         this.setDirty();
     }
 

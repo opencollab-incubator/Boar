@@ -2,6 +2,7 @@ package ac.boar.anticheat.packets.input.legacy;
 
 import ac.boar.anticheat.check.api.Check;
 import ac.boar.anticheat.check.api.impl.OffsetHandlerCheck;
+import ac.boar.anticheat.collision.Collider;
 import ac.boar.anticheat.compensated.cache.container.ContainerCache;
 import ac.boar.anticheat.data.ItemUseTracker;
 import ac.boar.anticheat.data.inventory.BoarItemStack;
@@ -126,6 +127,12 @@ public class LegacyAuthInputPackets {
             player.ticksSinceCrawling = 0;
         }
 
+        // We rely on the SNEAK_CURRENT_RAW flag for the sneaking state since it is more reliable. However, we still need to account for cases where
+        // the player may not be holding the sneak bind but still cannot un-sneak (e.g. - under a slab)
+        final boolean wasSneaking = player.getFlagTracker().has(EntityFlag.SNEAKING);
+        final boolean forcedSneak = wasSneaking && !Collider.canStandUp(player);
+        player.getFlagTracker().set(EntityFlag.SNEAKING, player.getInputData().contains(PlayerAuthInputData.SNEAK_CURRENT_RAW) || forcedSneak);
+
         final Iterator<PlayerAuthInputData> iterator = player.getInputData().iterator();
         while (iterator.hasNext()) {
             final PlayerAuthInputData input = iterator.next();
@@ -141,23 +148,32 @@ public class LegacyAuthInputPackets {
                 }
                 case STOP_GLIDING -> player.getFlagTracker().set(EntityFlag.GLIDING, false);
 
-                // Don't let player do backwards sprinting!
                 case START_SPRINTING -> {
                     boolean forwardMovement = player.input.getZ() > 0;
                     player.setSprinting(forwardMovement);
 
-                    // Don't let player send an START_SPRINTING to force server to send back a sprinting attribute.
-                    // or trick Geyser in any way, since it's not really reliable...
+                    // Don't let player send an START_SPRINTING to force server to send back a sprinting attribute or allow the
+                    // client to trick the server into letting it get sprinting speed while not moving forward.
                     if (!forwardMovement) {
                         iterator.remove();
                     }
                 }
                 case STOP_SPRINTING -> player.setSprinting(false);
-                case START_SNEAKING -> player.getFlagTracker().set(EntityFlag.SNEAKING, true);
-                case STOP_SNEAKING -> player.getFlagTracker().set(EntityFlag.SNEAKING, false);
 
                 case START_SWIMMING -> player.getFlagTracker().set(EntityFlag.SWIMMING, true);
                 case STOP_SWIMMING -> player.getFlagTracker().set(EntityFlag.SWIMMING, false);
+
+                // Prevent the server from constantly trying to update these states which would cause a massive desync loop
+                case START_SNEAKING ->  {
+                    if (!player.getInputData().contains(PlayerAuthInputData.SNEAK_CURRENT_RAW)) {
+                        iterator.remove();
+                    }
+                }
+                case STOP_SNEAKING -> {
+                    if (player.getInputData().contains(PlayerAuthInputData.SNEAK_CURRENT_RAW)) {
+                        iterator.remove();
+                    }
+                }
 
                 case START_FLYING -> player.getFlagTracker().setFlying(player.abilities.contains(Ability.MAY_FLY) || player.abilities.contains(Ability.FLYING));
                 case STOP_FLYING -> player.getFlagTracker().setFlying(false);
