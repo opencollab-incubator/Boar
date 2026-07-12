@@ -111,7 +111,9 @@ public class ServerDataPackets implements PacketListener {
             if (packet.getRuntimeEntityId() != player.runtimeEntityId) {
                 return;
             }
-            packet.getAttributes().replaceAll(ServerDataPackets::stripModifiers);
+            if (!packet.getAttributes().isEmpty()) {
+                packet.getAttributes().replaceAll(ServerDataPackets::stripModifiers);
+            }
             player.sendLatencyStack(new UpdateAttributesAck(packet.getAttributes()));
         }
     }
@@ -149,10 +151,6 @@ public class ServerDataPackets implements PacketListener {
 
     private static AttributeData stripModifiers(AttributeData data) {
         if (data.getName().equals("minecraft:movement") || data.getName().equals("minecraft:underwater_movement") || data.getName().equals("minecraft:lava_movement")) {
-            if (data.getModifiers().isEmpty()) {
-                return data;
-            }
-
             float newBase = data.getDefaultValue();
             for (final AttributeModifierData modifier : data.getModifiers()) {
                 if (modifier.getOperation() == AttributeOperation.ADDITION) {
