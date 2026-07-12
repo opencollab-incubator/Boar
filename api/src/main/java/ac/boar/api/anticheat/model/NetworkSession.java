@@ -7,4 +7,6 @@ public interface NetworkSession extends MessageRecipient, Identifiable, Permissi
     void disconnect(String reason);
 
     boolean requiresPingMagnitude();
+
+    int protocolVersion();
 }

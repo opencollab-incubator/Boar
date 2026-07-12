@@ -17,7 +17,7 @@ public final class GeyserEntityMappings {
                 org.geysermc.mcprotocollib.protocol.data.game.entity.type.EntityType type = org.geysermc.mcprotocollib.protocol.data.game.entity.type.EntityType.valueOf(stripedIdentifier.toUpperCase(Locale.ROOT));
                 populator.populate(new GeyserEntityType(type));
 
-                org.geysermc.geyser.entity.EntityDefinition<?> entityDefinition = Registries.ENTITY_DEFINITIONS.get(type);
+                org.geysermc.geyser.entity.EntityTypeDefinition<?> entityDefinition = Registries.JAVA_ENTITY_TYPES.get(org.geysermc.geyser.entity.GeyserEntityType.of(type));
                 if (entityDefinition == null) {
                     // Not necessarily a problem if we have a type but not definition
                     Boar.debug("Could not find EntityDefinition with key: '" + key + "'.", Boar.DebugMessage.INFO);

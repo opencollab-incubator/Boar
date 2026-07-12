@@ -1,6 +1,7 @@
 package ac.boar.anticheat.compensated;
 
 import ac.boar.anticheat.compensated.cache.container.ContainerCache;
+import ac.boar.anticheat.compensated.cache.container.impl.ArmorContainerCache;
 import ac.boar.anticheat.compensated.cache.container.impl.PlayerContainerCache;
 import ac.boar.anticheat.data.enchantment.Enchantment;
 import ac.boar.anticheat.data.inventory.ItemCache;
@@ -41,7 +42,7 @@ public class CompensatedInventory {
 
     public final PlayerContainerCache inventoryContainer = new PlayerContainerCache(this);
     public final ContainerCache offhandContainer = new ContainerCache(this, (byte) ContainerId.OFFHAND, ContainerType.INVENTORY, null, -1L);
-    public final ContainerCache armorContainer = new ContainerCache(this, (byte) ContainerId.ARMOR, ContainerType.INVENTORY, null, -1L);
+    public final ContainerCache armorContainer = new ArmorContainerCache(this);
     public final ContainerCache hudContainer = new ContainerCache(this, (byte) ContainerId.UI, ContainerType.INVENTORY, null, -1L);
 
     public ContainerCache openContainer = null;
@@ -80,6 +81,10 @@ public class CompensatedInventory {
             }
 
             Enchantment bedrockEnchantment = Enchantment.byId(nbtMap.getShort("id"));
+            if (bedrockEnchantment == null) {
+                continue;
+            }
+
             enchantmentMap.put(bedrockEnchantment, (int) nbtMap.getShort("lvl"));
         }
 

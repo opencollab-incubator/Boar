@@ -3,7 +3,8 @@ package ac.boar.anticheat.data.enchantment;
 public enum Enchantment {
     DEPTH_STRIDER,
     RIPTIDE,
-    SOUL_SPEED;
+    SOUL_SPEED,
+    SWIFT_SNEAK;
 
     public static Enchantment byId(int id) {
         return EnchantmentInst.provider().byId(id);

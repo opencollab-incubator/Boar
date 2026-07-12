@@ -100,4 +100,14 @@ public class AttributeInstance {
 
         return value;
     }
+
+    @Override
+    public AttributeInstance clone() {
+        final AttributeInstance instance = new AttributeInstance(baseValue);
+        instance.value = value;
+        instance.dirty = dirty;
+        instance.modifiers.putAll(modifiers);
+
+        return instance;
+    }
 }

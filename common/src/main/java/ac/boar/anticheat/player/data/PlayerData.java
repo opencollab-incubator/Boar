@@ -78,8 +78,10 @@ public class PlayerData {
     @Getter
     private final FlagTracker flagTracker = new FlagTracker();
 
+    public float sneakingAttributeModifier;
+
     public int glideBoostTicks;
-    public int ticksSinceSwimming, ticksSinceCrawling;
+    public int ticksSinceSwimming, ticksSinceCrawling, ticksSinceCanSlowdown;
 
     public boolean doingInventoryAction;
     public AtomicLong desyncedFlag = new AtomicLong(-1);
@@ -103,6 +105,12 @@ public class PlayerData {
 
     // Attribute related, abilities
     public final Map<String, AttributeInstance> attributes = new HashMap<>();
+    public Map<String, AttributeInstance> cloneAttributes() {
+        final Map<String, AttributeInstance> map = new HashMap<>();
+        attributes.forEach((k, v) -> map.put(k, v.clone()));
+        return map;
+    }
+
     public final Set<Ability> abilities = new HashSet<>();
 
     // Riptide related
@@ -136,6 +144,9 @@ public class PlayerData {
     public Vec3 beforeCollision = Vec3.ZERO, afterCollision = Vec3.ZERO;
 
     public boolean onGround;
+    public boolean bounce;
+    public float minBounceYVel;
+
     public Vec3 stuckSpeedMultiplier = Vec3.ZERO;
 
     public float fallDistance = 0;

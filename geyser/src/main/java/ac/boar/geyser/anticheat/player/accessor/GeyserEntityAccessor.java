@@ -23,10 +23,10 @@ public record GeyserEntityAccessor(GeyserSession session) implements EntityAcces
     @Override
     public EntityDefinition definitionByRuntimeId(long runtimeId) {
         org.geysermc.geyser.entity.type.Entity entity = this.session.getEntityCache().getEntityByGeyserId(runtimeId);
-        if (entity == null || entity.getDefinition() == null) {
+        if (entity == null || entity.getJavaDefinition() == null) {
             return null;
         }
 
-        return new GeyserEntityDefinition(entity.getDefinition());
+        return new GeyserEntityDefinition(entity.getJavaDefinition());
     }
 }

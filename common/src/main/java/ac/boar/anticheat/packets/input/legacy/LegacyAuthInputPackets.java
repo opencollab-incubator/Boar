@@ -23,13 +23,13 @@ import java.util.Map;
 public class LegacyAuthInputPackets {
     public static void updateUnvalidatedPosition(final BoarPlayer player, final PlayerAuthInputPacket packet) {
         player.prevUnvalidatedPosition = player.unvalidatedPosition.clone();
-        player.unvalidatedPosition = new Vec3(packet.getPosition().sub(0, player.getYOffset(), 0));
+        player.unvalidatedPosition = new Vec3(packet.getPosition().down(player.getYOffset()));
         player.unvalidatedTickEnd = new Vec3(packet.getDelta());
     }
 
     public static void doPostPrediction(final BoarPlayer player, final PlayerAuthInputPacket packet) {
         player.postTick();
-        player.getTeleportUtil().cachePosition(player.tick, player.position.add(0, player.getYOffset(), 0).toVector3f());
+        player.getTeleportUtil().cacheRewindHistory(player.tick, player.position.up(player.getYOffset()));
 
         final UncertainRunner uncertainRunner = new UncertainRunner(player);
 
@@ -39,6 +39,7 @@ public class LegacyAuthInputPackets {
         offset -= extraOffset;
         offset -= uncertainRunner.extraOffsetNonTickEnd(offset);
         uncertainRunner.uncertainPushTowardsTheClosetSpace();
+        uncertainRunner.resolveUncertainBouncing();
 
         for (Map.Entry<Class<?>, Check> entry : player.getCheckHolder().entrySet()) {
             Check v = entry.getValue();

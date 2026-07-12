@@ -30,4 +30,9 @@ public class SlimeBlockState extends AbstractBoarBlockState {
             }
         }
     }
+
+    @Override
+    public float getBlockBounciness() {
+        return 1;
+    }
 }

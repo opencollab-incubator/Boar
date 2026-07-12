@@ -375,6 +375,6 @@ public final class BoarDefaultAcknowledgments {
     }
 
     private static void handleTeleportAccept(BoarPlayer player, TeleportAcceptAck ack) {
-        ack.cache().setAccepted(true);
+        ack.data().accept();
     }
 }

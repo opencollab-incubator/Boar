@@ -171,7 +171,7 @@ public class ServerDataPackets implements PacketListener {
                 }
             }
 
-            System.out.println(data + " -> " + new AttributeData(data.getName(), data.getMinimum(), data.getMaximum(), newValue, newBase));
+            // System.out.println(data + " -> " + new AttributeData(data.getName(), data.getMinimum(), data.getMaximum(), newValue, newBase));
             return new AttributeData(data.getName(), data.getMinimum(), data.getMaximum(), newValue, newBase);
         }
         return data;

@@ -195,6 +195,11 @@ public abstract class AbstractBoarBlockState implements BoarBlockState {
     }
 
     @Override
+    public float getBlockBounciness() {
+        return 0;
+    }
+
+    @Override
     public float getFriction() {
         if (is(Blocks.ICE) || is(Blocks.PACKED_ICE) || is(Blocks.FROSTED_ICE)) {
             return 0.98F;
