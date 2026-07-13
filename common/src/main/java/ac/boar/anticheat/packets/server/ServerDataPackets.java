@@ -112,7 +112,10 @@ public class ServerDataPackets implements PacketListener {
                 return;
             }
             if (!packet.getAttributes().isEmpty()) {
-                packet.getAttributes().replaceAll(ServerDataPackets::stripModifiers);
+                // sometimes the attribute list can be immutable
+                List<AttributeData> attributes = new ArrayList<>(packet.getAttributes());
+                attributes.replaceAll(ServerDataPackets::stripModifiers);
+                packet.setAttributes(attributes);
             }
             player.sendLatencyStack(new UpdateAttributesAck(packet.getAttributes()));
         }
@@ -151,6 +154,10 @@ public class ServerDataPackets implements PacketListener {
 
     private static AttributeData stripModifiers(AttributeData data) {
         if (data.getName().equals("minecraft:movement") || data.getName().equals("minecraft:underwater_movement") || data.getName().equals("minecraft:lava_movement")) {
+            if (data.getModifiers().isEmpty()) {
+                return data;
+            }
+
             float newBase = data.getDefaultValue();
             for (final AttributeModifierData modifier : data.getModifiers()) {
                 if (modifier.getOperation() == AttributeOperation.ADDITION) {
