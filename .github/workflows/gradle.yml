@@ -23,13 +23,13 @@ jobs:
           distribution: 'temurin'
           java-version: 21
       - name: Build Project
-        run: ./gradlew shadowJar
+        run: ./gradlew :geyser:shadowJar
       - name: Upload Artifacts to GitHub
         uses: actions/upload-artifact@v4
         if: ${{ success() }}
         with:
           name: Boar
-          path: build/libs/
+          path: geyser/build/libs/boar-geyser.jar
           if-no-files-found: error
       - name: Publish to Modrinth
         if: ${{ success() && github.repository == 'opencollab-incubator/Boar' && github.ref_name == 'master' }}
