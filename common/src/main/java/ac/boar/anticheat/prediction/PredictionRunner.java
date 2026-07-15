@@ -36,8 +36,8 @@ public class PredictionRunner {
             Boar.debug("[velocity-debug] predict tick=" + player.tick + " velocity=" + player.bestPossibility.getVelocity() + " actualDelta=" + player.unvalidatedTickEnd + " pos=" + player.position + " unvalidated=" + player.unvalidatedPosition, Boar.DebugMessage.INFO);
         }
 
-        // We can start the ACTUAL prediction now.
-        player.velocity = player.bestPossibility.getVelocity();
+        // We can store the ACTUAL prediction now.
+        player.velocity = player.bestPossibility.getVelocity().clone();
         return true;
     }
 }
