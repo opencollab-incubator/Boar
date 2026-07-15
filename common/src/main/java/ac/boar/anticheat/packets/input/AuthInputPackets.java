@@ -64,7 +64,10 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
         LegacyAuthInputPackets.processAuthInput(player, packet, true);
         LegacyAuthInputPackets.updateUnvalidatedPosition(player, packet);
 
-        ((Reach) player.getCheckHolder().get(Reach.class)).pollQueuedHits();
+        final Reach reach = (Reach) player.getCheckHolder().get(Reach.class);
+        if (reach != null) { // null when the Reach check is disabled via disabled-checks - don't NPE.
+            reach.pollQueuedHits();
+        }
 
         player.tick();
 
