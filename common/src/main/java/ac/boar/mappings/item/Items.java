@@ -11,7 +11,7 @@ public final class Items {
     public static final Reference<Item> BUCKET = create("bucket");
     public static final Reference<Item> CROSSBOW = create("crossbow");
     public static final Reference<Item> DIAMOND_SPEAR = create("diamond_spear");
-    public static final Reference<Item> ELYTRA = create("elyra");
+    public static final Reference<Item> ELYTRA = create("elytra");
     public static final Reference<Item> ENDER_EYE = create("ender_eye");
     public static final Reference<Item> FIRE_CHARGE = create("fire_charge");
     public static final Reference<Item> FIREWORK_ROCKET = create("firework_rocket");
@@ -19,7 +19,7 @@ public final class Items {
     public static final Reference<Item> GLOWSTONE = create("glowstone");
     public static final Reference<Item> GOLDEN_SPEAR = create("golden_spear");
     public static final Reference<Item> IRON_SPEAR = create("iron_spear");
-    public static final Reference<Item> LAVA_BUCKET = create("water_bucket");
+    public static final Reference<Item> LAVA_BUCKET = create("lava_bucket");
     public static final Reference<Item> LEATHER_BOOTS = create("leather_boots");
     public static final Reference<Item> NETHERITE_SPEAR = create("netherite_spear");
     public static final Reference<Item> OMINOUS_BOTTLE = create("ominous_bottle");

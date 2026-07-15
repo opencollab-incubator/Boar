@@ -127,7 +127,7 @@ public class Vec3 implements Cloneable {
     }
 
     public Vec3 divide(float v, float v1, float v2) {
-        return new Vec3(this.x * v, this.y * v1, this.z * v2);
+        return new Vec3(this.x / v, this.y / v1, this.z / v2);
     }
 
     public Vec3 up(float v) {

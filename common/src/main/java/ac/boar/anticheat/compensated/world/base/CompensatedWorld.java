@@ -18,6 +18,7 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
+import org.cloudburstmc.math.GenericMath;
 import org.cloudburstmc.math.vector.Vector3i;
 
 import java.util.ArrayList;
@@ -78,7 +79,7 @@ public class CompensatedWorld {
         });
     }
 
-    public boolean isOutOfRadius(int chunkX, int chunkZ) {
+    public boolean isOutOfRadius(int blockX, int blockZ) {
         if (this.radiusCenter == null || this.radius <= 0) {
             return false;
         }
@@ -87,7 +88,7 @@ public class CompensatedWorld {
 
         // Still unsure about this... should we get rid of chunk sections, or chunk?
         // Well since we're getting rid of chunks for now, let set the y pos to 0.
-        Vec3 chunkCenter = new Vec3(chunkX + 8, 0, chunkZ + 8);
+        Vec3 chunkCenter = new Vec3(blockX + 8, 0, blockZ + 8);
         return radiusCenter.squaredDistanceTo(chunkCenter) > this.radius * this.radius && new Vec3(player.position.x, 0, player.position.z).squaredDistanceTo(chunkCenter) > this.radius * this.radius;
     }
 
@@ -117,8 +118,16 @@ public class CompensatedWorld {
         this.chunks.remove(MathUtil.chunkPositionToLong(x, z));
     }
 
-    public boolean isChunkLoaded(int chunkX, int chunkZ) {
-        return this.getChunk(chunkX >> 4, chunkZ >> 4) != null;
+    public boolean isChunkLoaded(int blockX, int blockZ) {
+        return this.getChunk(blockX >> 4, blockZ >> 4) != null;
+    }
+
+    // Resolve the loaded-chunk lookup from a player/entity position. A plain (int) cast rounds towards
+    // zero instead of flooring, so at negative coordinates it resolves to the neighbouring chunk in the
+    // one-block strip next to every chunk border (x or z in -1..0, -17..-16, ...) - prediction could then
+    // run against a not-yet-loaded chunk and rewind the player. Floor, matching Geyser and vanilla.
+    public boolean isChunkLoadedAt(float x, float z) {
+        return this.isChunkLoaded(GenericMath.floor(x), GenericMath.floor(z));
     }
 
     public void updateBlock(final Vector3i position, int layer, int block) {
