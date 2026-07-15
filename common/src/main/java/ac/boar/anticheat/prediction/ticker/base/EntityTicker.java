@@ -202,7 +202,7 @@ public class EntityTicker {
         }
 
         if (zCollision) {
-            movementAfterBounce.z = currentMovement.z * restitution;
+            movementAfterBounce.z = -currentMovement.z * restitution;
         }
 
         if (player.verticalCollision) {
