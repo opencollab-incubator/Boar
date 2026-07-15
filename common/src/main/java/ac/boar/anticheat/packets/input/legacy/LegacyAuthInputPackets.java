@@ -12,6 +12,7 @@ import ac.boar.anticheat.util.InputUtil;
 import ac.boar.anticheat.util.math.Vec3;
 import ac.boar.mappings.item.Items;
 import org.cloudburstmc.protocol.bedrock.data.Ability;
+import org.cloudburstmc.protocol.bedrock.data.InputMode;
 import org.cloudburstmc.protocol.bedrock.data.PlayerAuthInputData;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
@@ -129,10 +130,13 @@ public class LegacyAuthInputPackets {
         }
 
         // We rely on the SNEAK_CURRENT_RAW flag for the sneaking state since it is more reliable. However, we still need to account for cases where
-        // the player may not be holding the sneak bind but still cannot un-sneak (e.g. - under a slab)
-        final boolean wasSneaking = player.getFlagTracker().has(EntityFlag.SNEAKING);
-        final boolean forcedSneak = wasSneaking && !Collider.canStandUp(player);
-        player.getFlagTracker().set(EntityFlag.SNEAKING, player.getInputData().contains(PlayerAuthInputData.SNEAK_CURRENT_RAW) || forcedSneak);
+        // the player may not be holding the sneak bind but still cannot un-sneak (e.g. - under a slab).
+        final boolean useRawSneakState = player.inputMode.equals(InputMode.MOUSE); // SNEAK_CURRENT_RAW only seems to be applied on KBM (keyboard/mouse) - is this intentional or client bug?
+        if (useRawSneakState) {
+            final boolean wasSneaking = player.getFlagTracker().has(EntityFlag.SNEAKING);
+            final boolean forcedSneak = wasSneaking && !Collider.canStandUp(player);
+            player.getFlagTracker().set(EntityFlag.SNEAKING, player.getInputData().contains(PlayerAuthInputData.SNEAK_CURRENT_RAW) || forcedSneak);
+        }
 
         final Iterator<PlayerAuthInputData> iterator = player.getInputData().iterator();
         while (iterator.hasNext()) {
@@ -166,12 +170,16 @@ public class LegacyAuthInputPackets {
 
                 // Prevent the server from constantly trying to update these states which would cause a massive desync loop
                 case START_SNEAKING ->  {
-                    if (!player.getInputData().contains(PlayerAuthInputData.SNEAK_CURRENT_RAW)) {
+                    if (!useRawSneakState) {
+                        player.getFlagTracker().set(EntityFlag.SNEAKING, true);
+                    } else if (!player.getInputData().contains(PlayerAuthInputData.SNEAK_CURRENT_RAW)) {
                         iterator.remove();
                     }
                 }
                 case STOP_SNEAKING -> {
-                    if (player.getInputData().contains(PlayerAuthInputData.SNEAK_CURRENT_RAW)) {
+                    if (!useRawSneakState) {
+                        player.getFlagTracker().set(EntityFlag.SNEAKING, false);
+                    } else if (player.getInputData().contains(PlayerAuthInputData.SNEAK_CURRENT_RAW)) {
                         iterator.remove();
                     }
                 }
