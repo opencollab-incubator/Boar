@@ -80,7 +80,7 @@ public class Prediction extends BaseCheck implements OffsetHandlerCheck {
     }
 
     public boolean shouldDoFail() {
-        return player.tickSinceBlockResync <= 0 && !player.insideUnloadedChunk && !player.getTeleportUtil().isTeleporting() && player.sinceLoadingScreen > 5 && player.compensatedWorld.isChunkLoaded((int) player.position.x, (int) player.position.z);
+        return player.tickSinceBlockResync <= 0 && !player.insideUnloadedChunk && !player.getTeleportUtil().isTeleporting() && player.sinceLoadingScreen > 5 && player.compensatedWorld.isChunkLoadedAt(player.position.x, player.position.z);
     }
 
     public void fail(String name, String verbose) {

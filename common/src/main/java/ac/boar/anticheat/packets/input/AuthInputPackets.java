@@ -91,7 +91,7 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
             }
         }
 
-        player.insideUnloadedChunk = !player.compensatedWorld.isChunkLoaded((int) player.position.x, (int) player.position.z);
+        player.insideUnloadedChunk = !player.compensatedWorld.isChunkLoadedAt(player.position.x, player.position.z);
         // Don't try to predict player position in an unloaded chunk, it's not worth it and uh won't go well!
         // Just keep teleporting the player back until they loaded in, that way we shouldn't false post teleport... I think!
         // There isn't much room to abuse considering they're not loaded in any way... and the position is validated so
