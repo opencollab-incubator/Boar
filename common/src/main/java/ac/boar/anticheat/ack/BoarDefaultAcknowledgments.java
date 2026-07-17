@@ -106,14 +106,14 @@ public final class BoarDefaultAcknowledgments {
     }
 
     private static void handleChunkLoad(BoarPlayer player, ChunkLoadAck ack) {
-        if (player.compensatedWorld.isOutOfRadius(ack.chunkX() << 4, ack.chunkZ() << 4) || ack.dimension() != player.compensatedWorld.getDimension()) {
+        if (ack.dimension() != player.compensatedWorld.getDimension()) {
             return;
         }
         player.compensatedWorld.put(ack.chunkX(), ack.chunkZ(), ack.sections());
     }
 
     private static void handleSubChunkLoad(BoarPlayer player, SubChunkLoadAck ack) {
-        if (player.compensatedWorld.isOutOfRadius(ack.chunkX() << 4, ack.chunkZ() << 4) || ack.dimension() != player.compensatedWorld.getDimension()) {
+        if (ack.dimension() != player.compensatedWorld.getDimension()) {
             return;
         }
         player.compensatedWorld.updateSection(ack.chunkX(), ack.chunkZ(), ack.sectionY(), ack.section());
