@@ -55,8 +55,11 @@ public class CompensatedWorldImpl extends CompensatedWorld {
             int x = iterator.getX(), y = iterator.getY(), z = iterator.getZ();
             if (this.isChunkLoaded(x, z)) {
                 BoarBlockState state = this.getBlockState(x, y, z, 0);
-                if (state.is(Blocks.BAMBOO) && new Box(x, y, z, x + 1, y + 1, z + 1).intersects(aABB)) {
+                if ((state.is(Blocks.BAMBOO) || state.is(Blocks.POINTED_DRIPSTONE)) && new Box(x, y, z, x + 1, y + 1, z + 1).intersects(aABB)) {
                     getPlayer().nearBamboo = true;
+                    if (state.is(Blocks.POINTED_DRIPSTONE)) {
+                        getPlayer().nearDripstone = true;
+                    }
                 }
 
                 builder.addAll(state.findCollision(this.getPlayer(), Vector3i.from(x, y, z), aABB, true));

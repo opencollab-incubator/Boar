@@ -39,6 +39,10 @@ public final class GeyserBlockMappings implements BlockMappings {
     private final List<Block> candleBlocks = new ArrayList<>();
     private final List<Block> signBlocks = new ArrayList<>();
     private final List<Block> buttonBlocks = new ArrayList<>();
+    private final List<Block> barsBlocks = new ArrayList<>();
+    private final List<Block> lanternBlocks = new ArrayList<>();
+    private final List<Block> anvilBlocks = new ArrayList<>();
+    private final List<Block> cauldronBlocks = new ArrayList<>();
 
     private final Map<String, Block> keyToBlock = new HashMap<>();
 
@@ -67,6 +71,22 @@ public final class GeyserBlockMappings implements BlockMappings {
                         mappings.candleBlocks.add(new GeyserBlock(block));
                     } else if (lowercaseName.endsWith("_sign")) {
                         mappings.signBlocks.add(new GeyserBlock(block));
+                    }
+
+                    if (lowercaseName.endsWith("_bars") || lowercaseName.endsWith("_pane")) {
+                        mappings.barsBlocks.add(new GeyserBlock(block));
+                    }
+
+                    if (lowercaseName.equals("lantern") || lowercaseName.endsWith("_lantern")) {
+                        mappings.lanternBlocks.add(new GeyserBlock(block));
+                    }
+
+                    if (lowercaseName.equals("anvil") || lowercaseName.endsWith("_anvil")) {
+                        mappings.anvilBlocks.add(new GeyserBlock(block));
+                    }
+
+                    if (lowercaseName.equals("cauldron") || lowercaseName.endsWith("_cauldron")) {
+                        mappings.cauldronBlocks.add(new GeyserBlock(block));
                     }
 
                     if (block instanceof BedBlock) {
@@ -187,6 +207,26 @@ public final class GeyserBlockMappings implements BlockMappings {
     @Override
     public List<Block> getButtonBlocks() {
         return Collections.unmodifiableList(buttonBlocks);
+    }
+
+    @Override
+    public List<Block> getBarsBlocks() {
+        return Collections.unmodifiableList(barsBlocks);
+    }
+
+    @Override
+    public List<Block> getLanternBlocks() {
+        return Collections.unmodifiableList(lanternBlocks);
+    }
+
+    @Override
+    public List<Block> getAnvilBlocks() {
+        return Collections.unmodifiableList(anvilBlocks);
+    }
+
+    @Override
+    public List<Block> getCauldronBlocks() {
+        return Collections.unmodifiableList(cauldronBlocks);
     }
 
     @Override

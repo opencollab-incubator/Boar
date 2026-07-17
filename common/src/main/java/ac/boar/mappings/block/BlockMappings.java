@@ -35,6 +35,14 @@ public interface BlockMappings {
 
     List<Block> getButtonBlocks();
 
+    List<Block> getBarsBlocks();
+
+    List<Block> getLanternBlocks();
+
+    List<Block> getAnvilBlocks();
+
+    List<Block> getCauldronBlocks();
+
     Map<Item, Block> getItemToBlock();
 
     static BlockMappings get() {

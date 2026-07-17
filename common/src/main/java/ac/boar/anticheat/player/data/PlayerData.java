@@ -44,7 +44,7 @@ public class PlayerData {
             0.3F, AttributeOperation.MULTIPLY_TOTAL, 2, false);
 
     public final static float JUMP_HEIGHT = 0.42F;
-    public final static float STEP_HEIGHT = 0.6F;
+    public final static float STEP_HEIGHT = 0.5625F;
     public final static float GRAVITY = 0.08F;
 
     // Mappings related
@@ -157,6 +157,7 @@ public class PlayerData {
     public boolean soulSandBelow;
 
     public boolean nearBamboo;
+    public boolean nearDripstone;
 
     public boolean beingPushByLava;
 

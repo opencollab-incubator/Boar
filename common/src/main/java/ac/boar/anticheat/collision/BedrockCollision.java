@@ -8,7 +8,6 @@ import ac.boar.anticheat.util.math.Box;
 import ac.boar.anticheat.util.math.Direction;
 import ac.boar.mappings.block.BlockMappings;
 import ac.boar.mappings.block.Blocks;
-import ac.boar.mappings.block.ChestType;
 import ac.boar.mappings.block.Properties;
 import ac.boar.mappings.item.Items;
 import org.cloudburstmc.math.vector.Vector3i;
@@ -30,10 +29,6 @@ public class BedrockCollision {
 
     // Chest
     protected final static List<Box> SINGLE_CHEST_SHAPE = List.of(new Box(0.025F, 0, 0.025F, 0.975F, 0.95F, 0.975F));
-    protected final static List<Box> NORTH_CHEST_SHAPE = List.of(new Box(0.025F, 0, 0, 0.975F, 0.95F, 0.975F));
-    protected final static List<Box> SOUTH_CHEST_SHAPE = List.of(new Box(0.025F, 0, 0.025F, 0.975F, 0.95F, 1));
-    protected final static List<Box> WEST_CHEST_SHAPE = List.of(new Box(0, 0, 0.025F, 0.975F, 0.95F, 0.975F));
-    protected final static List<Box> EAST_CHEST_SHAPE = List.of(new Box(0.025F, 0, 0.025F, 1, 0.95F, 0.975F));
 
     // Scaffolding
     protected final static List<Box> SCAFFOLDING_NORMAL_SHAPE;
@@ -56,6 +51,7 @@ public class BedrockCollision {
     protected final static List<Box> DOOR_WEST_SHAPE = List.of(new Box(0, 0, 0, 0.1825F, 1, 1));
 
     protected final static List<Box> LANTERN_SHAPE = List.of(new Box(0.3125F, 0, 0.3125F, 0.6875F, 0.5F, 0.6875F));
+    protected final static List<Box> HANGING_LANTERN_SHAPE = List.of(new Box(0.3125F, 0.125F, 0.3125F, 0.6875F, 0.625F, 0.6875F));
 
     protected final static List<Box> ANVIL_X_SHAPE = List.of(new Box(0.0F, 0.0F, 0.125F, 1.0F, 1.0F, 0.875F));
     protected final static List<Box> ANVIL_OTHER_SHAPE = List.of(new Box(0.125F, 0.0F, 0.0F, 0.875F, 1.0F, 1.0F));
@@ -63,6 +59,8 @@ public class BedrockCollision {
     protected final static List<Box> FALLING_POWDER_SNOW_SNOW = List.of(new Box(0.0F, 0.0F, 0.0F, 0.0625F, 0.05625F, 0.0625F));
 
     protected final static List<Box> END_PORTAL_FRAME_SHAPE = List.of(new Box(0, 0, 0, 1, 0.8125F, 1));
+
+    protected final static List<Box> TURTLE_EGG_SHAPE = List.of(new Box(0.2F, 0, 0.2F, 0.8F, 0.45F, 0.8F));
 
     static {
         // Scaffolding
@@ -88,6 +86,18 @@ public class BedrockCollision {
         }
     }
     
+    public static List<Box> buildThinBarsShape(boolean north, boolean east, boolean south, boolean west) {
+        if (!north && !east && !south && !west) {
+            return List.of(new Box(0.4375F, 0, 0.4375F, 0.5625F, 1, 0.5625F));
+        }
+        List<Box> boxes = new ArrayList<>();
+        if (north) boxes.add(new Box(0.4375F, 0, 0,      0.5625F, 1, 0.5F));
+        if (south) boxes.add(new Box(0.4375F, 0, 0.5F,   0.5625F, 1, 1));
+        if (west)  boxes.add(new Box(0,       0, 0.4375F, 0.5F,   1, 0.5625F));
+        if (east)  boxes.add(new Box(0.5F,    0, 0.4375F, 1,      1, 0.5625F));
+        return boxes;
+    }
+
     public static List<Box> getCollisionBox(final BoarPlayer player, final Box box, final Vector3i vector3i, final BoarBlockState state) {
         if (vector3i.getY() == player.compensatedWorld.getDimension().minY() - 41) {
             return SOLID_SHAPE;
@@ -113,12 +123,35 @@ public class BedrockCollision {
             }
 
             // Workaround.... we can still ensure player won't be having weird y motion on bamboo using the VERTICAL_COLLISION input.
-            Box solidOffset = SOLID_SHAPE.get(0).offset(vector3i.getX(), vector3i.getY(), vector3i.getZ());
+            Box solidOffset = SOLID_SHAPE.getFirst().offset(vector3i.getX(), vector3i.getY(), vector3i.getZ());
 
             // If player claimed to have y collision and their feet/head does hit something then we can be sure it's correct.
             // Also, this bamboo should not collide with player horizontal collision, only vertical so we can handle it properly.
             boolean likelyYCollision = solidOffset.calculateMaxDistance(Axis.Y, player.boundingBox, player.velocity.y) != player.velocity.y;
             return likelyYCollision && solidOffset.intersects(box) ? SOLID_SHAPE : EMPTY_SHAPE;
+        }
+
+        if (state.is(Blocks.POINTED_DRIPSTONE)) {
+            // Like bamboo
+            if (!player.getInputData().contains(PlayerAuthInputData.VERTICAL_COLLISION) || box == null) {
+                return EMPTY_SHAPE;
+            }
+
+            List<Box> javaBoxes = state.getCollisionBoxes();
+            if (javaBoxes.isEmpty()) {
+                return EMPTY_SHAPE;
+            }
+
+            float minY = 1f, maxY = 0f;
+            for (Box b : javaBoxes) {
+                minY = Math.min(minY, b.minY);
+                maxY = Math.max(maxY, b.maxY);
+            }
+
+            List<Box> vertical = List.of(new Box(0, minY, 0, 1, maxY, 1));
+            Box verticalOffset = vertical.getFirst().offset(vector3i.getX(), vector3i.getY(), vector3i.getZ());
+            boolean likelyYCollision = verticalOffset.calculateMaxDistance(Axis.Y, player.boundingBox, player.velocity.y) != player.velocity.y;
+            return likelyYCollision && verticalOffset.intersects(box) ? vertical : EMPTY_SHAPE;
         }
 
         if (state.is(Blocks.END_PORTAL_FRAME)) {
@@ -132,7 +165,7 @@ public class BedrockCollision {
             }
         }
 
-        if (state.is(Blocks.ANVIL) || state.is(Blocks.DAMAGED_ANVIL) || state.is(Blocks.CHIPPED_ANVIL)) {
+        if (BlockMappings.get().getAnvilBlocks().contains(state.block())) {
             Direction direction = state.get(Properties.HORIZONTAL_FACING);
             if (direction.getAxis() == Axis.X) {
                 return ANVIL_X_SHAPE;
@@ -141,8 +174,8 @@ public class BedrockCollision {
             }
         }
 
-        if (state.is(Blocks.LANTERN) || state.is(Blocks.SOUL_LANTERN)) {
-            return LANTERN_SHAPE;
+        if (BlockMappings.get().getLanternBlocks().contains(state.block())) {
+            return Boolean.TRUE.equals(state.get(Properties.HANGING)) ? HANGING_LANTERN_SHAPE : LANTERN_SHAPE;
         }
 
         if (state.is(Blocks.ENDER_CHEST)) {
@@ -151,6 +184,14 @@ public class BedrockCollision {
 
         if (state.is(Blocks.SEA_PICKLE)) {
             return EMPTY_SHAPE;
+        }
+
+        if (state.is(Blocks.TURTLE_EGG)) {
+            return TURTLE_EGG_SHAPE;
+        }
+
+        if (state.is(Blocks.DRAGON_EGG)) {
+            return SOLID_SHAPE;
         }
 
         if (BlockMappings.get().getBedBlocks().contains(state.block())) {
@@ -165,7 +206,7 @@ public class BedrockCollision {
             return LECTERN_SHAPE;
         }
 
-        if (state.is(Blocks.CAULDRON) || state.is(Blocks.WATER_CAULDRON) || state.is(Blocks.LAVA_CAULDRON) || state.is(Blocks.POWDER_SNOW_CAULDRON)) {
+        if (BlockMappings.get().getCauldronBlocks().contains(state.block())) {
             return CAULDRON_SHAPE;
         }
 
@@ -178,42 +219,7 @@ public class BedrockCollision {
         }
 
         if (BlockMappings.get().getChestBlocks().contains(state.block())) {
-            final ChestType type = state.get(Properties.CHEST_TYPE);
-            Direction facing = state.get(Properties.HORIZONTAL_FACING);
-            if (type == ChestType.LEFT) {
-                facing = switch (facing) {
-                    case SOUTH -> Direction.WEST;
-                    case WEST -> Direction.NORTH;
-                    case EAST -> Direction.SOUTH;
-                    default -> Direction.EAST;
-                };
-            } else {
-                facing = switch (facing) {
-                    case SOUTH -> Direction.EAST;
-                    case WEST -> Direction.SOUTH;
-                    case EAST -> Direction.NORTH;
-                    default -> Direction.WEST;
-                };
-            }
-
-            if (type == ChestType.SINGLE) {
-                return SINGLE_CHEST_SHAPE;
-            } else {
-                switch (facing) {
-                    case SOUTH -> {
-                        return SOUTH_CHEST_SHAPE;
-                    }
-                    case WEST -> {
-                        return WEST_CHEST_SHAPE;
-                    }
-                    case EAST -> {
-                        return EAST_CHEST_SHAPE;
-                    }
-                    default -> {
-                        return NORTH_CHEST_SHAPE;
-                    }
-                }
-            }
+            return SINGLE_CHEST_SHAPE;
         }
 
         if (BlockMappings.get().getTrapDoorBlocks().contains(state.block())) {

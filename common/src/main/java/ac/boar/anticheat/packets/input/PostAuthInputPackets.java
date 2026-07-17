@@ -19,6 +19,7 @@ public class PostAuthInputPackets implements PacketListener {
             player.doingInventoryAction = false;
             player.hasDepthStrider = false;
             player.nearBamboo = false;
+            player.nearDripstone = false;
 
             player.getTeleportUtil().getAuthInputHistory().put(packet.getTick(), new TickData(packet, player.getFlagTracker().cloneFlags(), player.cloneAttributes(), player.dimensions));
 
