@@ -32,6 +32,7 @@ import ac.boar.anticheat.compensated.cache.container.ContainerCache;
 import ac.boar.anticheat.compensated.cache.container.impl.TradeContainerCache;
 import ac.boar.anticheat.compensated.cache.entity.EntityCache;
 import ac.boar.anticheat.data.EntityDimensions;
+import ac.boar.anticheat.data.effect.Effect;
 import ac.boar.anticheat.data.inventory.ItemCache;
 import ac.boar.anticheat.data.vanilla.AttributeInstance;
 import ac.boar.anticheat.data.vanilla.StatusEffect;
@@ -215,9 +216,13 @@ public final class BoarDefaultAcknowledgments {
         }
 
         for (final AttributeData data : ack.attributes()) {
+            if (data.getName().equals("minecraft:movement")) {
+                player.clientNeedsMovementSpeedAttributeUpdate = false;
+            }
+
             final AttributeInstance attribute = player.attributes.get(data.getName());
             if (attribute == null) {
-                return;
+                continue;
             }
 
             attribute.clearModifiers();
@@ -359,6 +364,9 @@ public final class BoarDefaultAcknowledgments {
 
     private static void handleMobEffect(BoarPlayer player, MobEffectAck ack) {
         if (ack.event() == MobEffectPacket.Event.ADD || ack.event() == MobEffectPacket.Event.MODIFY) {
+            if (ack.effect().equals(Effect.SPEED) || ack.effect().equals(Effect.SLOWNESS)) {
+                player.clientNeedsMovementSpeedAttributeUpdate = true;
+            }
             player.getActiveEffects().put(ack.effect(), new StatusEffect(ack.effect(), ack.amplifier(), ack.duration() + 1));
         } else if (ack.event() == MobEffectPacket.Event.REMOVE) {
             player.getActiveEffects().remove(ack.effect());

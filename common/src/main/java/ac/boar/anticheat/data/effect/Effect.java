@@ -1,6 +1,8 @@
 package ac.boar.anticheat.data.effect;
 
 public enum Effect {
+    SPEED,
+    SLOWNESS,
     JUMP_BOOST,
     LEVITATION,
     CONDUIT_POWER,
