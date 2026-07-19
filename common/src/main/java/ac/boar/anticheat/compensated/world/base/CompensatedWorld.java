@@ -89,7 +89,16 @@ public class CompensatedWorld {
         // Still unsure about this... should we get rid of chunk sections, or chunk?
         // Well since we're getting rid of chunks for now, let set the y pos to 0.
         Vec3 chunkCenter = new Vec3(blockX + 8, 0, blockZ + 8);
-        return radiusCenter.squaredDistanceTo(chunkCenter) > this.radius * this.radius && new Vec3(player.position.x, 0, player.position.z).squaredDistanceTo(chunkCenter) > this.radius * this.radius;
+
+        // The publisher radius bounds chunk CENTERS, but the client keeps a chunk whenever any part of it is in
+        // view, so a center a hair past the radius is still a chunk the client holds - and since the server won't
+        // re-send what it still considers sent, evicting one of those leaves a hole that never refills. Erring wide
+        // only costs memory (the player can't reach a chunk that far out), so pad generously: 32 covers the
+        // half-chunk diagonal (~11.3) plus slack for a radiusCenter that only moves on publisher updates while the
+        // player keeps walking.
+        final float effectiveRadius = this.radius + 32;
+        final float maxSquared = effectiveRadius * effectiveRadius;
+        return radiusCenter.squaredDistanceTo(chunkCenter) > maxSquared && new Vec3(player.position.x, 0, player.position.z).squaredDistanceTo(chunkCenter) > maxSquared;
     }
 
     public void put(int x, int z, BoarChunkSection[] chunks) {
