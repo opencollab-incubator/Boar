@@ -3,6 +3,7 @@ package ac.boar.geyser.anticheat.data.block;
 import ac.boar.anticheat.data.block.AbstractBoarBlockState;
 import ac.boar.anticheat.data.block.BoarBlockState;
 import ac.boar.anticheat.data.block.BoarBlockStateDelegate;
+import ac.boar.anticheat.collision.BedrockCollision;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.util.math.Box;
 import ac.boar.geyser.anticheat.util.block.GeyserBlockUtil;
@@ -32,7 +33,6 @@ import org.geysermc.geyser.util.BlockUtils;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 
 @RequiredArgsConstructor
 @Getter
@@ -97,6 +97,17 @@ public class GeyserBoarBlockStateDelegate implements BoarBlockStateDelegate {
     }
 
     @Override
+    public List<Box> connectionCollisionOverride(BoarPlayer player, Vector3i pos) {
+        if (BlockMappings.get().getBarsBlocks().contains(this.block())) {
+            return GeyserBlockUtil.computeBarsShape(player, pos);
+        }
+        if (BlockMappings.get().getWallBlocks().contains(this.block())) {
+            return GeyserBlockUtil.computeWallShape(player, pos);
+        }
+        return null;
+    }
+
+    @Override
     public List<Box> getCollisionBoxes() {
         // Geyser returns null for blocks it has no collision data for (unmapped/unknown block IDs).
         // Treat as a non-collidable block (like air) instead of NPEing the prediction tick — that
@@ -130,7 +141,7 @@ public class GeyserBoarBlockStateDelegate implements BoarBlockStateDelegate {
         BlockState newState;
         if (BlockMappings.get().getFenceBlocks().contains(this.block())) {
             newState = GeyserBlockUtil.findFenceBlockState(player, this.state, pos);
-        } else if (this.state.is(Blocks.IRON_BARS) || this.state.toString().toLowerCase(Locale.ROOT).contains("glass_pane")) {
+        } else if (BlockMappings.get().getBarsBlocks().contains(this.block())) {
             newState = GeyserBlockUtil.findIronBarsBlockState(player, this.state, pos);
         } else if (this.state.is(Blocks.CHEST) || this.state.is(Blocks.TRAPPED_CHEST)) {
             newState = GeyserBlockUtil.findChestState(player, this.state, pos);

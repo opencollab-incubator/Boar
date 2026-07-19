@@ -179,6 +179,17 @@ public abstract class AbstractBoarBlockState implements BoarBlockState {
             return list;
         }
 
+        List<Box> connectionOverride = delegate.connectionCollisionOverride(player, pos);
+        if (connectionOverride != null) {
+            for (Box box : connectionOverride) {
+                Box offset = box.offset(pos.getX(), pos.getY(), pos.getZ());
+                if (!checkAAB || offset.intersects(playerAABB)) {
+                    list.add(offset);
+                }
+            }
+            return list;
+        }
+
         BoarBlockState reshaped = delegate.applyConnectionShape(player, this, pos);
         for (Box box : reshaped.getCollisionBoxes()) {
             Box offset = box.offset(pos.getX(), pos.getY(), pos.getZ());

@@ -22,6 +22,7 @@ public class GeyserPropertyProvider implements PropertyProvider {
             case "door_hinge" -> new GeyserProperty(Properties.DOOR_HINGE);
             case "drag" -> new GeyserProperty(Properties.DRAG);
             case "half" -> new GeyserProperty(Properties.HALF);
+            case "hanging" -> new GeyserProperty(Properties.HANGING);
             case "has_book" -> new GeyserProperty(Properties.HAS_BOOK);
             case "horizontal_facing" -> new GeyserProperty<>(
                     Properties.HORIZONTAL_FACING,

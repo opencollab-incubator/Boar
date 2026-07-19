@@ -9,6 +9,7 @@ import ac.boar.anticheat.util.math.Box;
 import ac.boar.anticheat.util.math.Vec3;
 import lombok.RequiredArgsConstructor;
 import org.cloudburstmc.math.GenericMath;
+import org.cloudburstmc.protocol.bedrock.data.PlayerAuthInputData;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 
 import java.util.ArrayList;
@@ -178,6 +179,15 @@ public class UncertainRunner {
             if (offset <= 8.0E-4 && player.glideBoostTicks >= 0) {
                 extra = offset;
             }
+        }
+
+        boolean dripstoneHorizontalNotExceeded = actual.horizontalLengthSquared() <= predicted.horizontalLengthSquared() + 1.0E-6F;
+        boolean dripstoneHorizontalSaneDir = (MathUtil.sign(actual.x) == MathUtil.sign(predicted.x) || actual.x == 0)
+                && (MathUtil.sign(actual.z) == MathUtil.sign(predicted.z) || actual.z == 0);
+        if (player.nearDripstone && player.getInputData().contains(PlayerAuthInputData.VERTICAL_COLLISION)
+                && Math.abs(player.position.y - player.unvalidatedPosition.y) <= 0.3125F + player.getMaxOffset()
+                && dripstoneHorizontalNotExceeded && dripstoneHorizontalSaneDir) {
+            extra = offset;
         }
 
         return extra;

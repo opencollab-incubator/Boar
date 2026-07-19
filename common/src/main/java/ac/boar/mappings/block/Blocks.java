@@ -26,35 +26,33 @@ public final class Blocks {
     public static final Reference<Block> COBWEB = create("cobweb");
     public static final Reference<Block> CONDUIT = create("conduit");
     public static final Reference<Block> DAMAGED_ANVIL = create("damaged_anvil");
+    public static final Reference<Block> DRAGON_EGG = create("dragon_egg");
     public static final Reference<Block> END_PORTAL_FRAME = create("end_portal_frame");
     public static final Reference<Block> ENDER_CHEST =  create("ender_chest");
     public static final Reference<Block> FROSTED_ICE = create("frosted_ice");
     public static final Reference<Block> FURNACE = create("furnace");
     public static final Reference<Block> HONEY_BLOCK = create("honey_block");
     public static final Reference<Block> ICE = create("ice");
-    public static final Reference<Block> LANTERN = create("lantern");
     public static final Reference<Block> LAVA = create("lava");
-    public static final Reference<Block> LAVA_CAULDRON = create("lava_cauldron");
     public static final Reference<Block> LECTERN = create("lectern");
     public static final Reference<Block> LEVER = create("lever");
     public static final Reference<Block> NOTE_BLOCK = create("note_block");
     public static final Reference<Block> PACKED_ICE = create("packed_ice");
+    public static final Reference<Block> POINTED_DRIPSTONE = create("pointed_dripstone");
     public static final Reference<Block> POWDER_SNOW = create("powder_snow");
-    public static final Reference<Block> POWDER_SNOW_CAULDRON = create("powder_snow_cauldron");
     public static final Reference<Block> PUMPKIN = create("pumpkin");
     public static final Reference<Block> REDSTONE_ORE = create("redstone_ore");
     public static final Reference<Block> RESPAWN_ANCHOR = create("respawn_anchor");
     public static final Reference<Block> SCAFFOLDING = create("scaffolding");
     public static final Reference<Block> SEA_PICKLE = create("sea_pickle");
     public static final Reference<Block> SLIME_BLOCK = create("slime_block");
-    public static final Reference<Block> SOUL_LANTERN = create("soul_lantern");
     public static final Reference<Block> SOUL_SAND = create("soul_sand");
     public static final Reference<Block> SWEET_BERRY_BUSH = create("sweet_berry_bush");
     public static final Reference<Block> TNT = create("tnt");
+    public static final Reference<Block> TURTLE_EGG = create("turtle_egg");
     public static final Reference<Block> VAULT = create("vault");
     public static final Reference<Block> VOID_AIR = create("void_air");
     public static final Reference<Block> WATER = create("water");
-    public static final Reference<Block> WATER_CAULDRON = create("water_cauldron");
 
     private static Reference<Block> create(String key) {
         return POPULATOR.defer("minecraft:" + key);

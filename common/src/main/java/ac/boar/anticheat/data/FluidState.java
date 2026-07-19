@@ -18,6 +18,10 @@ public record FluidState(Fluid fluid, float height, int level) {
     }
 
     public Vec3 getFlow(final BoarPlayer player, final Vector3i vector3i) {
+        if (player.compensatedWorld.getBlockState(vector3i, 0).is(Blocks.BUBBLE_COLUMN)) {
+            return new Vec3(0, 0, 0);
+        }
+
         Vec3 vec3 = new Vec3(0, 0, 0);
         int i = this.getEffectiveFlowDecay();
 
