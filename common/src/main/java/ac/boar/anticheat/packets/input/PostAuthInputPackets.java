@@ -19,18 +19,13 @@ public class PostAuthInputPackets implements PacketListener {
             player.doingInventoryAction = false;
             player.hasDepthStrider = false;
             player.nearBamboo = false;
+            player.nearDripstone = false;
 
-            player.getTeleportUtil().getAuthInputHistory().put(packet.getTick(), new TickData(packet, player.getFlagTracker().cloneFlags(), player.dimensions));
+            player.getTeleportUtil().getAuthInputHistory().put(packet.getTick(), new TickData(packet, player.getFlagTracker().cloneFlags(), player.cloneAttributes(), player.dimensions));
 
             if (player.vehicleData != null && player.getEntity().vehicle() == null) {
                 event.setCancelled(true);
             }
-
-//            if (player.getTeleportUtil().isTeleporting()) {
-//                packet.setPosition(player.position.add(0, player.getYOffset(), 0).toVector3f());
-//                LegacyAuthInputPackets.correctInputData(player, packet);
-//                return;
-//            }
 
             // Although I'd like to avoid to do this at all times, it's justttt to be safe.
             // Shouldn't desync, since we already set it to be the unvalidated position if offset is close enough
@@ -38,6 +33,11 @@ public class PostAuthInputPackets implements PacketListener {
             packet.setPosition(player.position.add(0, player.getYOffset(), 0).toVector3f());
             LegacyAuthInputPackets.correctInputData(player, packet);
 
+            // If the player is teleporting, NO PACKET SHOULD EVER PASS THROUGH. Except when they're rewinding.
+            if (player.getTeleportUtil().isHardTeleporting()) {
+                event.setCancelled(true);
+                return;
+            }
             if (player.getTeleportUtil().isTeleporting()) {
                 return;
             }

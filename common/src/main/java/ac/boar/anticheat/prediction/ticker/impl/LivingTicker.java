@@ -75,24 +75,9 @@ public class LivingTicker extends EntityTicker {
             player.getTeleportUtil().rewind(player.tick - 1);
         }
 
-        boolean inScaffolding = false, onScaffolding = false;
-        final CuboidBlockIterator iterator = CuboidBlockIterator.iterator(player.boundingBox);
-        while (iterator.step()) {
-            int x = iterator.getX(), y = iterator.getY(), z = iterator.getZ();
-            if (player.compensatedWorld.isChunkLoaded(x, z)) {
-                int flooredY = GenericMath.floor(player.position.y);
-                BoarBlockState state = player.compensatedWorld.getBlockState(x, y, z, 0);
-                if (state.is(Blocks.SCAFFOLDING)) {
-                    if (y == flooredY && player.boundingBox.intersects(x, y, z, x + 1, y + 1, z + 1)) {
-                        inScaffolding = true;
-                    } else if (y + 1 == flooredY && player.boundingBox.offset(0, -1, 0).intersects(x, y, z, x + 1, y + 1, z + 1)) {
-                        onScaffolding = true;
-                    }
-                }
-            }
-        }
-
-        if (inScaffolding && player.unvalidatedPosition.subtract(player.prevUnvalidatedPosition).y > 0) {
+        boolean inAscendable = player.getFlagTracker().has(EntityFlag.IN_ASCENDABLE_BLOCK) || player.getFlagTracker().has(EntityFlag.IN_SCAFFOLDING);
+        boolean onAscendable = player.getFlagTracker().has(EntityFlag.OVER_DESCENDABLE_BLOCK) || player.getFlagTracker().has(EntityFlag.OVER_SCAFFOLDING);
+        if (inAscendable && player.unvalidatedPosition.subtract(player.prevUnvalidatedPosition).y > 0) {
             if (player.getInputData().contains(PlayerAuthInputData.JUMPING) || player.getInputData().contains(PlayerAuthInputData.ASCEND_BLOCK)) {
                 player.velocity.y = 0.15F;
             }
@@ -109,7 +94,7 @@ public class LivingTicker extends EntityTicker {
                 player.velocity.y = -0.15F;
             }
 
-            if (onScaffolding && Math.abs(player.unvalidatedTickEnd.y) - 0.15F < 0.01F) {
+            if (onAscendable && Math.abs(player.unvalidatedTickEnd.y) - 0.15F < 0.01F) {
                 player.velocity.y = -0.15F;
                 player.scaffoldDescend = true;
             }
@@ -130,6 +115,29 @@ public class LivingTicker extends EntityTicker {
             --player.autoSpinAttackTicks;
             this.checkAutoSpinAttack(oldBox, player.boundingBox);
         }
+
+        // Seems to be the case, even if the server doesn't send the data packet, this will still get determined at the end of the tick.
+        player.getFlagTracker().set(EntityFlag.IN_SCAFFOLDING, false);
+        player.getFlagTracker().set(EntityFlag.IN_ASCENDABLE_BLOCK, false);
+        player.getFlagTracker().set(EntityFlag.OVER_DESCENDABLE_BLOCK, false);
+        player.getFlagTracker().set(EntityFlag.OVER_SCAFFOLDING, false);
+        final CuboidBlockIterator iterator = CuboidBlockIterator.iterator(player.boundingBox);
+        while (iterator.step()) {
+            int x = iterator.getX(), y = iterator.getY(), z = iterator.getZ();
+            if (player.compensatedWorld.isChunkLoaded(x, z)) {
+                int flooredY = GenericMath.floor(player.position.y);
+                if (player.compensatedWorld.getBlockState(x, y, z, 0).is(Blocks.SCAFFOLDING)) {
+                    if (y == flooredY && player.boundingBox.intersects(x, y, z, x + 1, y + 1, z + 1)) {
+                        player.getFlagTracker().set(EntityFlag.IN_SCAFFOLDING, true);
+                        player.getFlagTracker().set(EntityFlag.IN_ASCENDABLE_BLOCK, true);
+                    } else if (y + 1 == flooredY && player.boundingBox.offset(0, -1, 0).intersects(x, y, z, x + 1, y + 1, z + 1)) {
+                        player.getFlagTracker().set(EntityFlag.OVER_DESCENDABLE_BLOCK, true);
+                    }
+                }
+            }
+        }
+
+        player.getFlagTracker().set(EntityFlag.OVER_SCAFFOLDING, player.getFlagTracker().has(EntityFlag.OVER_DESCENDABLE_BLOCK) && player.getFlagTracker().has(EntityFlag.SNEAKING));
     }
 
     protected final void checkAutoSpinAttack(Box aABB, Box aABB2) {

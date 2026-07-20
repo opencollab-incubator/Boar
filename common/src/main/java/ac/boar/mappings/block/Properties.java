@@ -10,6 +10,7 @@ public final class Properties {
     public static final Property<String> DOOR_HINGE = create("door_hinge");
     public static final Property<Boolean> DRAG = create("drag");
     public static final Property<String> HALF = create("half");
+    public static final Property<Boolean> HANGING = create("hanging");
     public static final Property<Boolean> HAS_BOOK = create("has_book");
     public static final Property<Direction> HORIZONTAL_FACING = create("horizontal_facing");
     public static final Property<Integer> LEVEL = create("level");

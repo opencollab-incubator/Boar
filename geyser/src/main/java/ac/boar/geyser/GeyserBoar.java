@@ -49,7 +49,7 @@ public class GeyserBoar implements Extension {
             return;
         }
 
-        System.out.println("Adding name " + event.connection().bedrockUsername() + " " + session);
+        // System.out.println("Adding name " + event.connection().bedrockUsername() + " " + session);
         nameToSessions.put(event.connection().bedrockUsername(), session);
     }
 

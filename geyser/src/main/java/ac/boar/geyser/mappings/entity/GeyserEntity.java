@@ -12,7 +12,7 @@ public record GeyserEntity(org.geysermc.geyser.entity.type.Entity handle) implem
 
     @Override
     public EntityDefinition definition() {
-        return new GeyserEntityDefinition(this.handle.getDefinition());
+        return new GeyserEntityDefinition(this.handle.getJavaDefinition());
     }
 
     @Override
@@ -46,7 +46,7 @@ public record GeyserEntity(org.geysermc.geyser.entity.type.Entity handle) implem
 
     @Override
     public <T> void metadata(EntityDataType<T> type, T value) {
-        this.handle.getDirtyMetadata().put(type, value);
+        this.handle.getMetadata().put(type, value);
     }
 
     @Override

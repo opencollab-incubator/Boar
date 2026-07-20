@@ -57,6 +57,8 @@ public interface BoarBlockState {
 
     float getFriction();
 
+    float getBlockBounciness();
+
     Vector3i getPosition();
 
     int getLayer();

@@ -6,11 +6,11 @@ import ac.boar.mappings.entity.EntityType;
 
 import java.util.Optional;
 
-public record GeyserEntityDefinition(org.geysermc.geyser.entity.EntityDefinition<?> handle) implements EntityDefinition {
+public record GeyserEntityDefinition(org.geysermc.geyser.entity.EntityTypeDefinition<?> handle) implements EntityDefinition {
 
     @Override
     public boolean is(EntityDefinition value) {
-        return ((GeyserEntityDefinition) value).handle.identifier().equals(this.handle.identifier());
+        return ((GeyserEntityDefinition) value).handle.type().identifier().equals(this.handle.type().identifier());
     }
 
     @Override
@@ -21,12 +21,12 @@ public record GeyserEntityDefinition(org.geysermc.geyser.entity.EntityDefinition
 
     @Override
     public EntityType type() {
-        return new GeyserEntityType(this.handle.entityType());
+        return new GeyserEntityType(this.handle.type().mcpl());
     }
 
     @Override
     public String identifier() {
-        return this.handle.identifier();
+        return this.handle.type().identifier().toString();
     }
 
     @Override

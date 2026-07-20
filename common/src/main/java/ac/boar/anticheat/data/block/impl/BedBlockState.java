@@ -22,4 +22,9 @@ public class BedBlockState extends AbstractBoarBlockState {
             player.velocity.y = 0;
         }
     }
+
+    @Override
+    public float getBlockBounciness() {
+        return 0.75f;
+    }
 }

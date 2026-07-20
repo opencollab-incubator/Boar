@@ -35,6 +35,7 @@ public final class FlagTracker {
         this.clear();
         this.flags.addAll(flags);
 
+        // Don't use the server state for these specific flags since it'll cause desync and we want to handle it on PlayerAuthInput
         if (server) {
             this.set(EntityFlag.SNEAKING, sneaking);
             this.set(EntityFlag.SWIMMING, swimming);

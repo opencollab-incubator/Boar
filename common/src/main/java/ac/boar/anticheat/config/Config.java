@@ -3,6 +3,7 @@ package ac.boar.anticheat.config;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSetter;
 import com.fasterxml.jackson.annotation.Nulls;
+import lombok.Setter;
 import lombok.ToString;
 
 import java.util.ArrayList;
@@ -10,6 +11,7 @@ import java.util.List;
 
 // https://github.com/Mojang/bedrock-protocol-docs/blob/main/additional_docs/AntiCheatServer.properties
 @ToString
+@Setter
 public final class Config {
     public static final Config DEFAULT_CONFIG = new Config();
 

@@ -52,6 +52,11 @@ public record GeyserNetworkSession(GeyserSession session) implements NetworkSess
     }
 
     @Override
+    public int protocolVersion() {
+        return this.session.protocolVersion();
+    }
+
+    @Override
     public boolean hasPermission(String permission) {
         return this.session.hasPermission(permission);
     }

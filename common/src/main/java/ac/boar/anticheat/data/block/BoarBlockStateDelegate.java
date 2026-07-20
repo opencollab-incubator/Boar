@@ -35,6 +35,13 @@ public interface BoarBlockStateDelegate {
 
     int getLayer();
 
+    // Bedrock shapes that cannot round-trip through a Java block state (thin bars, walls): built
+    // straight from the neighbours into local boxes. Returns null when the block has no override and
+    // the applyConnectionShape path should be used instead.
+    default List<Box> connectionCollisionOverride(BoarPlayer player, Vector3i pos) {
+        return null;
+    }
+
     // Returns a reshaped state with connection properties applied (fences, iron bars, chests, stairs).
     // Returns self when no reshape is needed.
     BoarBlockState applyConnectionShape(BoarPlayer player, BoarBlockState self, Vector3i pos);

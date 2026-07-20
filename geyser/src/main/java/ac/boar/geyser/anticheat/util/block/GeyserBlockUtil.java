@@ -3,6 +3,7 @@ package ac.boar.geyser.anticheat.util.block;
 import ac.boar.anticheat.data.block.BoarBlockState;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.util.geyser.BlockEntityInfo;
+import ac.boar.anticheat.util.math.Box;
 import ac.boar.geyser.anticheat.data.block.GeyserBoarBlockStateDelegate;
 import ac.boar.geyser.anticheat.util.math.GeyserDirectionUtil;
 import ac.boar.mappings.block.BlockMappings;
@@ -13,12 +14,13 @@ import org.geysermc.geyser.level.block.type.BlockState;
 import org.geysermc.geyser.level.physics.Direction;
 import org.geysermc.geyser.registry.BlockRegistries;
 
-import java.util.Locale;
+import java.util.List;
 import java.util.Objects;
 
 import static org.geysermc.geyser.level.block.property.Properties.CHEST_TYPE;
 import static org.geysermc.geyser.level.block.property.Properties.HALF;
 import static org.geysermc.geyser.level.block.property.Properties.HORIZONTAL_FACING;
+import static org.geysermc.geyser.level.block.property.Properties.UP;
 
 public final class GeyserBlockUtil {
 
@@ -91,6 +93,56 @@ public final class GeyserBlockUtil {
         return BlockState.of(BlockRegistries.JAVA_BLOCK_STATE_IDENTIFIER_TO_ID.getOrDefault(identifier, state.javaId()));
     }
 
+    public static List<Box> computeBarsShape(BoarPlayer player, Vector3i position) {
+        BoarBlockState north = player.compensatedWorld.getBlockState(position.north(), 0);
+        BoarBlockState south = player.compensatedWorld.getBlockState(position.south(), 0);
+        BoarBlockState west = player.compensatedWorld.getBlockState(position.west(), 0);
+        BoarBlockState east = player.compensatedWorld.getBlockState(position.east(), 0);
+
+        boolean n = attachsTo(north, north.isFaceSturdy(player));
+        boolean e = attachsTo(east, east.isFaceSturdy(player));
+        boolean s = attachsTo(south, south.isFaceSturdy(player));
+        boolean w = attachsTo(west, west.isFaceSturdy(player));
+
+        return ac.boar.anticheat.collision.BedrockCollision.buildThinBarsShape(n, e, s, w);
+    }
+
+    public static List<Box> computeWallShape(BoarPlayer player, Vector3i position) {
+        BoarBlockState north = player.compensatedWorld.getBlockState(position.north(), 0);
+        BoarBlockState east = player.compensatedWorld.getBlockState(position.east(), 0);
+        BoarBlockState south = player.compensatedWorld.getBlockState(position.south(), 0);
+        BoarBlockState west = player.compensatedWorld.getBlockState(position.west(), 0);
+        BoarBlockState above = player.compensatedWorld.getBlockState(position.up(), 0);
+
+        boolean n = wallConnectsTo(north, north.isFaceSturdy(player), Direction.SOUTH);
+        boolean e = wallConnectsTo(east, east.isFaceSturdy(player), Direction.WEST);
+        boolean s = wallConnectsTo(south, south.isFaceSturdy(player), Direction.NORTH);
+        boolean w = wallConnectsTo(west, west.isFaceSturdy(player), Direction.EAST);
+
+        BlockState aboveRaw = GeyserBoarBlockStateDelegate.unwrap(above).getState();
+        boolean aboveForcesPost = above.isFaceSturdy(player)
+                || (BlockMappings.get().getWallBlocks().contains(above.block()) && Boolean.TRUE.equals(aboveRaw.getValue(UP)));
+
+        boolean straight = (n && s && !e && !w) || (e && w && !n && !s);
+        boolean up = aboveForcesPost || !straight;
+
+        float minX = 1f, minZ = 1f, maxX = 0f, maxZ = 0f;
+        if (up) { minX = Math.min(minX, 0.25f); maxX = Math.max(maxX, 0.75f); minZ = Math.min(minZ, 0.25f); maxZ = Math.max(maxZ, 0.75f); }
+        if (n)  { minX = Math.min(minX, 0.3125f); maxX = Math.max(maxX, 0.6875f); minZ = 0f; }
+        if (s)  { minX = Math.min(minX, 0.3125f); maxX = Math.max(maxX, 0.6875f); maxZ = 1f; }
+        if (w)  { minZ = Math.min(minZ, 0.3125f); maxZ = Math.max(maxZ, 0.6875f); minX = 0f; }
+        if (e)  { minZ = Math.min(minZ, 0.3125f); maxZ = Math.max(maxZ, 0.6875f); maxX = 1f; }
+
+        return java.util.List.of(new ac.boar.anticheat.util.math.Box(minX, 0f, minZ, maxX, 1.5f, maxZ));
+    }
+
+    private static boolean wallConnectsTo(BoarBlockState neighbour, boolean faceSturdy, Direction direction) {
+        boolean wall = BlockMappings.get().getWallBlocks().contains(neighbour.block());
+        boolean barsOrPane = BlockMappings.get().getBarsBlocks().contains(neighbour.block());
+        return wall || barsOrPane || connectsToDirection(neighbour, direction)
+                || (!isExceptionForConnection(neighbour) && faceSturdy);
+    }
+
     public static String getStairShape(BoarPlayer player, BlockState state, Vector3i pos) {
         Direction direction = state.getValue(HORIZONTAL_FACING);
         BoarBlockState ahead = player.compensatedWorld.getBlockState(pos.add(direction.getUnitVector()), 0);
@@ -138,8 +190,8 @@ public final class GeyserBlockUtil {
 
     private static boolean attachsTo(BoarBlockState neighbour, boolean faceSturdy) {
         boolean walls = BlockMappings.get().getWallBlocks().contains(neighbour.block());
-        BlockState raw = GeyserBoarBlockStateDelegate.unwrap(neighbour).getState();
-        return !isExceptionForConnection(neighbour) && faceSturdy || raw.is(Blocks.IRON_BARS) || raw.toString().toLowerCase(Locale.ROOT).contains("glass_pane") || walls;
+        boolean bars = BlockMappings.get().getBarsBlocks().contains(neighbour.block());
+        return !isExceptionForConnection(neighbour) && faceSturdy || bars || walls;
     }
 
     private static boolean isSameFence(BoarBlockState neighbour, BlockState main) {

@@ -29,7 +29,7 @@ public class AttributeInstance {
             return;
         }
 
-        this.baseValue = value;
+        this.baseValue = baseValue;
         this.setDirty();
     }
 
@@ -99,5 +99,15 @@ public class AttributeInstance {
         }
 
         return value;
+    }
+
+    @Override
+    public AttributeInstance clone() {
+        final AttributeInstance instance = new AttributeInstance(baseValue);
+        instance.value = value;
+        instance.dirty = dirty;
+        instance.modifiers.putAll(modifiers);
+
+        return instance;
     }
 }

@@ -10,11 +10,16 @@ public class GeyserEnchantmentProvider implements EnchantmentProvider {
     @Override
     public Enchantment byId(int id) {
         BedrockEnchantment bedrock = BedrockEnchantment.getByBedrockId(id);
+        if (bedrock == null) {
+            return null;
+        }
+
         return switch (bedrock) {
             case DEPTH_STRIDER -> Enchantment.DEPTH_STRIDER;
             case RIPTIDE -> Enchantment.RIPTIDE;
             case SOUL_SPEED -> Enchantment.SOUL_SPEED;
-            default -> throw new IllegalArgumentException("Unsupported enchantment id: " + id);
+            case SWIFT_SNEAK -> Enchantment.SWIFT_SNEAK;
+            default -> null;
         };
     }
 

@@ -1,6 +1,7 @@
 package ac.boar.anticheat.prediction;
 
 import ac.boar.anticheat.compensated.CompensatedInventory;
+import ac.boar.anticheat.data.effect.Effect;
 import ac.boar.anticheat.data.enchantment.Enchantment;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.util.MathUtil;
@@ -8,6 +9,7 @@ import ac.boar.anticheat.util.math.Box;
 import ac.boar.anticheat.util.math.Vec3;
 import lombok.RequiredArgsConstructor;
 import org.cloudburstmc.math.GenericMath;
+import org.cloudburstmc.protocol.bedrock.data.PlayerAuthInputData;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 
 import java.util.ArrayList;
@@ -17,6 +19,47 @@ import java.util.List;
 @RequiredArgsConstructor
 public class UncertainRunner {
     private final BoarPlayer player;
+
+    public void resolveUncertainBouncing() {
+        if (!player.bounce) {
+            return;
+        }
+
+        player.bounce = false;
+        if (player.velocity.y < player.unvalidatedTickEnd.y || player.unvalidatedTickEnd.y <= 0) {
+            return;
+        }
+
+        // Mini engine to try to find the minimal y value player can reach to prevent low-jump speed bypass on slime or bed.
+        // We don't need to account for elytra here cuz that edge case is wayyyy to niche.
+
+        float y = player.minBounceYVel;
+        if (player.touchingWater) {
+            y *= 0.8f;
+
+            float gravity = player.getEffectiveGravity();
+            if (player.hasEffect(Effect.LEVITATION)) {
+                y = y + (((player.getEffect(Effect.LEVITATION).getAmplifier() + 1) * 0.05F) - y) * 0.2F;
+            } else if (gravity != 0.0 && !player.getFlagTracker().has(EntityFlag.SWIMMING)) {
+                y = y - (gravity / 16.0F);
+            }
+        } else if (player.isInLava()) {
+            y *= 0.5f;
+            y += (-player.getEffectiveGravity() / 4.0F);
+        } else {
+            y -= player.getEffectiveGravity();
+            y *= 0.98f;
+        }
+
+        // The player y velocity is way too low, this is not possible.
+        if (y - player.unvalidatedTickEnd.y > 0.01) {
+//            System.out.println("(failed) Min: " + y + ", tickend=" + player.unvalidatedTickEnd.y);
+            return;
+        }
+
+//        System.out.println("Min: " + y + ", tickend=" + player.unvalidatedTickEnd.y);
+        player.velocity.y = player.unvalidatedTickEnd.y;
+    }
 
     // For now this will only be use for pushing player out of block, mojang making my life harder by make it differ from JE ofc.
     /**
@@ -50,7 +93,7 @@ public class UncertainRunner {
         player.nearBamboo = false;
 
         // Let's check to see if the player is actually inside a block...
-        final List<Box> collisions = player.compensatedWorld.collectColliders(new ArrayList<>(), player.boundingBox.expand(1.0E-3F));
+        final List<Box> collisions = player.compensatedWorld.collectColliders(new ArrayList<>(), player.boundingBox.contract(1.0E-3F));
         if (collisions.isEmpty() && !player.nearBamboo) {
             // Nope, again the player is likely cheating, or we're falsing something else, also allow bamboo to bypass this.
             return;
@@ -131,11 +174,20 @@ public class UncertainRunner {
         }
 
         if (player.getFlagTracker().has(EntityFlag.GLIDING)) {
-            extra += 1.0E-4F; // gliding accuracy is... yuck.
+            extra += 8.0E-4F; // gliding accuracy is... yuck.
 
             if (offset <= 8.0E-4 && player.glideBoostTicks >= 0) {
                 extra = offset;
             }
+        }
+
+        boolean dripstoneHorizontalNotExceeded = actual.horizontalLengthSquared() <= predicted.horizontalLengthSquared() + 1.0E-6F;
+        boolean dripstoneHorizontalSaneDir = (MathUtil.sign(actual.x) == MathUtil.sign(predicted.x) || actual.x == 0)
+                && (MathUtil.sign(actual.z) == MathUtil.sign(predicted.z) || actual.z == 0);
+        if (player.nearDripstone && player.getInputData().contains(PlayerAuthInputData.VERTICAL_COLLISION)
+                && Math.abs(player.position.y - player.unvalidatedPosition.y) <= 0.3125F + player.getMaxOffset()
+                && dripstoneHorizontalNotExceeded && dripstoneHorizontalSaneDir) {
+            extra = offset;
         }
 
         return extra;

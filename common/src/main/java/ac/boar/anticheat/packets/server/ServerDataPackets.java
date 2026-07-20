@@ -15,9 +15,12 @@ import ac.boar.anticheat.validator.blockbreak.ServerBreakBlockValidator;
 import ac.boar.mappings.item.Items;
 import ac.boar.protocol.api.CloudburstPacketEvent;
 import ac.boar.protocol.api.PacketListener;
+import org.cloudburstmc.protocol.bedrock.data.AttributeData;
 import org.cloudburstmc.protocol.bedrock.data.AuthoritativeMovementMode;
 import org.cloudburstmc.protocol.bedrock.data.GameType;
 import org.cloudburstmc.math.vector.Vector3i;
+import org.cloudburstmc.protocol.bedrock.data.attribute.AttributeModifierData;
+import org.cloudburstmc.protocol.bedrock.data.attribute.AttributeOperation;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 import org.cloudburstmc.protocol.bedrock.packet.MovementPredictionSyncPacket;
@@ -27,9 +30,7 @@ import org.cloudburstmc.protocol.bedrock.packet.StartGamePacket;
 import org.cloudburstmc.protocol.bedrock.packet.UpdateAbilitiesPacket;
 import org.cloudburstmc.protocol.bedrock.packet.UpdateAttributesPacket;
 
-import java.util.EnumMap;
-import java.util.EnumSet;
-import java.util.Set;
+import java.util.*;
 
 public class ServerDataPackets implements PacketListener {
     @Override
@@ -110,7 +111,12 @@ public class ServerDataPackets implements PacketListener {
             if (packet.getRuntimeEntityId() != player.runtimeEntityId) {
                 return;
             }
-
+            if (!packet.getAttributes().isEmpty()) {
+                // sometimes the attribute list can be immutable
+                List<AttributeData> attributes = new ArrayList<>(packet.getAttributes());
+                attributes.replaceAll(ServerDataPackets::stripModifiers);
+                packet.setAttributes(attributes);
+            }
             player.sendLatencyStack(new UpdateAttributesAck(packet.getAttributes()));
         }
     }
@@ -145,4 +151,35 @@ public class ServerDataPackets implements PacketListener {
             player.getFlagTracker().set(EntityFlag.GLIDING, BoarItemStack.of(player.getSession(), cache.get(1).getData()).is(Items.ELYTRA) && packet.getFlags().contains(EntityFlag.GLIDING));
         }
     }
+
+    private static AttributeData stripModifiers(AttributeData data) {
+        if (data.getName().equals("minecraft:movement") || data.getName().equals("minecraft:underwater_movement") || data.getName().equals("minecraft:lava_movement")) {
+            if (data.getModifiers().isEmpty()) {
+                return data;
+            }
+
+            float newBase = data.getDefaultValue();
+            for (final AttributeModifierData modifier : data.getModifiers()) {
+                if (modifier.getOperation() == AttributeOperation.ADDITION) {
+                    newBase += modifier.getAmount();
+                }
+            }
+            float newValue = newBase;
+            for (final AttributeModifierData modifier : data.getModifiers()) {
+                if (modifier.getOperation() == AttributeOperation.MULTIPLY_BASE) {
+                    newValue += (newBase * modifier.getAmount());
+                }
+            }
+            for (final AttributeModifierData modifier : data.getModifiers()) {
+                if (modifier.getOperation() == AttributeOperation.MULTIPLY_TOTAL) {
+                    newValue *= (1.0F + modifier.getAmount());
+                }
+            }
+
+            // System.out.println(data + " -> " + new AttributeData(data.getName(), data.getMinimum(), data.getMaximum(), newValue, newBase));
+            return new AttributeData(data.getName(), data.getMinimum(), data.getMaximum(), newValue, newBase);
+        }
+        return data;
+    }
+
 }

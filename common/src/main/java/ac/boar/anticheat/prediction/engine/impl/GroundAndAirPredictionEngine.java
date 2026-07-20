@@ -28,7 +28,7 @@ public class GroundAndAirPredictionEngine extends PredictionEngine {
 
     @Override
     public void finalizeMovement() {
-        if (!player.scaffoldDescend) {
+        if (!player.scaffoldDescend || player.onGround) {
             final StatusEffect effect = player.getEffect(Effect.LEVITATION);
             if (effect != null) {
                 player.velocity.y += (0.05f * (effect.getAmplifier() + 1) - player.velocity.y) * 0.2f;
