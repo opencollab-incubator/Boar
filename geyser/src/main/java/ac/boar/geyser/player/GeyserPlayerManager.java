@@ -84,7 +84,8 @@ public class GeyserPlayerManager extends BoarPlayerManager<GeyserSession> {
         }
 
         return new BlockMappingInfo(bedrockAir, bedrockWater, bedrockLava,
-                bedrockPowderSnow, airIds, bedrockBlockToJava::get, mappings::getBedrockBlockId
+                bedrockPowderSnow, airIds, mappings::isItemFrame,
+                bedrockBlockToJava::get, mappings::getBedrockBlockId
         );
     }
 

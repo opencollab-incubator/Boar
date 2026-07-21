@@ -9,4 +9,8 @@ import org.cloudburstmc.math.vector.Vector3i;
 public interface WorldAccessor {
 
     BoarBlockState blockStateAt(Vector3i position, int layer);
+
+    default boolean isItemFrameAt(Vector3i position) {
+        return false;
+    }
 }

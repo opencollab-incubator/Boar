@@ -4,6 +4,7 @@ import it.unimi.dsi.fastutil.ints.IntList;
 import org.cloudburstmc.protocol.bedrock.data.definitions.BlockDefinition;
 
 import java.util.function.IntUnaryOperator;
+import java.util.function.Predicate;
 
 /**
  * Holds very simple information related to block mappings. A few convenience entries exist
@@ -15,6 +16,7 @@ import java.util.function.IntUnaryOperator;
  * @param lavaDefinition the lava definition
  * @param powderSnowDefinition the powder snow definition
  * @param airIds the blocks considered air
+ * @param itemFramePredicate the item-frame block check
  * @param toIntermediary the intermediary mapper
  * @param fromIntermediary the intermediary mapper
  */
@@ -24,6 +26,7 @@ public record BlockMappingInfo(
         BlockDefinition lavaDefinition,
         BlockDefinition powderSnowDefinition,
         IntList airIds,
+        Predicate<BlockDefinition> itemFramePredicate,
         IntUnaryOperator toIntermediary,
         IntUnaryOperator fromIntermediary
 ) {
@@ -34,5 +37,9 @@ public record BlockMappingInfo(
 
     public int waterId() {
         return this.waterDefinition.getRuntimeId();
+    }
+
+    public boolean isItemFrame(final BlockDefinition definition) {
+        return definition != null && this.itemFramePredicate.test(definition);
     }
 }

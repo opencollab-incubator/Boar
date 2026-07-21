@@ -160,6 +160,10 @@ public final class ItemTransactionValidator {
                             return false;
                         }
 
+                        if (player.mappingInfo.isItemFrame(packet.getBlockDefinition())) {
+                            return true;
+                        }
+
                         int blockFace = packet.getBlockFace();
                         if (blockFace < 0 || blockFace > 5) {
                             return false; // Invalid.

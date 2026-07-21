@@ -62,6 +62,11 @@ public class ServerBreakBlockValidator {
                 continue;
             }
 
+            if (player.getWorldAccessor().isItemFrameAt(blockPosition)) {
+                validActions.add(action);
+                continue;
+            }
+
             final BoarBlockState state = player.compensatedWorld.getBlockState(blockPosition, 0);
             if (!BlockUtil.determineCanBreak(player, state)) {
                 continue;
