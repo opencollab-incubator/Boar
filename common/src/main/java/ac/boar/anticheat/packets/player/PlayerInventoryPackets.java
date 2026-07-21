@@ -1,5 +1,6 @@
 package ac.boar.anticheat.packets.player;
 
+import ac.boar.anticheat.Boar;
 import ac.boar.anticheat.ack.types.ContainerOpenAck;
 import ac.boar.anticheat.ack.types.CraftingDataAck;
 import ac.boar.anticheat.ack.types.CreativeContentAck;
@@ -28,7 +29,15 @@ public class PlayerInventoryPackets implements PacketListener {
 //                    System.out.println("Cancel inventory action: " + packet);
 //                }
                 event.setCancelled(cancelled);
-            } catch (Exception ignored) {}
+            } catch (Exception exception) {
+                Boar.getInstance().getPlatform().logger().error(
+                        "Failed to validate inventory transaction for player " + player.getSession().name()
+                                + ": type=" + packet.getTransactionType()
+                                + ", action=" + packet.getActionType()
+                                + ", slot=" + packet.getHotbarSlot()
+                                + ", blockPosition=" + packet.getBlockPosition(),
+                        exception);
+            }
         }
 
         if (event.getPacket() instanceof ItemStackRequestPacket packet) {
