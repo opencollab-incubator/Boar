@@ -10,11 +10,12 @@ import ac.boar.anticheat.util.geyser.BlockEntityInfo;
 import ac.boar.anticheat.util.geyser.BoarChunk;
 import ac.boar.anticheat.util.geyser.BoarChunkSection;
 import ac.boar.anticheat.util.math.Mutable;
-import ac.boar.anticheat.util.math.Vec3;
 import ac.boar.mappings.entity.EntityDefinition;
 import ac.boar.mappings.entity.EntityTypes;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import it.unimi.dsi.fastutil.longs.LongSet;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
@@ -31,6 +32,7 @@ import java.util.Map;
 public class CompensatedWorld {
     private final BoarPlayer player;
     private final Long2ObjectMap<BoarChunk> chunks = new Long2ObjectOpenHashMap<>();
+    private final LongSet exemptedChunks = new LongOpenHashSet();
 
     private Dimension dimension;
 
@@ -69,32 +71,81 @@ public class CompensatedWorld {
         return cache;
     }
 
-    private int radius;
-    private Vector3i radiusCenter;
+    private int viewDistance = 16;
+    private long lastChunkClean = Long.MIN_VALUE;
+
+    public void setViewDistance(int viewDistance) {
+        // The client always uses the server chunk view distance plus 1 unconditionally regardless of the radius it requested. It's also why we can get away with
+        // ignoring RequestChunkRadius packets from the client.
+        this.viewDistance = Math.max(1, viewDistance + 1);
+    }
+
+    public void cleanChunksAtPlayerPosition() {
+        if (this.player == null) {
+            return;
+        }
+
+        final int playerChunkX = GenericMath.floor(this.player.position.x) >> 4;
+        final int playerChunkZ = GenericMath.floor(this.player.position.z) >> 4;
+        final long playerChunk = MathUtil.chunkPositionToLong(playerChunkX, playerChunkZ);
+        if (playerChunk == this.lastChunkClean) {
+            return;
+        }
+
+        this.lastChunkClean = playerChunk;
+        this.yeetOutOfRangeChunks();
+    }
 
     public void yeetOutOfRangeChunks() {
         this.chunks.keySet().removeIf(key -> {
             final int chunkX = (int) key, chunkZ = (int) (key >> 32);
-            return this.isOutOfRadius(chunkX << 4, chunkZ << 4);
+            final boolean inView = !this.isOutOfRadius(chunkX << 4, chunkZ << 4);
+
+            // Keep a new chunk until the client position enters its view range, can happen on some server software that sends chunks first
+            // before sending the teleport packet.
+            if (this.exemptedChunks.contains(key)) {
+                if (inView) {
+                    this.exemptedChunks.remove(key);
+                }
+                return false;
+            }
+
+            return !inView;
         });
     }
 
     public boolean isOutOfRadius(int blockX, int blockZ) {
-        if (this.radiusCenter == null || this.radius <= 0) {
+        if (this.player == null) {
             return false;
         }
 
-        Vec3 radiusCenter = new Vec3(this.radiusCenter.getX() + 0.5f, 0, this.radiusCenter.getZ() + 0.5f);
+        final int chunkX = blockX >> 4;
+        final int chunkZ = blockZ >> 4;
+        final int playerChunkX = GenericMath.floor(this.player.unvalidatedPosition.x) >> 4;
+        final int playerChunkZ = GenericMath.floor(this.player.unvalidatedPosition.z) >> 4;
+        return !isChunkInView(this.viewDistance, chunkX, chunkZ, playerChunkX, playerChunkZ);
+    }
 
-        // Still unsure about this... should we get rid of chunk sections, or chunk?
-        // Well since we're getting rid of chunks for now, let set the y pos to 0.
-        Vec3 chunkCenter = new Vec3(blockX + 8, 0, blockZ + 8);
-        return radiusCenter.squaredDistanceTo(chunkCenter) > this.radius * this.radius && new Vec3(player.position.x, 0, player.position.z).squaredDistanceTo(chunkCenter) > this.radius * this.radius;
+    // translated from GridArea::isChunkInCircle accounting for horizontal distance only and a bit extra lenience
+    static boolean isChunkInView(int viewDistance, int chunkX, int chunkZ, int playerChunkX, int playerChunkZ) {
+        final long dx = Math.abs((long) playerChunkX - chunkX);
+        final long dz = Math.abs((long) playerChunkZ - chunkZ);
+
+        // The client clips its circular view to this square boundary
+        final long maxCoordinate = viewDistance + 1L;
+        if (dx > maxCoordinate || dz > maxCoordinate) {
+            return false;
+        }
+
+        final long distanceSquared = dx * dx + dz * dz;
+        final float threshold = viewDistance + 1.5F + 1.7320508F;
+        return distanceSquared < threshold * threshold;
     }
 
     public void put(int x, int z, BoarChunkSection[] chunks) {
         long chunkPosition = MathUtil.chunkPositionToLong(x, z);
         this.chunks.put(chunkPosition, new BoarChunk(chunks, new ArrayList<>()));
+        this.updateChunkExemption(chunkPosition, x, z);
     }
 
     public void updateSection(int chunkX, int chunkZ, int sectionY, BoarChunkSection section) {
@@ -107,15 +158,27 @@ public class CompensatedWorld {
         if (chunk == null) {
             final BoarChunkSection[] sections = new BoarChunkSection[sectionCount];
             sections[sectionY] = section;
-            this.chunks.put(MathUtil.chunkPositionToLong(chunkX, chunkZ), new BoarChunk(sections, new ArrayList<>()));
+            final long chunkPosition = MathUtil.chunkPositionToLong(chunkX, chunkZ);
+            this.chunks.put(chunkPosition, new BoarChunk(sections, new ArrayList<>()));
+            this.updateChunkExemption(chunkPosition, chunkX, chunkZ);
             return;
         }
 
         chunk.sections()[sectionY] = section;
     }
 
-    public void removeFromCache(int x, int z) {
-        this.chunks.remove(MathUtil.chunkPositionToLong(x, z));
+    private void updateChunkExemption(long chunkPosition, int chunkX, int chunkZ) {
+        if (this.isOutOfRadius(chunkX << 4, chunkZ << 4)) {
+            this.exemptedChunks.add(chunkPosition);
+        } else {
+            this.exemptedChunks.remove(chunkPosition);
+        }
+    }
+
+    public void clearChunks() {
+        this.chunks.clear();
+        this.exemptedChunks.clear();
+        this.lastChunkClean = Long.MIN_VALUE;
     }
 
     public boolean isChunkLoaded(int blockX, int blockZ) {

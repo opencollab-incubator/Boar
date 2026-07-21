@@ -4,7 +4,7 @@ import ac.boar.anticheat.Boar;
 import ac.boar.anticheat.ack.types.BlockEntityUpdateAck;
 import ac.boar.anticheat.ack.types.BlockUpdateAck;
 import ac.boar.anticheat.ack.types.ChunkLoadAck;
-import ac.boar.anticheat.ack.types.ChunkPublisherUpdateAck;
+import ac.boar.anticheat.ack.types.ChunkRadiusUpdateAck;
 import ac.boar.anticheat.ack.types.SubChunkLoadAck;
 import ac.boar.anticheat.compensated.world.base.CompensatedWorld;
 import ac.boar.anticheat.player.BoarPlayer;
@@ -22,8 +22,8 @@ import org.cloudburstmc.protocol.bedrock.data.ServerboundLoadingScreenPacketType
 import org.cloudburstmc.protocol.bedrock.data.SubChunkData;
 import org.cloudburstmc.protocol.bedrock.data.SubChunkRequestResult;
 import org.cloudburstmc.protocol.bedrock.packet.BlockEntityDataPacket;
+import org.cloudburstmc.protocol.bedrock.packet.ChunkRadiusUpdatedPacket;
 import org.cloudburstmc.protocol.bedrock.packet.LevelChunkPacket;
-import org.cloudburstmc.protocol.bedrock.packet.NetworkChunkPublisherUpdatePacket;
 import org.cloudburstmc.protocol.bedrock.packet.ServerboundLoadingScreenPacket;
 import org.cloudburstmc.protocol.bedrock.packet.SubChunkPacket;
 import org.cloudburstmc.protocol.bedrock.packet.UpdateBlockPacket;
@@ -37,8 +37,8 @@ public class ServerChunkPackets implements PacketListener {
         final BoarPlayer player = event.getPlayer();
         final CompensatedWorld world = player.compensatedWorld;
 
-        if (event.getPacket() instanceof NetworkChunkPublisherUpdatePacket packet) {
-            player.sendLatencyStack(new ChunkPublisherUpdateAck(packet.getPosition(), packet.getRadius()));
+        if (event.getPacket() instanceof ChunkRadiusUpdatedPacket packet) {
+            player.queueAcknowledgment(new ChunkRadiusUpdateAck(packet.getRadius()));
         } else if (event.getPacket() instanceof LevelChunkPacket packet) {
             // Servers will have to implement their own custom handlers for chunks if they want to use the sub-chunk cache system.
             if (packet.isCachingEnabled()) {

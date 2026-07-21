@@ -120,9 +120,7 @@ public final class LatencyUtil {
                 final BoarAcknowledgmentRegistry registry = Boar.getInstance().getAcknowledgmentRegistry();
                 for (Acknowledgment ack : snapshot) {
                     // A throwing handler must not skip the rest of the batch — every ack in a
-                    // bundle is independent, and a failure in one (e.g. a ChunkLoadAck dispatched
-                    // before its ChunkPublisherUpdateAck arrived) historically blackholed
-                    // teleport/velocity/etc. acks that came after it in the same NSL.
+                    // bundle is independent. A failure must not discard later teleport or velocity updates.
                     try {
                         registry.dispatch(player, ack);
                     } catch (Throwable t) {

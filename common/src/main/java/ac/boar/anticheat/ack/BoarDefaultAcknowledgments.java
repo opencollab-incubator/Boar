@@ -4,7 +4,7 @@ import ac.boar.anticheat.Boar;
 import ac.boar.anticheat.ack.types.BlockEntityUpdateAck;
 import ac.boar.anticheat.ack.types.BlockUpdateAck;
 import ac.boar.anticheat.ack.types.ChunkLoadAck;
-import ac.boar.anticheat.ack.types.ChunkPublisherUpdateAck;
+import ac.boar.anticheat.ack.types.ChunkRadiusUpdateAck;
 import ac.boar.anticheat.ack.types.SubChunkLoadAck;
 import ac.boar.anticheat.ack.types.ContainerOpenAck;
 import ac.boar.anticheat.ack.types.CraftingDataAck;
@@ -63,7 +63,7 @@ public final class BoarDefaultAcknowledgments {
     }
 
     public static void registerAll(BoarAcknowledgmentRegistry registry) {
-        registry.register(ChunkPublisherUpdateAck.class, BoarDefaultAcknowledgments::handleChunkPublisherUpdate);
+        registry.register(ChunkRadiusUpdateAck.class, BoarDefaultAcknowledgments::handleChunkRadiusUpdate);
         registry.register(ChunkLoadAck.class, BoarDefaultAcknowledgments::handleChunkLoad);
         registry.register(SubChunkLoadAck.class, BoarDefaultAcknowledgments::handleSubChunkLoad);
         registry.register(BlockUpdateAck.class, BoarDefaultAcknowledgments::handleBlockUpdate);
@@ -99,21 +99,19 @@ public final class BoarDefaultAcknowledgments {
         registry.register(TeleportAcceptAck.class, BoarDefaultAcknowledgments::handleTeleportAccept);
     }
 
-    private static void handleChunkPublisherUpdate(BoarPlayer player, ChunkPublisherUpdateAck ack) {
-        player.compensatedWorld.setRadiusCenter(ack.position());
-        player.compensatedWorld.setRadius(ack.radius());
-        player.compensatedWorld.yeetOutOfRangeChunks();
+    private static void handleChunkRadiusUpdate(BoarPlayer player, ChunkRadiusUpdateAck ack) {
+        player.compensatedWorld.setViewDistance(ack.radius());
     }
 
     private static void handleChunkLoad(BoarPlayer player, ChunkLoadAck ack) {
-        if (player.compensatedWorld.isOutOfRadius(ack.chunkX() << 4, ack.chunkZ() << 4) || ack.dimension() != player.compensatedWorld.getDimension()) {
+        if (ack.dimension() != player.compensatedWorld.getDimension()) {
             return;
         }
         player.compensatedWorld.put(ack.chunkX(), ack.chunkZ(), ack.sections());
     }
 
     private static void handleSubChunkLoad(BoarPlayer player, SubChunkLoadAck ack) {
-        if (player.compensatedWorld.isOutOfRadius(ack.chunkX() << 4, ack.chunkZ() << 4) || ack.dimension() != player.compensatedWorld.getDimension()) {
+        if (ack.dimension() != player.compensatedWorld.getDimension()) {
             return;
         }
         player.compensatedWorld.updateSection(ack.chunkX(), ack.chunkZ(), ack.sectionY(), ack.section());
@@ -138,7 +136,7 @@ public final class BoarDefaultAcknowledgments {
             player.currentLoadingScreen = ack.loadingScreenId();
             player.inLoadingScreen = true;
         }
-        player.compensatedWorld.getChunks().clear();
+        player.compensatedWorld.clearChunks();
         player.compensatedWorld.setDimension(ack.dimension());
         player.getFlagTracker().clear();
         player.getFlagTracker().flying(false);
