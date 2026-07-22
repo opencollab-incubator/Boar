@@ -1,5 +1,6 @@
 package ac.boar.anticheat.config;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSetter;
 import com.fasterxml.jackson.annotation.Nulls;
@@ -42,6 +43,14 @@ public final class Config {
     @JsonProperty("debug-mode")
     @JsonSetter(nulls = Nulls.SKIP)
     private boolean debugMode;
+    @JsonProperty("prefix")
+    @JsonSetter(nulls = Nulls.SKIP)
+    private String prefix = "&3Boar &7>&r ";
+    // Cached copy of the prefix with & converted to §. Lives on the config instance,
+    // so reloading the config (which creates a new instance) resets it.
+    @JsonIgnore
+    @ToString.Exclude
+    private String formattedPrefix;
 
     public int rewindHistory() {
         return rewindHistory;
@@ -77,5 +86,17 @@ public final class Config {
 
     public boolean debugMode() {
         return debugMode;
+    }
+
+    public String prefix() {
+        return prefix;
+    }
+
+    public String formattedPrefix() {
+        if (formattedPrefix == null) {
+            formattedPrefix = prefix.replace('&', '§');
+        }
+
+        return formattedPrefix;
     }
 }

@@ -167,7 +167,7 @@ public final class BoarPlayer extends PlayerData {
     }
 
     public void kick(String reason) {
-        this.session.disconnect(Boar.getInstance().getAlertManager().getPrefix(getSession()) + " " + reason);
+        this.session.disconnect(Boar.getInstance().getAlertManager().getPrefix() + " " + reason);
     }
 
     // Prediction related method

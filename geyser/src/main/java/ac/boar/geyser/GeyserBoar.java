@@ -81,6 +81,8 @@ public class GeyserBoar implements Extension {
         BoarDefaultChecks.registerAll(Boar.getInstance().getCheckRegistry());
         BoarDefaultAcknowledgments.registerAll(Boar.getInstance().getAcknowledgmentRegistry());
         BoarDefaultPacketListeners.registerAll();
+
+        System.out.println(Boar.getInstance().getAlertManager().getPrefix() + " || yes that is the prefix");
     }
 
     @Subscribe
@@ -105,7 +107,7 @@ public class GeyserBoar implements Extension {
                 .executor((source, cmd, args) -> {
                     Boar.setConfig(ConfigLoader.load(this.platform, this.platform.getClass(), Config.class, Config.DEFAULT_CONFIG));
 
-                    final String prefix = Boar.getInstance().getAlertManager().getPrefix(new GeyserMessageRecipient(source));
+                    final String prefix = Boar.getInstance().getAlertManager().getPrefix();
                     source.sendMessage(prefix + "§fReloaded config! New config: " + Boar.getConfig());
                 })
                 .build());
@@ -118,7 +120,7 @@ public class GeyserBoar implements Extension {
                     AlertManager alertManager = Boar.getInstance().getAlertManager();
 
                     GeyserMessageRecipient recipient = new GeyserMessageRecipient(source);
-                    String prefix = alertManager.getPrefix(recipient);
+                    String prefix = alertManager.getPrefix();
                     if (alertManager.hasAlert(recipient)) {
                         alertManager.removeAlert(recipient);
                         source.sendMessage(prefix + "§fDisabled alerts.");
@@ -138,7 +140,7 @@ public class GeyserBoar implements Extension {
                         return;
                     }
 
-                    final String prefix = Boar.getInstance().getAlertManager().getPrefix(new GeyserMessageRecipient(source));
+                    final String prefix = Boar.getInstance().getAlertManager().getPrefix();
                     GeyserSession session = nameToSessions.get(args[0]);
                     BoarPlayer player = Boar.getInstance().getPlayerManager().get(session);
                     if (session == null || player == null) {

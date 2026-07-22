@@ -4,7 +4,6 @@ import ac.boar.anticheat.Boar;
 import ac.boar.api.anticheat.model.ConsoleViewer;
 import ac.boar.api.anticheat.model.Identifiable;
 import ac.boar.api.anticheat.model.MessageRecipient;
-import ac.boar.api.anticheat.model.NetworkSession;
 
 import java.util.List;
 import java.util.Map;
@@ -14,25 +13,18 @@ import java.util.concurrent.ConcurrentHashMap;
 public class AlertManager {
     public final static UUID CONSOLE_UUID = new UUID(0, 0);
 
-    private final static String PREFIX = "§3Boar §7>§r ";
-    private final static String BEDROCK_PREFIX = "§sBoar §i>§r ";
-
     private final Map<UUID, MessageRecipient> sources = new ConcurrentHashMap<>();
 
     public void alert(String verbose) {
-        sources.values().forEach(source -> source.sendMessage(getPrefix(source) + "§3" + verbose));
+        sources.values().forEach(source -> source.sendMessage(getPrefix() + "§3" + verbose));
     }
 
     public void alertToPlayers(final List<MessageRecipient> sources, String verbose) {
-        sources.forEach(source -> source.sendMessage(getPrefix(source) + "§3" + verbose));
+        sources.forEach(source -> source.sendMessage(getPrefix() + "§3" + verbose));
     }
 
-    public String getPrefix(MessageRecipient source) {
-        if (source instanceof NetworkSession) {
-            return BEDROCK_PREFIX;
-        }
-
-        return PREFIX;
+    public String getPrefix() {
+        return Boar.getConfig().formattedPrefix();
     }
 
     public boolean hasAlert(MessageRecipient source) {
