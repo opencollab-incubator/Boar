@@ -86,6 +86,8 @@ public class PlayerData {
     public boolean doingInventoryAction;
     public AtomicLong desyncedFlag = new AtomicLong(-1);
 
+    public boolean clientNeedsMovementSpeedAttributeUpdate = false;
+
     // Effect status related
     @Getter
     private final Map<Effect, StatusEffect> activeEffects = new ConcurrentHashMap<>();
@@ -207,7 +209,10 @@ public class PlayerData {
     }
 
     public float getSpeed() {
-        return this.attributes.get(Attribute.MOVEMENT.getIdentifier()).getValue();
+        AttributeInstance movementAttr = this.attributes.get(Attribute.MOVEMENT.getIdentifier());
+        return this.clientNeedsMovementSpeedAttributeUpdate ?
+                movementAttr.getBaseValueWithModifiers() :
+                movementAttr.getValue();
     }
 
     // Others (methods)
