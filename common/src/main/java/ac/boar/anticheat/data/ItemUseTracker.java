@@ -2,6 +2,7 @@ package ac.boar.anticheat.data;
 
 import ac.boar.anticheat.Boar;
 import ac.boar.anticheat.player.BoarPlayer;
+import ac.boar.anticheat.util.StringUtil;
 import ac.boar.mappings.item.Item;
 import ac.boar.mappings.item.Items;
 import lombok.Getter;
@@ -98,19 +99,49 @@ public class ItemUseTracker {
 
                 if (components.containsKey("minecraft:use_duration")) {
                     return true;
-                } else {
-                    NbtMap itemProperties = components.getCompound("item_properties");
-                    if (itemProperties.containsKey("use_duration")) {
-                        return true;
-                    }
+                }
+
+                if (components.getCompound("minecraft:use_modifiers").containsKey("use_duration")) {
+                    return true;
+                }
+
+                if (components.getCompound("item_properties").containsKey("use_duration")) {
+                    return true;
                 }
             }
         } catch (Exception e) {
             Boar.getInstance().getPlatform().logger().error(player.getSession().name() + ": failed to read use_duration components", e);
         }
 
+        // some items may not always carry a readable use_duration component?
+        if (isKnownConsumable(usedItem)) {
+            return true;
+        }
+
         return item.is(Items.BOW) || item.is(Items.CROSSBOW) ||
                 item.is(Items.TRIDENT) || item.is(Items.ENDER_EYE) ||
                 item.is(Items.SPYGLASS) || item.is(Items.OMINOUS_BOTTLE) || item.is(Items.POTION);
+    }
+
+    private static final java.util.Set<String> CONSUMABLE_IDENTIFIERS = java.util.Set.of(
+            "milk_bucket", "honey_bottle", "suspicious_stew", "mushroom_stew", "rabbit_stew", "beetroot_soup",
+            "apple", "golden_apple", "enchanted_golden_apple", "melon_slice", "sweet_berries", "glow_berries",
+            "chorus_fruit", "dried_kelp", "cookie", "bread", "carrot", "golden_carrot", "potato", "baked_potato",
+            "poisonous_potato", "beetroot", "pumpkin_pie", "spider_eye", "rotten_flesh", "pufferfish",
+            "tropical_fish", "cod", "cooked_cod", "salmon", "cooked_salmon", "beef", "cooked_beef", "porkchop",
+            "cooked_porkchop", "chicken", "cooked_chicken", "mutton", "cooked_mutton", "rabbit", "cooked_rabbit",
+            "shield"
+    );
+
+    private boolean isKnownConsumable(final ItemData usedItem) {
+        try {
+            final String identifier = usedItem.getDefinition().getIdentifier();
+            if (identifier == null) {
+                return false;
+            }
+            return CONSUMABLE_IDENTIFIERS.contains(StringUtil.sanitizePrefix(identifier));
+        } catch (Exception e) {
+            return false;
+        }
     }
 }

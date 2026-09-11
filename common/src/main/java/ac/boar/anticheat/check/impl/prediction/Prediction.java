@@ -39,7 +39,9 @@ public class Prediction extends BaseCheck implements OffsetHandlerCheck {
             return;
         }
 
-        Boar.debug(player.getSession().name() + ": [movement-debug] prediction posDiff tick=" + player.tick + " posDiff=" + posDiff + " acceptance/max=" + player.getPosAcceptanceThreshold() + " alert=" + Boar.getConfig().alertThreshold() + " type=" + player.bestPossibility.getType() + " predictedPos=" + player.position + " actualPos=" + player.unvalidatedPosition + " predictedDelta=" + player.velocity + " actualDelta=" + player.unvalidatedTickEnd, Boar.DebugMessage.WARNING);
+        if (posDiff > 1e-6) {
+            Boar.debug(player.getSession().name() + ": [movement-debug] prediction posDiff tick=" + player.tick + " posDiff=" + posDiff + " acceptance/max=" + player.getPosAcceptanceThreshold() + " alert=" + Boar.getConfig().alertThreshold() + " type=" + player.bestPossibility.getType() + " predictedPos=" + player.position + " actualPos=" + player.unvalidatedPosition + " predictedDelta=" + player.velocity + " actualDelta=" + player.unvalidatedTickEnd, Boar.DebugMessage.WARNING);
+        }
         if (posDiff < Boar.getConfig().alertThreshold()) {
             // The difference is above the acceptance threshold but below the alert threshold.
             if (!player.disableMitigations()) {
