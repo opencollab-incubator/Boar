@@ -120,7 +120,9 @@ public class Prediction extends BaseCheck implements OffsetHandlerCheck {
                 MathUtil.clamp(diff.z, -maxDrift, maxDrift)
         ), false);
 
-        Boar.debug(player.getSession().name() + ": [movement-debug] drifted server position tick=" + player.tick + " newPos=" + player.position + " remaining=" + player.position.subtract(player.unvalidatedPosition), Boar.DebugMessage.INFO);
+        if (diff.lengthSquared() > 1e-8) {
+            Boar.debug(player.getSession().name() + ": [movement-debug] drifted server position tick=" + player.tick + " newPos=" + player.position + " remaining=" + player.position.subtract(player.unvalidatedPosition), Boar.DebugMessage.INFO);
+        }
     }
 
     private boolean canDriftTowardsClient() {
