@@ -13,7 +13,7 @@ import ac.boar.api.anticheat.annotations.Experimental;
 public final class Timer extends BaseCheck implements PingBasedCheck {
     private static final long AVERAGE_DISTANCE = (long) 5e+7;
 
-    private long lastNS, balance, prevTick;
+    private long lastNS, balance;
     private long loseBalance;
     private boolean beforeAuthInput;
 
@@ -38,7 +38,6 @@ public final class Timer extends BaseCheck implements PingBasedCheck {
     public boolean isInvalid() {
         if (this.lastNS == 0 || player.inLoadingScreen || player.sinceLoadingScreen < 200) {
             this.lastNS = System.nanoTime();
-            this.prevTick = player.tick;
             this.balance = 0;
             return false;
         }
@@ -46,8 +45,7 @@ public final class Timer extends BaseCheck implements PingBasedCheck {
         boolean valid = true;
 
         long distance = System.nanoTime() - this.lastNS;
-        long neededDistance = (player.tick - this.prevTick) * AVERAGE_DISTANCE;
-
+        final long neededDistance = AVERAGE_DISTANCE;
         final long limit = (long) (AVERAGE_DISTANCE + 1e+7 + 3e+6);
         if (this.balance > limit) {
             if (this.balance - this.loseBalance <= limit) {
@@ -57,7 +55,7 @@ public final class Timer extends BaseCheck implements PingBasedCheck {
                 this.fail("balance=" + this.balance);
             }
 
-            Boar.debug(player.getSession().name() + ": [timer-debug] invalid tick=" + player.tick + " prevTick=" + this.prevTick + " balance=" + this.balance + " loseBalance=" + this.loseBalance + " distanceNs=" + distance + " neededNs=" + neededDistance + " teleporting=" + player.getTeleportUtil().isTeleporting(), Boar.DebugMessage.WARNING);
+            Boar.debug(player.getSession().name() + ": [timer-debug] invalid tick=" + player.tick + " balance=" + this.balance + " loseBalance=" + this.loseBalance + " distanceNs=" + distance + " neededNs=" + neededDistance + " teleporting=" + player.getTeleportUtil().isTeleporting(), Boar.DebugMessage.WARNING);
             /* if (!player.disableMitigations()) {
                 player.getTeleportUtil().teleport(player.getTeleportUtil().getLastKnownValid());
             } */
@@ -73,7 +71,6 @@ public final class Timer extends BaseCheck implements PingBasedCheck {
 
         this.balance -= distance - neededDistance;
         this.lastNS = Math.max(this.lastNS, System.nanoTime());
-        this.prevTick = player.tick;
 
         this.beforeAuthInput = true;
         return !valid;
