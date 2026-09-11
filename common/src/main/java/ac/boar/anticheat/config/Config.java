@@ -21,7 +21,7 @@ public final class Config {
     private int rewindHistory = 20;
     @JsonProperty("player-position-acceptance-threshold")
     @JsonSetter(nulls = Nulls.SKIP)
-    private float acceptanceThreshold = 1.0E-4F;
+    private float acceptanceThreshold = 1.0E-3F;
     @JsonProperty("max-tolerance-compensated-reach")
     @JsonSetter(nulls = Nulls.SKIP)
     private float toleranceReach = 3.005F;
@@ -39,7 +39,7 @@ public final class Config {
     private long maxLatencyWait = 15000L;
     @JsonProperty("max-balance-advantage")
     @JsonSetter(nulls = Nulls.SKIP)
-    private long maxBalanceAdvantage = 2000L;
+    private long maxBalanceAdvantage = 8500L;
     @JsonProperty("debug-mode")
     @JsonSetter(nulls = Nulls.SKIP)
     private boolean debugMode;

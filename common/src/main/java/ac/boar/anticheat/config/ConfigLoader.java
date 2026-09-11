@@ -2,7 +2,9 @@ package ac.boar.anticheat.config;
 
 import ac.boar.anticheat.BoarPlatform;
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 
 import java.io.File;
@@ -13,8 +15,8 @@ import java.net.URISyntaxException;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
-import java.util.Arrays;
 import java.util.Collections;
+import java.util.Iterator;
 
 // Credit to https://github.com/onebeastchris/MagicMenu
 public class ConfigLoader {
@@ -51,40 +53,41 @@ public class ConfigLoader {
 
     public static void save(BoarPlatform platform, Class<?> extensionClass, Config config) {
         File configFile = platform.dataFolder().resolve("config.yml").toFile();
-        // Well in case the old config file the server have is outdated.
+        // Add missing options if the config is outdated.
         writeConfigFile(configFile, extensionClass, platform, config);
     }
 
     @SuppressWarnings("ResultOfMethodCallIgnored")
     private static boolean writeConfigFile(File configFile, Class<?> extensionClass, BoarPlatform platform, Config config) {
-        try (FileWriter writer = new FileWriter(configFile)) {
-            try (FileSystem fileSystem = FileSystems.newFileSystem(new File(extensionClass.getProtectionDomain().getCodeSource().getLocation().toURI()).toPath(), Collections.emptyMap())) {
-                try (InputStream input = Files.newInputStream(fileSystem.getPath("config.yml"))) {
-                    byte[] bytes = new byte[input.available()];
-                    input.read(bytes);
-
-                    String s = new String(bytes);
-                    // not really cool code ;(, and a bit hacky but ok....
-                    if (config != null) {
-                        s = s.replace("player-rewind-history-size-ticks: 20", "player-rewind-history-size-ticks: " + config.rewindHistory());
-                        s = s.replace("player-position-acceptance-threshold: 1.0E-4", "player-position-acceptance-threshold: " + config.acceptanceThreshold());
-                        s = s.replace("max-tolerance-compensated-reach: 3.005", "max-tolerance-compensated-reach: " + config.toleranceReach());
-                        s = s.replace("disabled-checks: []", "disabled-checks: " + Arrays.toString(config.disabledChecks().toArray(new String[0])));
-                        s = s.replace("ignore-ghost-block: false", "ignore-ghost-block: " + config.ignoreGhostBlock());
-                        s = s.replace("differ-till-alert: 0.0", "differ-till-alert: " + config.alertThreshold());
-                        s = s.replace("debug-mode: false", "debug-mode: " + config.debugMode());
-                        s = s.replace("max-latency-wait: 15000", "max-latency-wait: " + config.maxLatencyWait());
-                        String prefix = config.prefix()
-                                .replace("\\", "\\\\")
-                                .replace("\"", "\\\"")
-                                .replace("\r", "\\r")
-                                .replace("\n", "\\n");
-                        s = s.replace("prefix: \"&3Boar &7>&r \"", "prefix: \"" + prefix + "\"");
-                    }
-
-                    writer.write(s.toCharArray());
-                    writer.flush();
+        try {
+            String s;
+            if (config != null && configFile.exists()) {
+                ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
+                JsonNode currentNode = mapper.readTree(configFile);
+                if (!(currentNode instanceof ObjectNode current)) {
+                    throw new IOException("Config root must be a mapping");
                 }
+                ObjectNode defaults = mapper.valueToTree(config);
+                boolean changed = false;
+                Iterator<String> fields = defaults.fieldNames();
+                while (fields.hasNext()) {
+                    String field = fields.next();
+                    if (!current.has(field)) {
+                        current.set(field, defaults.get(field)); changed = true;}}
+                if (!changed) {return true;}
+                s = mapper.writeValueAsString(current);
+            } else {
+                try (FileSystem fileSystem = FileSystems.newFileSystem(new File(extensionClass.getProtectionDomain().getCodeSource().getLocation().toURI()).toPath(), Collections.emptyMap())) {
+                    try (InputStream input = Files.newInputStream(fileSystem.getPath("config.yml"))) {
+                        byte[] bytes = new byte[input.available()];
+                        input.read(bytes);
+                        s = new String(bytes);
+                    }
+                }
+            }
+            try (FileWriter writer = new FileWriter(configFile)) {
+                writer.write(s.toCharArray());
+                writer.flush();
             }
         } catch (IOException | URISyntaxException e) {
             platform.logger().error("Failed to create config", e);
