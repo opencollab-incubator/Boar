@@ -187,11 +187,11 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
                 packet.getState() != RespawnPacket.State.CLIENT_READY) {
             player.sendLatencyStack(new RespawnStateAck(packet.getState()));
 
-            /* if (packet.getState() == RespawnPacket.State.SERVER_READY) {
+            if (packet.getState() == RespawnPacket.State.SERVER_READY) {
                 Boar.debug(player.getSession().name() + ": [movement-debug] queued server teleport source=RespawnPacket runtimeId="
                         + packet.getRuntimeEntityId() + " pos=" + packet.getPosition() + " tick=" + player.tick, Boar.DebugMessage.WARNING);
                 player.getTeleportUtil().queue(new TeleportData(new Vec3(packet.getPosition()), true));
-            } */
+            }
         }
     }
 }
