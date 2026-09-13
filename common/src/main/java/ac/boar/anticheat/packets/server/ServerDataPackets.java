@@ -123,7 +123,7 @@ public class ServerDataPackets implements PacketListener {
             }
 
             // Dimension seems to be controlled server-side as far as I know (tested with clumsy).
-            player.queueAcknowledgment(new PlayerMetadataAck(width, height, scale, flagsCopy, bedPosition));
+            player.queueAcknowledgment(new PlayerMetadataAck(width, height, scale, flagsCopy, bedPosition, player.tick));
         }
 
         if (event.getPacket() instanceof UpdateAttributesPacket packet) {

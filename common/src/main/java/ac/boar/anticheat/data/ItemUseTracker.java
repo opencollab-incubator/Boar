@@ -21,6 +21,7 @@ public class ItemUseTracker {
     private ItemData usedItem = ItemData.AIR;
     private Item item;
     private DirtyUsing dirtyUsing = DirtyUsing.NONE;
+    private boolean useFromTransaction;
     private int useDuration;
     public enum DirtyUsing {
         METADATA, INVENTORY_TRANSACTION, NONE
@@ -67,6 +68,7 @@ public class ItemUseTracker {
     }
 
     public void release() {
+        this.useFromTransaction = false;
         this.player.lastItemUseStateChangeTick = this.player.tick;
         this.usedItem = ItemData.AIR;
         this.item = null;
@@ -79,6 +81,7 @@ public class ItemUseTracker {
             return;
         }
 
+        this.useFromTransaction = !skip || this.dirtyUsing == DirtyUsing.INVENTORY_TRANSACTION;
         this.player.lastItemUseStateChangeTick = this.player.tick;
         this.usedItem = usedItem;
         this.item = item;

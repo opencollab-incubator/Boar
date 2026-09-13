@@ -25,11 +25,11 @@ public final class FlagTracker {
         this.flags.clear();
     }
 
-    public void set(final BoarPlayer player, final Set<EntityFlag> flags) {
-        this.set(player, flags, true);
+    public void set(final BoarPlayer player, final Set<EntityFlag> flags, final long sentTick) {
+        this.set(player, flags, sentTick, true);
     }
 
-    public void set(final BoarPlayer player, final Set<EntityFlag> flags, boolean server) {
+    public void set(final BoarPlayer player, final Set<EntityFlag> flags, final long sentTick, boolean server) {
         boolean sneaking = this.has(EntityFlag.SNEAKING), swimming = this.has(EntityFlag.SWIMMING);
         boolean wasUsingFlag = this.has(EntityFlag.USING_ITEM);
 
@@ -44,6 +44,11 @@ public final class FlagTracker {
 
 //        System.out.println("Metadata using: " + flags.contains(EntityFlag.USING_ITEM));
         boolean oldUsingItem = player.getItemUseTracker().getUsedItem() != ItemData.AIR || wasUsingFlag;
+        if (player.getItemUseTracker().isUseFromTransaction() && player.lastItemUseStateChangeTick >= sentTick) {
+            this.set(EntityFlag.USING_ITEM, wasUsingFlag);
+            return;
+        }
+
         // Don't update this directly, if player actually start using item they will let us know next tick. If the player has already start using, then nothing changed.
         if (this.has(EntityFlag.USING_ITEM)) {
 //            System.out.println("Wait for next tick: " + oldUsingItem);

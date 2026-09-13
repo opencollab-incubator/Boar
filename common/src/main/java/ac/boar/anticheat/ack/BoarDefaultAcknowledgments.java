@@ -174,7 +174,7 @@ public final class BoarDefaultAcknowledgments {
 
     private static void handlePlayerMetadata(BoarPlayer player, PlayerMetadataAck ack) {
         if (ack.flags() != null) {
-            player.getFlagTracker().set(player, ack.flags());
+            player.getFlagTracker().set(player, ack.flags(), ack.sentTick());
         }
 
         if (ack.width() != null) {
