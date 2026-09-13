@@ -28,6 +28,7 @@ import java.util.List;
 public final class Reach extends BaseCheck implements PacketCheck {
 
     private static final int TELEPORT_MITIGATION_ONLY_TICKS = 20;
+    private static final int MAX_PENDING_ATTACKS = 2;
 
     private final List<PendingAttack> pending = new ArrayList<>();
     private float buffer = 0f;
@@ -62,22 +63,26 @@ public final class Reach extends BaseCheck implements PacketCheck {
             return;
         }
 
-        final boolean invalidTouchRotation = player.inputMode == InputMode.TOUCH
-                && MathUtil.wrapDegrees(Math.abs(player.yaw - player.interactRotation.getY())) > 90;
+        final boolean invalidTouchRotation = player.inputMode == InputMode.TOUCH && MathUtil.wrapDegrees(Math.abs(player.yaw - player.interactRotation.getY())) > 90;
         if (invalidTouchRotation) {
-            if (player.disableMitigations()) {
-                this.fail("invalid touch rotation, yaw=" + player.yaw + ", interactYaw=" + player.interactRotation.getY());
+            this.fail("invalid touch rotation, yaw=" + player.yaw + ", interactYaw=" + player.interactRotation.getY());
+            if (!player.disableMitigations()) {
+                event.setCancelled(true);
+                return;
             }
         }
 
         event.setCancelled(true);
         ReferenceCountUtil.retain(packet);
+        if (this.pending.size() == MAX_PENDING_ATTACKS) {
+            this.resolveInvalid(this.pending.removeFirst());
+        }
         this.pending.add(new PendingAttack(
                 packet,
                 entity,
                 new Pair<>(player.prevPosition, player.position),
                 new Pair<>(entity.getCurrent().getPrevPos(), entity.getCurrent().getPos()),
-                invalidTouchRotation
+                player.position.squaredDistanceTo(player.unvalidatedPosition) > 0.000001 || player.prevPosition.squaredDistanceTo(player.prevUnvalidatedPosition) > 0.000001
         ));
     }
 
@@ -99,14 +104,9 @@ public final class Reach extends BaseCheck implements PacketCheck {
 
         // if the server position and client position are far enough, the reach calculation may be a bit off and cause some false flags
         // we can still mitigate for these hits though to prevent bypasses
-        boolean mitigateOnly = this.shouldMitigateOnly();
         for (PendingAttack attack : this.pending) {
-            if (attack.invalidTouchRotation) {
-                this.resolveInvalid(attack);
-                continue;
-            }
-
             final float reach = ReachUtil.calculateReach(player, attack.attackerPositions, attack.entity, attack.entityPositionsAtAttack);
+            final boolean mitigateOnly = attack.hasPosDrift || player.getTeleportUtil().isTeleporting() || player.getTeleportUtil().correctedWithin(TELEPORT_MITIGATION_ONLY_TICKS);
             if (reach > Boar.getConfig().toleranceReach()) {
                 if (!mitigateOnly && reach != Float.MAX_VALUE) {
                     this.fail("distance=" + reach);
@@ -129,14 +129,6 @@ public final class Reach extends BaseCheck implements PacketCheck {
         }
     }
 
-    private boolean shouldMitigateOnly() {
-        return player.getTeleportUtil().isTeleporting() ||
-                player.getTeleportUtil().hasPendingCorrection() ||
-                player.getTeleportUtil().correctedWithin(TELEPORT_MITIGATION_ONLY_TICKS) ||
-                player.position.squaredDistanceTo(player.unvalidatedPosition) > 0.000001 ||
-                player.prevPosition.squaredDistanceTo(player.position) > 0.000001;
-    }
-
     @Override
     public void fail(String verbose) {
         this.buffer = Math.min(this.buffer + 1, 2f);
@@ -150,6 +142,6 @@ public final class Reach extends BaseCheck implements PacketCheck {
             EntityCache entity,
             Pair<Vec3, Vec3> attackerPositions,
             Pair<Vec3, Vec3> entityPositionsAtAttack,
-            boolean invalidTouchRotation
+            boolean hasPosDrift
     ) {}
 }
