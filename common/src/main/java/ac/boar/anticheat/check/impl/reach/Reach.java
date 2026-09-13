@@ -27,7 +27,7 @@ import java.util.List;
 @CheckInfo(name = "Reach")
 public final class Reach extends BaseCheck implements PacketCheck {
 
-    private static final int TELEPORT_MITIGATION_ONLY_TICKS = 20;
+    private static final int CORRECTION_MITIGATION_ONLY_TICKS = 20;
     private static final int MAX_PENDING_ATTACKS = 2;
 
     private final List<PendingAttack> pending = new ArrayList<>();
@@ -106,7 +106,7 @@ public final class Reach extends BaseCheck implements PacketCheck {
         // we can still mitigate for these hits though to prevent bypasses
         for (PendingAttack attack : this.pending) {
             final float reach = ReachUtil.calculateReach(player, attack.attackerPositions, attack.entity, attack.entityPositionsAtAttack);
-            final boolean mitigateOnly = attack.hasPosDrift || player.getTeleportUtil().isTeleporting() || player.getTeleportUtil().correctedWithin(TELEPORT_MITIGATION_ONLY_TICKS);
+            final boolean mitigateOnly = attack.hasPosDrift || player.getTeleportUtil().isTeleporting() || player.getTeleportUtil().correctedWithin(CORRECTION_MITIGATION_ONLY_TICKS);
             if (reach > Boar.getConfig().toleranceReach()) {
                 if (!mitigateOnly && reach != Float.MAX_VALUE) {
                     this.fail("distance=" + reach);
