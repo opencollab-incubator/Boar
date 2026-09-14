@@ -117,6 +117,8 @@ public final class BoarPlayer extends PlayerData {
 
     public ScheduledFuture<?> future;
 
+    private boolean timedOut;
+
     @SneakyThrows
     public BoarPlayer(NetworkSession session, BoarConnection connection, Entity entity,
                       BlockMappingInfo mappingInfo, WorldAccessor worldAccessor, EntityAccessor entityAccessor,
@@ -147,8 +149,11 @@ public final class BoarPlayer extends PlayerData {
             return;
         }
 
-        if (System.currentTimeMillis() - this.getLatencyUtil().prevAcceptedTime > Boar.getConfig().maxLatencyWait()) {
-            disconnect("Timed out!");
+        if (!this.timedOut && System.currentTimeMillis() - this.getLatencyUtil().prevAcceptedTime > Boar.getConfig().maxLatencyWait()) {
+            this.timedOut = true;
+            // A timeout is not a cheat. Only remove the player from this server, so a proxied
+            // network can send them to a fallback server instead of closing the connection.
+            this.session.disconnectFromServer(Boar.getInstance().getAlertManager().getPrefix() + " Timed out!");
         }
     }
 
