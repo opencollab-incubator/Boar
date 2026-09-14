@@ -48,16 +48,14 @@ public class WaterPredictionEngine extends PredictionEngine {
         }
 
         boolean sprinting = player.getFlagTracker().has(EntityFlag.SPRINTING);
-        boolean swimming = player.getFlagTracker().has(EntityFlag.SWIMMING);
 
         // Yep, on bedrock the player can move fast in water just by sprinting, not swimming, and they can sprint in water yay!
         // This was natively fixed in 1.21.80 but then the fix was removed in 1.21.81 (lol), so if you want to support
         // any version below 1.21.90, and if the version is >= 1.21.80 and < 1.21.90 then you will have to bruteforce to
         // see if player is actually water sprinting or not, since there is no actual way to tell.
         // MobMovementDrag::tickApplyWaterDrag reads the SPRINTING data flag so a sprint-swimming client keeps that flag set
-        // for the whole swim, in every stick direction. The local tracker can lose the flag during a swim, so a swimming
-        // player gets the 0.9 drag from the SWIMMING flag too.
-        boolean fastTickEnd = sprinting || swimming || player.getInputData().contains(PlayerAuthInputData.STOP_SWIMMING);
+        // for the whole swim, in every stick direction
+        boolean fastTickEnd = sprinting || player.getInputData().contains(PlayerAuthInputData.STOP_SWIMMING);
 
         float f = fastTickEnd ? 0.9F : 0.8F;
         f += (0.54600006f - f) * this.tickEndSpeed;
