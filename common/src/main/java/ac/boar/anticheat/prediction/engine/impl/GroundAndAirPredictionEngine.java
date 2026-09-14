@@ -4,7 +4,6 @@ import ac.boar.anticheat.data.effect.Effect;
 import ac.boar.anticheat.data.vanilla.StatusEffect;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.prediction.engine.base.PredictionEngine;
-import ac.boar.anticheat.prediction.engine.data.VectorType;
 import ac.boar.anticheat.util.block.specific.PowderSnowBlock;
 import ac.boar.anticheat.util.math.Vec3;
 import ac.boar.mappings.block.Blocks;
@@ -56,7 +55,7 @@ public class GroundAndAirPredictionEngine extends PredictionEngine {
         final boolean collidedOrJumping = player.horizontalCollision || player.getInputData().contains(PlayerAuthInputData.JUMPING);
         if (collidedOrJumping && (player.onClimbable() || player.getInBlockState().is(Blocks.POWDER_SNOW) && PowderSnowBlock.canEntityWalkOnPowderSnow(player))) {
             player.getMovementTrace().log("air/ground: climbable/powder snow ascent");
-            vec3.y = player.bestPossibility.getType() == VectorType.VELOCITY ? vec3.y : 0.2F;
+            vec3.y = 0.2F; // kb is overriden, see MobMovementClimb::tickAutoClimbingMob
         }
 
         return this.applyClimbingSpeed(vec3);
