@@ -11,6 +11,7 @@ public final class Blocks {
     public static final Reference<Block> BAMBOO = create("bamboo");
     public static final Reference<Block> BAMBOO_SAPLING = create("bamboo_sapling");
     public static final Reference<Block> BARREL = create("barrel");
+    public static final Reference<Block> BARRIER = create("barrier");
     public static final Reference<Block> BEACON = create("beacon");
     public static final Reference<Block> BELL = create("bell");
     public static final Reference<Block> BLAST_FURNACE = create("blast_furnace");
@@ -33,6 +34,7 @@ public final class Blocks {
     public static final Reference<Block> FURNACE = create("furnace");
     public static final Reference<Block> HONEY_BLOCK = create("honey_block");
     public static final Reference<Block> ICE = create("ice");
+    public static final Reference<Block> INVISIBLE_BEDROCK = create("invisible_bedrock");
     public static final Reference<Block> LAVA = create("lava");
     public static final Reference<Block> LECTERN = create("lectern");
     public static final Reference<Block> LEVER = create("lever");

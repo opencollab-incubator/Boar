@@ -104,13 +104,19 @@ public final class Reach extends BaseCheck implements PacketCheck {
 
         // if the server position and client position are far enough, the reach calculation may be a bit off and cause some false flags
         // we can still mitigate for these hits though to prevent bypasses
+        final float tolerance = Boar.getConfig().toleranceReach();
         for (PendingAttack attack : this.pending) {
-            final float reach = ReachUtil.calculateReach(player, attack.attackerPositions, attack.entity, attack.entityPositionsAtAttack);
+            final ReachUtil.Result result = ReachUtil.calculateReach(player, attack.attackerPositions, attack.entity, attack.entityPositionsAtAttack, tolerance);
+            final float reach = result.distance();
             final boolean mitigateOnly = attack.hasPosDrift || player.getTeleportUtil().isTeleporting() || player.getTeleportUtil().correctedWithin(CORRECTION_MITIGATION_ONLY_TICKS);
-            if (reach > Boar.getConfig().toleranceReach()) {
+            if (reach > tolerance) {
                 if (!mitigateOnly && reach != Float.MAX_VALUE) {
                     this.fail("distance=" + reach);
                 }
+                this.resolveInvalid(attack);
+            } else if (result.obstruction() != null) {
+                // only ever mitigate for this since we don't have frame-precise data to be 10000% certain
+                Boar.debug(player.getSession().name() + ": [reach-debug] cancelled attack reason=obstructed block=" + result.obstruction() + " distance=" + reach, Boar.DebugMessage.WARNING);
                 this.resolveInvalid(attack);
             } else {
                 player.injectClientPacket(attack.packet);
