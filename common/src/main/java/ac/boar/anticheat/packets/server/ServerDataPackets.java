@@ -33,6 +33,7 @@ import org.cloudburstmc.protocol.bedrock.packet.SetPlayerGameTypePacket;
 import org.cloudburstmc.protocol.bedrock.packet.StartGamePacket;
 import org.cloudburstmc.protocol.bedrock.packet.UpdateAbilitiesPacket;
 import org.cloudburstmc.protocol.bedrock.packet.UpdateAttributesPacket;
+import org.cloudburstmc.protocol.bedrock.packet.UpdatePlayerGameTypePacket;
 
 import java.util.*;
 
@@ -69,6 +70,10 @@ public class ServerDataPackets implements PacketListener {
 
         if (event.getPacket() instanceof SetPlayerGameTypePacket packet) {
             player.sendLatencyStack(new GameTypeAck(GameType.from(packet.getGamemode())));
+        }
+
+        if (event.getPacket() instanceof UpdatePlayerGameTypePacket packet && packet.getEntityId() == player.runtimeEntityId) {
+            player.sendLatencyStack(new GameTypeAck(packet.getGameType()));
         }
 
         if (event.getPacket() instanceof UpdateAbilitiesPacket packet) {
