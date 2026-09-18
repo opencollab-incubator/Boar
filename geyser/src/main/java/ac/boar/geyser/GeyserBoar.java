@@ -7,6 +7,7 @@ import ac.boar.anticheat.check.api.BoarDefaultChecks;
 import ac.boar.anticheat.config.Config;
 import ac.boar.anticheat.config.ConfigLoader;
 import ac.boar.anticheat.player.BoarPlayer;
+import ac.boar.anticheat.player.BoarPlayerManager;
 import ac.boar.protocol.BoarDefaultPacketListeners;
 import ac.boar.geyser.model.GeyserMessageRecipient;
 import ac.boar.geyser.player.GeyserPlayerManager;
@@ -55,16 +56,25 @@ public class GeyserBoar implements Extension {
 
     @Subscribe
     public void onSessionLeave(SessionDisconnectEvent event) {
-        BoarPlayer player = Boar.getInstance().getPlayerManager().remove(event.connection());
-        if (player == null) {
+        // A session can disconnect before the initialization event has run (while the extension is
+        // still loading, or after an init that did not complete), when the player manager does not
+        // exist yet. The platform owns the manager, so prefer it over the static accessor.
+        BoarPlayerManager<?> playerManager = this.platform != null
+                ? this.platform.playerManager()
+                : Boar.getInstance().getPlayerManager();
+
+        nameToSessions.remove(event.connection().bedrockUsername());
+
+        if (playerManager == null) {
             return;
         }
 
-        if (player.future != null) {
-            player.future.cancel(false);
+        BoarPlayer player = playerManager.remove(event.connection());
+        if (player == null || player.future == null) {
+            return;
         }
 
-        nameToSessions.remove(event.connection().bedrockUsername());
+        player.future.cancel(false);
     }
 
     @Subscribe
