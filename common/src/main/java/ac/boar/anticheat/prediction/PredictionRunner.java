@@ -1,11 +1,13 @@
 package ac.boar.anticheat.prediction;
 
 import ac.boar.anticheat.Boar;
+import ac.boar.anticheat.check.impl.velocity.Velocity;
 import ac.boar.anticheat.data.input.PredictionData;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.prediction.engine.data.Vector;
 import ac.boar.anticheat.prediction.engine.data.VectorType;
 import ac.boar.anticheat.prediction.ticker.impl.PlayerTicker;
+import ac.boar.anticheat.util.math.Vec3;
 import lombok.RequiredArgsConstructor;
 
 import java.util.Objects;
@@ -19,9 +21,13 @@ public class PredictionRunner {
             return;
         }
 
+        final Velocity velocityCheck = (Velocity) player.getCheckHolder().get(Velocity.class);
         new PlayerTicker(player).tick();
         player.predictionResult = new PredictionData(player.beforeCollision.clone(), player.afterCollision.clone(), player.velocity.clone());
         player.lastTickFinalVelocity = player.velocity.clone();
+        if (velocityCheck != null) {
+            velocityCheck.capturePrediction();
+        }
 
         player.getMovementTrace().log("prediction done: predictedPos=" + player.position
                 + " finalVel=" + player.velocity + " beforeCollision=" + player.beforeCollision

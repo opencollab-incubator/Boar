@@ -21,7 +21,7 @@ Download it on Modrinth: https://modrinth.com/plugin/boar
 - Fly, Jesus, Step, Fast Climb, High Jump (Any type of fly cheats)
 - Speed (Any type of speed cheats)
 - No Fall (Detected using the fly check, impossible to bypass)
-- Velocity (99.99%/100.01% velocity - basically any kind of velocity cheat)
+- Velocity (99.99%/100.01% velocity - basically any kind of velocity cheat is all mitigated, only reduction is flagged)
 - No Slow
 - And the list goes on....
 #### And other additions check aside from movements.
