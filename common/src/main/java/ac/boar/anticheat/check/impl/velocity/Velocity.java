@@ -65,7 +65,7 @@ public final class Velocity extends BaseCheck implements OffsetHandlerCheck {
         if (pct < 99.9) {
             this.vBuffer = Math.min(this.vBuffer + 1, BUFFER_LIMIT);
             if (this.vBuffer >= BUFFER_LIMIT) {
-                this.fail("Vertical", String.format("pct=%.3f kb=%.3f", pct, took));
+                this.fail("Vertical", String.format("pct=%.3f kb=%.3f", pct, predicted));
             }
         } else {
             this.vBuffer = Math.max(this.vBuffer - BUFFER_DECAY, 0);
@@ -80,7 +80,7 @@ public final class Velocity extends BaseCheck implements OffsetHandlerCheck {
             if (pct < 99.9) {
                 this.hBuffer = Math.min(this.hBuffer + 1, BUFFER_LIMIT);
                 if (this.hBuffer >= BUFFER_LIMIT) {
-                    this.fail("Horizontal", String.format("pct=%.3f kb=%.3f axis=X", pct, took.x));
+                    this.fail("Horizontal", String.format("pct=%.3f kb=%.3f axis=X", pct, predicted.x));
                 }
                 return;
             }
@@ -93,7 +93,7 @@ public final class Velocity extends BaseCheck implements OffsetHandlerCheck {
             if (pct < 99.9) {
                 this.hBuffer = Math.min(this.hBuffer + 1, BUFFER_LIMIT);
                 if (this.hBuffer >= BUFFER_LIMIT) {
-                    this.fail("Horizontal", String.format("pct=%.3f kb=%.3f axis=Z", pct, took.z));
+                    this.fail("Horizontal", String.format("pct=%.3f kb=%.3f axis=Z", pct, predicted.z));
                 }
                 return;
             }
