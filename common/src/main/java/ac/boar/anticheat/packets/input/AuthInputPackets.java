@@ -167,9 +167,7 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
             player.queueAcknowledgment(new DimensionSwitchAck(dimension, packet.getLoadingScreenId()));
         }
 
-        if (event.getPacket() instanceof MovePlayerPacket packet
-                && packet.getRuntimeEntityId() == player.runtimeEntityId
-                && packet.getMode() != MovePlayerPacket.Mode.HEAD_ROTATION) {
+        if (event.getPacket() instanceof MovePlayerPacket packet && packet.getRuntimeEntityId() == player.runtimeEntityId && packet.getMode() != MovePlayerPacket.Mode.HEAD_ROTATION) {
             // Convert unsupported smoothed and respawn movement modes to teleports.
             if (packet.getMode() == MovePlayerPacket.Mode.NORMAL || packet.getMode() == MovePlayerPacket.Mode.RESPAWN) {
                 packet.setMode(MovePlayerPacket.Mode.TELEPORT); // TODO: handle these properly

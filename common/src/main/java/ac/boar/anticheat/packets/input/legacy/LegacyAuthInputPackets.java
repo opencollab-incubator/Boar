@@ -46,7 +46,7 @@ public class LegacyAuthInputPackets {
         final float rawOffset = offset;
         float extraOffset = uncertainRunner.extraOffset(offset);
         offset -= extraOffset;
-        final float extraOffsetNonTickEnd = uncertainRunner.extraOffsetNonTickEnd(offset);
+        final float extraOffsetNonTickEnd = uncertainRunner.extraDripstoneOffsetNonTickEnd(offset);
         offset -= extraOffsetNonTickEnd;
         uncertainRunner.uncertainPushTowardsTheClosetSpace();
 

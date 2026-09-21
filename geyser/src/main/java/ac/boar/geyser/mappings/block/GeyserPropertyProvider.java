@@ -12,6 +12,7 @@ public class GeyserPropertyProvider implements PropertyProvider {
     @SuppressWarnings("unchecked")
     public <T extends Comparable<T>> GeyserProperty<T> get(String key) {
         return switch (key) {
+            case "age_1" -> new GeyserProperty(Properties.AGE_1);
             case "age_3" -> new GeyserProperty(Properties.AGE_3);
             case "bell_attachment" -> new GeyserProperty(Properties.BELL_ATTACHMENT);
             case "bites" -> new GeyserProperty(Properties.BITES);

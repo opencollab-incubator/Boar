@@ -47,7 +47,7 @@ public class EntityTicker {
         player.soulSandBelow = player.compensatedWorld.getBlockState(player.position.down(1.0E-3F).toVector3i(), 0).is(Blocks.SOUL_SAND);
     }
 
-    private void updateHeadInWater() {
+    protected void updateHeadInWater() {
         player.headInWater = false;
         // ref from LiquidPhysicsSystem::_liquidBlockFetch and UnderWaterSensingSystem::doUnderWaterSensing
         if (!player.touchingWater) {
@@ -117,11 +117,13 @@ public class EntityTicker {
         this.applyFluidPush(entries);
     }
 
-    public void applyWaterPushAfterTeleport() {
+    // Returns false when the push is skipped since the fluid state is not updated in that case
+    public boolean applyWaterPushAfterTeleport() {
         if (player.vehicleData != null || player.isRegionUnloaded() || this.gatherFluid(Fluid.LAVA, null).found()) {
-            return;
+            return false;
         }
         this.updateWaterState();
+        return true;
     }
 
     // BlockSource::getLiquidBlock
@@ -299,9 +301,9 @@ public class EntityTicker {
         player.verticalCollision = Math.abs(vec3.y - vec32.y) > FLT_EPSILON;
         player.onGround = (player.verticalCollision && vec3.y < 0.0F) || (wasOnGround && !player.verticalCollision && Math.abs(vec3.y) <= COLLISION_EPSILON);
 
-        // The player is near bamboo, we don't know what the offsetting is so we let player decide this...
-        if (player.nearBamboo && player.getInputData().contains(PlayerAuthInputData.HORIZONTAL_COLLISION)) {
-            player.getMovementTrace().log("move: bamboo hack, trusting client horizontal collision");
+        // Pointed dripstone still uses the client's horizontal collision result.
+        if (player.nearDripstone && player.getInputData().contains(PlayerAuthInputData.HORIZONTAL_COLLISION)) {
+            player.getMovementTrace().log("move: dripstone uncertainty, trusting client horizontal collision");
             player.horizontalCollision = true;
             collidedX = player.unvalidatedTickEnd.x == 0;
             collidedZ = player.unvalidatedTickEnd.z == 0;

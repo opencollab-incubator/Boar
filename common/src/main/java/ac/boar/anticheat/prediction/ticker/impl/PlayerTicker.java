@@ -75,6 +75,22 @@ public class PlayerTicker extends LivingTicker {
 
     @Override
     protected void travel() {
+        this.swimControl();
+        super.travel();
+    }
+
+    public void applyWaterInputAfterTeleport() {
+        final boolean jumping = player.getInputData().contains(PlayerAuthInputData.JUMPING) || player.getInputData().contains(PlayerAuthInputData.AUTO_JUMPING_IN_WATER);
+        if (jumping && player.selectedFluid == Fluid.WATER) {
+            this.updateHeadInWater();
+            player.velocity = player.jump(player.velocity);
+            player.getMovementTrace().log("teleport: liquid jump, vel=" + player.velocity);
+        } else {
+            this.swimControl();
+        }
+    }
+
+    private void swimControl() {
         final boolean jumping = player.getInputData().contains(PlayerAuthInputData.JUMPING) || player.getInputData().contains(PlayerAuthInputData.AUTO_JUMPING_IN_WATER);
         if (player.getFlagTracker().has(EntityFlag.SWIMMING) && !jumping) { // SwimControlSystem::tick
             float d = MathUtil.getRotationVector(player.pitch, player.yaw).y;
@@ -93,6 +109,5 @@ public class PlayerTicker extends LivingTicker {
                 }
             }
         }
-        super.travel();
     }
 }

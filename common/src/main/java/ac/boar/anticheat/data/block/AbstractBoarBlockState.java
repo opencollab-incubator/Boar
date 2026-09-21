@@ -1,5 +1,6 @@
 package ac.boar.anticheat.data.block;
 
+import ac.boar.anticheat.collision.BambooCollision;
 import ac.boar.anticheat.collision.BedrockCollision;
 import ac.boar.anticheat.data.Fluid;
 import ac.boar.anticheat.data.FluidState;
@@ -168,6 +169,19 @@ public abstract class AbstractBoarBlockState implements BoarBlockState {
     @Override
     public List<Box> findCollision(BoarPlayer player, Vector3i pos, Box playerAABB, boolean checkAAB) {
         List<Box> list = new ArrayList<>();
+        if (is(Blocks.BAMBOO)) {
+            int age = get(Properties.AGE_1);
+            Box box = BambooCollision.getCollisionBox(pos.getX(), pos.getY(), pos.getZ(), age != 0);
+            if (player != null) {
+                player.getMovementTrace().log("bamboo: pos=" + pos + " age=" + age + " box=[" + box.minX + "," + box.minY + "," + box.minZ
+                        + " -> " + box.maxX + "," + box.maxY + "," + box.maxZ + "]");
+            }
+            if (!checkAAB || box.intersects(playerAABB)) {
+                list.add(box);
+            }
+            return list;
+        }
+
         List<Box> bedrockCollisions = BedrockCollision.getCollisionBox(player, playerAABB, pos, this);
         if (bedrockCollisions != null) {
             for (Box box : bedrockCollisions) {

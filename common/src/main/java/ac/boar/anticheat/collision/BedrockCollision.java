@@ -116,27 +116,7 @@ public class BedrockCollision {
             return collisions;
         }
 
-        if (state.is(Blocks.BAMBOO)) {
-//            Box baseShape = state.getValue(Properties.BAMBOO_LEAVES).equals("large") ? new Box(0, 0, 0, 0.1875F, 1, 0.1875F) : new Box(0, 0, 0, 0.125F, 1, 0.125F);
-
-            // Couldn't they just keep the bamboo offsetting pre 1.21.80 but nope they changed it, and now I have no idea how it works?
-            // Let's try to hack around this, if player is not colliding or only colliding horizontally then look at
-            // UncertainRunner#extraOffsetNonTickEnd and EntityTicker#doSelfMove, for VERTICAL_COLLISION we can do a bit tricky hack to ensure accurate motion.
-            if (!player.getInputData().contains(PlayerAuthInputData.VERTICAL_COLLISION) || box == null) {
-                return EMPTY_SHAPE;
-            }
-
-            // Workaround.... we can still ensure player won't be having weird y motion on bamboo using the VERTICAL_COLLISION input.
-            Box solidOffset = SOLID_SHAPE.getFirst().offset(vector3i.getX(), vector3i.getY(), vector3i.getZ());
-
-            // If player claimed to have y collision and their feet/head does hit something then we can be sure it's correct.
-            // Also, this bamboo should not collide with player horizontal collision, only vertical so we can handle it properly.
-            boolean likelyYCollision = solidOffset.calculateMaxDistance(Axis.Y, player.boundingBox, player.velocity.y) != player.velocity.y;
-            return likelyYCollision && solidOffset.intersects(box) ? SOLID_SHAPE : EMPTY_SHAPE;
-        }
-
         if (state.is(Blocks.POINTED_DRIPSTONE)) {
-            // Like bamboo
             if (!player.getInputData().contains(PlayerAuthInputData.VERTICAL_COLLISION) || box == null) {
                 return EMPTY_SHAPE;
             }

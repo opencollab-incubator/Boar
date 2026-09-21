@@ -3,6 +3,7 @@ package ac.boar.mappings.block;
 import ac.boar.anticheat.util.math.Direction;
 
 public final class Properties {
+    public static final Property<Integer> AGE_1 = create("age_1");
     public static final Property<Integer> AGE_3 = create("age_3");
     public static final Property<String> BELL_ATTACHMENT = create("bell_attachment");
     public static final Property<Integer> BITES = create("bites");

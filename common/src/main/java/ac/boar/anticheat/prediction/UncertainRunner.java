@@ -48,12 +48,14 @@ public class UncertainRunner {
             return;
         }
 
-        player.nearBamboo = false;
+        final boolean wasNearDripstone = player.nearDripstone;
+        player.nearDripstone = false;
 
         // Let's check to see if the player is actually inside a block...
         final List<Box> collisions = player.compensatedWorld.collectColliders(new ArrayList<>(), player.boundingBox.contract(1.0E-3F));
-        if (collisions.isEmpty() && !player.nearBamboo) {
-            // Nope, again the player is likely cheating, or we're falsing something else, also allow bamboo to bypass this.
+        final boolean insideDripstone = player.nearDripstone;
+        player.nearDripstone |= wasNearDripstone;
+        if (collisions.isEmpty() && !insideDripstone) {
             return;
         }
 
@@ -73,7 +75,7 @@ public class UncertainRunner {
         player.velocity = player.unvalidatedTickEnd.clone();
     }
 
-    public float extraOffsetNonTickEnd(float offset) {
+    public float extraDripstoneOffsetNonTickEnd(float offset) {
         float extra = 0;
 
         Vec3 actual = player.unvalidatedPosition.subtract(player.prevUnvalidatedPosition);
@@ -83,7 +85,7 @@ public class UncertainRunner {
         boolean sameDirection = MathUtil.sameDirection(actual, predicted);
         boolean sameDirectionOrZero = (MathUtil.sign(actual.x) == MathUtil.sign(predicted.x) || actual.x == 0)
                 && MathUtil.sign(actual.y) == MathUtil.sign(predicted.y) && (MathUtil.sign(actual.z) == MathUtil.sign(predicted.z) || actual.z == 0);
-        if (validYOffset && (sameDirection || sameDirectionOrZero) && actualSpeedSmallerThanPredicted && player.nearBamboo && player.horizontalCollision) {
+        if (validYOffset && (sameDirection || sameDirectionOrZero) && actualSpeedSmallerThanPredicted && player.nearDripstone && player.horizontalCollision) {
             extra = offset;
         }
 

@@ -178,7 +178,6 @@ public class PlayerData {
     public boolean stuckInCollider, penetratedLastFrame;
     public boolean soulSandBelow;
 
-    public boolean nearBamboo;
     public boolean nearDripstone;
 
     public final Map<Fluid, Float> fluidHeight = new HashMap<>();

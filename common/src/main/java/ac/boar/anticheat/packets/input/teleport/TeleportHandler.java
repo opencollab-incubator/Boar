@@ -4,6 +4,7 @@ import ac.boar.anticheat.data.input.PredictionData;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.prediction.engine.data.Vector;
 import ac.boar.anticheat.prediction.ticker.base.EntityTicker;
+import ac.boar.anticheat.prediction.ticker.impl.PlayerTicker;
 import ac.boar.anticheat.teleport.data.TeleportData;
 import ac.boar.anticheat.util.math.Vec3;
 import org.cloudburstmc.protocol.bedrock.data.PlayerAuthInputData;
@@ -37,7 +38,9 @@ public class TeleportHandler {
         if (lastAccepted != null && lastAccepted.getSource() == TeleportData.Source.MOVE_PLAYER_TELEPORT) {
             // ref LiquidPhysicsSystem::_liquidBlockFetch and StrictTickingSystemFunctionAdapter<&MobTravelTeleportedFilterSystem::tick>::tick.
             // calculate one push at the final accepted teleport
-            new EntityTicker(player).applyWaterPushAfterTeleport();
+            if (new EntityTicker(player).applyWaterPushAfterTeleport()) {
+                new PlayerTicker(player).applyWaterInputAfterTeleport();
+            }
             player.predictionResult = new PredictionData(Vec3.ZERO, Vec3.ZERO, player.velocity.clone());
             player.lastTickFinalVelocity = player.velocity.clone();
         }
