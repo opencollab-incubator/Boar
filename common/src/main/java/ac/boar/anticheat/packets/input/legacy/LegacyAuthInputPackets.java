@@ -32,7 +32,7 @@ public class LegacyAuthInputPackets {
     public static void doPostPrediction(final BoarPlayer player, final PlayerAuthInputPacket packet) {
         player.postTick();
 
-        if (player.getTeleportUtil().isTeleporting() || player.insideUnloadedChunk) {
+        if (player.insideUnloadedChunk) {
             correctInputData(player, packet);
             return;
         }

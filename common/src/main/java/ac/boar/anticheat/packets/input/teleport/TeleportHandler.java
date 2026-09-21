@@ -5,57 +5,49 @@ import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.prediction.engine.data.Vector;
 import ac.boar.anticheat.prediction.ticker.base.EntityTicker;
 import ac.boar.anticheat.prediction.ticker.impl.PlayerTicker;
+import ac.boar.anticheat.teleport.TeleportUtil;
 import ac.boar.anticheat.teleport.data.TeleportData;
 import ac.boar.anticheat.util.math.Vec3;
 import org.cloudburstmc.protocol.bedrock.data.PlayerAuthInputData;
-import org.cloudburstmc.protocol.bedrock.packet.PlayerAuthInputPacket;
-
-import java.util.Queue;
 
 public class TeleportHandler {
-    protected void processQueuedTeleports(final BoarPlayer player, final PlayerAuthInputPacket packet) {
-        final Queue<TeleportData> queuedTeleports = player.getTeleportUtil().getQueuedTeleports();
-
-        if (queuedTeleports.isEmpty()) {
-            return;
+    protected boolean processTeleport(final BoarPlayer player) {
+        final TeleportUtil teleports = player.getTeleportUtil();
+        final TeleportData data = teleports.takeAcceptedTeleport();
+        if (data != null) {
+            teleports.markCorrected();
+            player.getMovementTrace().log("teleport: accepted source=" + data.getSource()
+                    + " target=" + data.getPosition() + " onGround=" + data.isOnGround());
         }
 
-        TeleportData lastAccepted = null;
-        TeleportData data;
-        while ((data = queuedTeleports.peek()) != null) {
-            if (!data.isAccepted()) { // Teleport should be in order, which means no way the next one is accepted.
-                break;
+        final int steps = teleports.getInterpolationTicks();
+        if (steps > 0) {
+            // MovementInterpolatorSystemImpl::_tickSystem clears velocity before each interpolation step
+            final Vec3 target = teleports.getInterpolationTarget();
+            final Vec3 origin = new Vec3(player.position.x, player.nativeOriginY, player.position.z);
+            final Vec3 next = steps == 1 ? target.clone() : origin.add(target.subtract(origin).multiply(1.0F / steps));
+            teleports.setPacketPosition(next);
+            player.velocity = Vec3.ZERO.clone();
+            player.certainVelocity = null;
+            teleports.tickInterpolation();
+            player.getMovementTrace().log("teleport: interpolation remaining=" + teleports.getInterpolationTicks() + " origin=" + next);
+        }
+        final boolean skipTravel = teleports.takeSkipTravel();
+        final boolean applyWaterInput = teleports.takeApplyTeleportWaterInput();
+        if (skipTravel) {
+            if (player.certainVelocity != null) {
+                player.velocity = player.certainVelocity.getVelocity().clone();
+                player.certainVelocity = null;
             }
-
-            queuedTeleports.poll();
-
-            // Bedrock don't reply to teleport individually using a separate tick packet instead it just simply set its position to
-            // the teleported position and then let us know the *next tick*, so we do the same!
-            this.processTeleport(player, data, packet);
-            lastAccepted = data;
-        }
-
-        if (lastAccepted != null && lastAccepted.getSource() == TeleportData.Source.MOVE_PLAYER_TELEPORT) {
-            // ref LiquidPhysicsSystem::_liquidBlockFetch and StrictTickingSystemFunctionAdapter<&MobTravelTeleportedFilterSystem::tick>::tick.
-            // calculate one push at the final accepted teleport
-            if (new EntityTicker(player).applyWaterPushAfterTeleport()) {
+            if (applyWaterInput && new EntityTicker(player).applyWaterPushAfterTeleport()) {
                 new PlayerTicker(player).applyWaterInputAfterTeleport();
             }
+            player.bestPossibility = Vector.NONE;
             player.predictionResult = new PredictionData(Vec3.ZERO, Vec3.ZERO, player.velocity.clone());
             player.lastTickFinalVelocity = player.velocity.clone();
+            teleports.updateLastKnownValid(new Vec3(player.position.x, player.nativeOriginY, player.position.z));
         }
-    }
-
-    private void processTeleport(final BoarPlayer player, final TeleportData data, final PlayerAuthInputPacket packet) {
-        player.setPos(data.getPosition().down(player.getYOffset()));
-        player.unvalidatedPosition = player.prevUnvalidatedPosition = player.position.clone();
-        player.unvalidatedNativeOriginY = player.nativeOriginY;
-        player.velocity = Vec3.ZERO.clone();
-        player.certainVelocity = null;
-        player.predictionResult = new PredictionData(Vec3.ZERO, Vec3.ZERO, Vec3.ZERO);
-        player.onGround = data.isOnGround();
-        player.getTeleportUtil().updateLastKnownValid(data.getPosition());
-        player.getTeleportUtil().markCorrected();
+        return skipTravel;
     }
 
     protected void processImmobile(BoarPlayer player) {

@@ -122,9 +122,8 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
             return;
         }
 
-        if (player.getTeleportUtil().isTeleporting()) {
-            player.getMovementTrace().log("path: teleporting, processing queued teleports");
-            this.processQueuedTeleports(player, packet);
+        if (this.processTeleport(player)) {
+            player.getMovementTrace().log("path: teleport, skipped ordinary travel");
         } else if (player.dead && player.certainVelocity == null) {
             // From vanilla client - Player::isImmobile is true at 0 health unless the knocked-back-on-death flag is set, and the
             // client reports a fixed position with a zero delta
@@ -168,19 +167,15 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
         }
 
         if (event.getPacket() instanceof MovePlayerPacket packet && packet.getRuntimeEntityId() == player.runtimeEntityId && packet.getMode() != MovePlayerPacket.Mode.HEAD_ROTATION) {
-            // Convert unsupported smoothed and respawn movement modes to teleports.
-            if (packet.getMode() == MovePlayerPacket.Mode.NORMAL || packet.getMode() == MovePlayerPacket.Mode.RESPAWN) {
-                packet.setMode(MovePlayerPacket.Mode.TELEPORT); // TODO: handle these properly
-                if (packet.getTeleportationCause() == null) {
-                    packet.setTeleportationCause(MovePlayerPacket.TeleportationCause.BEHAVIOR);
-                }
-            }
-
-            packet.setOnGround(true); // TODO: also handle this properly
             Boar.debug(player.getSession().name() + ": [movement-debug] queued server teleport source=MovePlayerPacket mode="
                     + packet.getMode() + " cause=" + packet.getTeleportationCause() + " pos=" + packet.getPosition()
                     + " tick=" + player.tick + " dead=" + player.dead, Boar.DebugMessage.WARNING);
-            player.getTeleportUtil().queue(new TeleportData(new Vec3(packet.getPosition()), packet.isOnGround(), packet.getMode() == MovePlayerPacket.Mode.TELEPORT ? TeleportData.Source.MOVE_PLAYER_TELEPORT : TeleportData.Source.OTHER));
+            final TeleportData.Source source = switch (packet.getMode()) {
+                case NORMAL -> TeleportData.Source.MOVE_PLAYER_NORMAL;
+                case RESPAWN -> TeleportData.Source.MOVE_PLAYER_RESPAWN;
+                default -> TeleportData.Source.MOVE_PLAYER_TELEPORT;
+            };
+            player.getTeleportUtil().queue(new TeleportData(new Vec3(packet.getPosition()), packet.isOnGround(), source));
         }
 
         // The vanilla server sends runtime id 0 in the player's own RespawnPacket (Player::recheckSpawnPosition) so accept 0 as well as the player's id.

@@ -13,9 +13,6 @@ import org.cloudburstmc.protocol.bedrock.data.PredictionType;
 import org.cloudburstmc.protocol.bedrock.packet.CorrectPlayerMovePredictionPacket;
 import org.cloudburstmc.protocol.bedrock.packet.MovePlayerPacket;
 
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
-
 @RequiredArgsConstructor
 public class TeleportUtil {
     private final BoarPlayer player;
@@ -29,12 +26,22 @@ public class TeleportUtil {
     @Getter
     private long lastCorrectionTick = -1;
 
+    private TeleportData acceptedTeleport;
+    private boolean skipTravel;
+    private boolean applyTeleportWaterInput;
     @Getter
-    private final Queue<TeleportData> queuedTeleports = new ConcurrentLinkedQueue<>();
+    private Vec3 pendingTeleportPosition;
+    @Getter
+    private int pendingTeleports;
+    private long generation;
+    @Getter
+    private Vec3 interpolationTarget;
+    @Getter
+    private int interpolationTicks;
 
     public void teleport(final Vec3 vec3) {
         if (this.isTeleporting()) {
-            Boar.debug(player.getSession().name() + ": [movement-debug] skipped teleport reason=already-teleporting queued=" + this.queuedTeleports.size(), Boar.DebugMessage.WARNING);
+            Boar.debug(player.getSession().name() + ": [movement-debug] skipped teleport reason=already-teleporting pending=" + this.pendingTeleports, Boar.DebugMessage.WARNING);
             return;
         }
 
@@ -51,15 +58,101 @@ public class TeleportUtil {
     }
 
     public void queue(TeleportData data) {
-        this.queuedTeleports.add(data);
-        player.sendLatencyStack(new TeleportAcceptAck(data));
+        this.pendingTeleports++;
+        this.pendingTeleportPosition = data.getPosition().clone();
+        player.sendLatencyStack(new TeleportAcceptAck(data, this.generation));
+    }
+
+    public void accept(TeleportData data, long generation) {
+        if (generation != this.generation) {
+            return;
+        }
+        if (this.pendingTeleports > 0) {
+            this.pendingTeleports--;
+        }
+        this.acceptedTeleport = data;
+        player.onGround = data.isOnGround();
+        if (data.getSource() == TeleportData.Source.MOVE_PLAYER_NORMAL) {
+            final Vec3 origin = new Vec3(player.position.x, player.nativeOriginY, player.position.z);
+            player.velocity = data.getPosition().subtract(origin);
+            player.certainVelocity = null;
+            // Player::onMovePlayerPacketNormal only does interpolation if the destination is loaded
+            if (player.compensatedWorld.isChunkLoadedAt(data.getPosition().x, data.getPosition().z)) {
+                this.startInterpolation(data.getPosition());
+            } else {
+                this.setPacketPosition(data.getPosition());
+            }
+        } else {
+            // Actor::teleportTo and Player::resetUserPos clear velocity and interpolation.
+            this.clearInterpolation();
+            this.setPacketPosition(data.getPosition());
+            player.velocity = Vec3.ZERO.clone();
+            player.certainVelocity = null;
+            if (data.getSource() != TeleportData.Source.MOVE_PLAYER_RESPAWN) {
+                player.fallDistance = 0;
+                // A later NORMAL or RESPAWN packet does not remove HasTeleportedFlagComponent.
+                this.skipTravel = true;
+                this.applyTeleportWaterInput |= data.getSource() == TeleportData.Source.MOVE_PLAYER_TELEPORT;
+            }
+        }
+    }
+
+    public TeleportData takeAcceptedTeleport() {
+        final TeleportData data = this.acceptedTeleport;
+        this.acceptedTeleport = null;
+        return data;
+    }
+
+    public boolean takeSkipTravel() {
+        final boolean skip = this.skipTravel;
+        this.skipTravel = false;
+        return skip;
+    }
+
+    public boolean takeApplyTeleportWaterInput() {
+        final boolean apply = this.applyTeleportWaterInput;
+        this.applyTeleportWaterInput = false;
+        return apply;
+    }
+
+    public void setPacketPosition(Vec3 position) {
+        player.setPos(position.down(player.getYOffset()));
+        player.nativeOriginY = position.y;
+        player.insideUnloadedChunk = !player.compensatedWorld.isChunkLoadedAt(position.x, position.z);
+    }
+
+    public void startInterpolation(Vec3 target) {
+        this.interpolationTarget = target.clone();
+        this.interpolationTicks = 3;
+    }
+
+    public void tickInterpolation() {
+        if (this.interpolationTicks > 0) {
+            this.interpolationTicks--;
+        }
+    }
+
+    public void clearInterpolation() {
+        this.interpolationTarget = null;
+        this.interpolationTicks = 0;
+    }
+
+    public void clearTeleports() {
+        // Ignore acknowledgments that arrive after a reset or vehicle change.
+        this.generation++;
+        this.acceptedTeleport = null;
+        this.skipTravel = false;
+        this.applyTeleportWaterInput = false;
+        this.pendingTeleports = 0;
+        this.pendingTeleportPosition = null;
+        this.clearInterpolation();
     }
 
     /**
      * Resets all teleport state to a position that the server already established.
      */
     public void reset(Vec3 position) {
-        this.queuedTeleports.clear();
+        this.clearTeleports();
         this.lastKnownValid = position.clone();
         this.pendingCorrections = 0;
         this.correctionCooldown = false;
@@ -75,7 +168,7 @@ public class TeleportUtil {
     }
 
     public boolean isTeleporting() {
-        return !this.queuedTeleports.isEmpty();
+        return this.pendingTeleports > 0 || this.acceptedTeleport != null || this.interpolationTicks > 0;
     }
 
     public boolean hasPendingCorrection() {
@@ -106,7 +199,7 @@ public class TeleportUtil {
         }
 
         if (this.isTeleporting()) {
-            Boar.debug(player.getSession().name() + ": [movement-debug] skipped correction reason=already-teleporting queued=" + this.queuedTeleports.size() + " tick=" + player.tick, Boar.DebugMessage.WARNING);
+            Boar.debug(player.getSession().name() + ": [movement-debug] skipped correction reason=already-teleporting pending=" + this.pendingTeleports + " tick=" + player.tick, Boar.DebugMessage.WARNING);
             return;
         }
 

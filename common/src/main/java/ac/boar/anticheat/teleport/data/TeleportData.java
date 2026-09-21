@@ -13,12 +13,9 @@ public class TeleportData {
 
     public enum Source {
         MOVE_PLAYER_TELEPORT,
+        MOVE_PLAYER_NORMAL,
+        MOVE_PLAYER_RESPAWN,
         RESPAWN,
         OTHER
-    }
-
-    private boolean accepted;
-    public void accept() {
-        this.accepted = true;
     }
 }

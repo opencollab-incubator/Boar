@@ -55,7 +55,7 @@ public class VehiclePackets implements PacketListener {
             }
 
             // Yep.
-            player.getTeleportUtil().getQueuedTeleports().clear();
+            player.getTeleportUtil().clearTeleports();
 
             if (link.getType() == EntityLinkData.Type.REMOVE) {
                 player.queueAcknowledgment(new VehicleClearAck());

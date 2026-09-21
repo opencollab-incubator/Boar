@@ -26,14 +26,14 @@ public class PostAuthInputPackets implements PacketListener {
             // Shouldn't desync, since we already set it to be the unvalidated position if offset is close enough
             // Look at LegacyAuthInputPackets#doPostPrediction line 58
             if (!player.disableMitigations()) {
-                packet.setPosition(player.position.add(0, player.getYOffset(), 0).toVector3f());
+                // Forward the destination while downstream waits for the client to receive it
+                if (player.getTeleportUtil().getPendingTeleports() > 0) {
+                    packet.setPosition(player.getTeleportUtil().getPendingTeleportPosition().toVector3f());
+                } else {
+                    packet.setPosition(player.position.add(0, player.getYOffset(), 0).toVector3f());
+                }
             }
             LegacyAuthInputPackets.correctInputData(player, packet);
-
-            if (player.getTeleportUtil().isTeleporting()) {
-                event.setCancelled(true);
-                return;
-            }
 
             if (player.tickSinceBlockResync > 0) player.tickSinceBlockResync--;
         }
