@@ -25,7 +25,7 @@ import java.util.Map;
  * the start state, and each step of the simulation.
  */
 public final class MovementTrace {
-    private static final int HISTORY_TICKS = 3;
+    private static final int HISTORY_TICKS = 10;
 
     private final BoarPlayer player;
     private final ArrayDeque<List<String>> history = new ArrayDeque<>(HISTORY_TICKS);
@@ -97,6 +97,7 @@ public final class MovementTrace {
                 + " claimedDelta=" + player.unvalidatedTickEnd + " analogMotion=" + player.clientMotion
                 + " yaw=" + player.yaw + " pitch=" + player.pitch);
         log("server: pos=" + player.position + " prevPos=" + player.prevPosition
+                + " nativeOriginY=" + player.nativeOriginY + " claimedNativeOriginY=" + player.unvalidatedNativeOriginY
                 + " vel=" + player.velocity + " lastTickFinalVel=" + player.lastTickFinalVelocity
                 + " certainVel=" + (player.certainVelocity == null ? "none"
                         : player.certainVelocity.getType() + ":" + player.certainVelocity.getVelocity()));
@@ -110,7 +111,7 @@ public final class MovementTrace {
         log("flags: " + player.getFlagTracker().cloneFlags() + " flying=" + player.getFlagTracker().isFlying()
                 + " wasFlying=" + player.getFlagTracker().isWasFlying() + " abilities=" + player.abilities);
         log("effects: " + this.effectsString() + " speedAttr=" + this.speedString());
-        log("counters: glideBoost=" + player.glideBoostTicks + " sinceSwim=" + player.ticksSinceSwimming
+        log("counters: glideBoost=" + player.glideBoostTicks + " swimAmount=" + player.swimAmount
                 + " sinceCrawl=" + player.ticksSinceCrawling + " sinceCanSlowdown=" + player.ticksSinceCanSlowdown
                 + " autoSpin=" + player.autoSpinAttackTicks + " sinceLoadingScreen=" + player.sinceLoadingScreen
                 + " blockResync=" + player.tickSinceBlockResync);

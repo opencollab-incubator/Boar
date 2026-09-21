@@ -56,12 +56,15 @@ public class Collider {
     }
 
     public static Vec3 collide(final BoarPlayer player, final Vec3 movement, final boolean oneWay, final Vec3 penetration) {
-        Box boundingBox = player.boundingBox.clone();
-        Box sweptBox = boundingBox.stretch(movement);
-        List<Box> colliders = player.compensatedWorld.collectColliders(
-                player.compensatedWorld.getEntityCollisions(sweptBox),
-                sweptBox
-        );
+        return collideMove(player, movement, oneWay, penetration).clippedMovement();
+    }
+
+    public static MoveResult collideMove(final BoarPlayer player, final Vec3 requestedMovement, final boolean oneWay, final Vec3 penetration) {
+        final Vec3 movement = MovementCollision.clampMovement(requestedMovement);
+        final Box boundingBox = player.boundingBox.clone();
+        final Box volume = MovementCollision.collectionVolume(boundingBox, movement, PlayerData.STEP_HEIGHT);
+        final List<CollisionRecord> records = player.compensatedWorld.collectMovementColliders(volume, boundingBox.stretch(requestedMovement));
+        final List<Box> colliders = records.stream().map(CollisionRecord::shape).toList();
 
         MovementResult collisionResult = collideWithAxes(boundingBox, movement, colliders, oneWay, penetration);
         Vec3 collisionVelocity = collisionResult.velocity();
@@ -77,10 +80,11 @@ public class Collider {
                     && collisionVelocity.horizontalLengthSquared() < stepResult.velocity().horizontalLengthSquared()
                     && clientAcceptsAutoStep(player, collisionVelocity, stepResult.velocity())) {
                 collisionVelocity = stepResult.velocity();
+                collisionResult = stepResult;
             }
         }
 
-        return collisionVelocity;
+        return new MoveResult(movement, collisionVelocity, collisionResult.boundingBox(), records);
     }
 
     private static boolean clientAcceptsAutoStep(final BoarPlayer player, final Vec3 collisionVelocity, final Vec3 stepVelocity) {
@@ -156,6 +160,7 @@ public class Collider {
         return oneWay ? result.clippedVelocity : result.depenetratingVelocity;
     }
 
+    // AABB::clipCollide
     private static ClipCollideResult doClipCollide(final Box stationary, final Box moving, final Vec3 velocity) {
         ClipCollideResult result = new ClipCollideResult(velocity);
         if (stationary.minX == stationary.maxX
@@ -180,10 +185,10 @@ public class Collider {
             float minPenetration = movingMax[axis] - stationaryMin[axis];
             float maxPenetration = stationaryMax[axis] - movingMin[axis];
 
-            if (Math.abs(minPenetration) <= Box.EPSILON) {
+            if (Math.abs(minPenetration) <= 1.0E-6F) {
                 minPenetration = 0.0F;
             }
-            if (Math.abs(maxPenetration) <= Box.EPSILON) {
+            if (Math.abs(maxPenetration) <= 1.0E-6F) {
                 maxPenetration = 0.0F;
             }
 
@@ -263,6 +268,9 @@ public class Collider {
             case 1 -> vector.y = value;
             default -> vector.z = value;
         }
+    }
+
+    public record MoveResult(Vec3 requestedMovement, Vec3 clippedMovement, Box finalBox, List<CollisionRecord> records) {
     }
 
     private record MovementResult(Box boundingBox, Vec3 velocity) {

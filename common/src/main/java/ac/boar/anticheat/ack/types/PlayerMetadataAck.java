@@ -6,5 +6,5 @@ import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 
 import java.util.Set;
 
-public record PlayerMetadataAck(Float width, Float height, Float scale, Set<EntityFlag> flags, Vector3i bedPosition, long sentTick) implements Acknowledgment {
+public record PlayerMetadataAck(Float width, Float height, Float scale, Set<EntityFlag> flags, Boolean swimming, Vector3i bedPosition, long sentTick) implements Acknowledgment {
 }

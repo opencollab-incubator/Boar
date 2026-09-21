@@ -3,6 +3,7 @@ package ac.boar.anticheat.prediction.engine.impl;
 import ac.boar.anticheat.data.effect.Effect;
 import ac.boar.anticheat.data.vanilla.StatusEffect;
 import ac.boar.anticheat.player.BoarPlayer;
+import ac.boar.anticheat.prediction.engine.data.BounceGravityCorrection;
 import ac.boar.anticheat.prediction.engine.base.PredictionEngine;
 import ac.boar.anticheat.util.block.specific.PowderSnowBlock;
 import ac.boar.anticheat.util.math.Vec3;
@@ -27,12 +28,17 @@ public class GroundAndAirPredictionEngine extends PredictionEngine {
 
     @Override
     public void finalizeMovement() {
+        this.finalizeMovement(null);
+    }
+
+    @Override
+    public void finalizeMovement(final BounceGravityCorrection correction) {
         if (!player.scaffoldDescend || player.onGround) {
             final StatusEffect effect = player.getEffect(Effect.LEVITATION);
             if (effect != null) {
                 player.velocity.y += (0.05f * (effect.getAmplifier() + 1) - player.velocity.y) * 0.2f;
             } else {
-                player.velocity.y -= player.getEffectiveGravity();
+                player.velocity.y = BounceGravityCorrection.applyGravity(player.velocity.y, -player.getEffectiveGravity(), correction);
             }
         }
 

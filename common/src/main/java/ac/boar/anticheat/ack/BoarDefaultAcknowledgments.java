@@ -24,6 +24,7 @@ import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.protocol.bedrock.data.Ability;
 import org.cloudburstmc.protocol.bedrock.data.AbilityLayer;
 import org.cloudburstmc.protocol.bedrock.data.AttributeData;
+import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 import org.cloudburstmc.protocol.bedrock.data.attribute.AttributeModifierData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ContainerSlotType;
 import org.cloudburstmc.protocol.bedrock.data.inventory.CreativeItemData;
@@ -173,8 +174,20 @@ public final class BoarDefaultAcknowledgments {
     }
 
     private static void handlePlayerMetadata(BoarPlayer player, PlayerMetadataAck ack) {
+        if (Boar.getConfig().debugMode()) {
+            player.getMovementTrace().log("metadata apply before: ack=" + System.identityHashCode(ack)
+                    + " playerTick=" + player.tick + " sentTick=" + ack.sentTick()
+                    + " swimming=" + ack.swimming() + " flags=" + ack.flags()
+                    + " current=" + player.getFlagTracker().cloneFlags());
+        }
         if (ack.flags() != null) {
             player.getFlagTracker().set(player, ack.flags(), ack.sentTick());
+        }
+        if (ack.swimming() != null) {
+            player.getFlagTracker().set(EntityFlag.SWIMMING, ack.swimming());
+        }
+        if (Boar.getConfig().debugMode()) {
+            player.getMovementTrace().log("metadata apply after: ack=" + System.identityHashCode(ack) + " playerTick=" + player.tick + " current=" + player.getFlagTracker().cloneFlags());
         }
 
         if (ack.width() != null) {

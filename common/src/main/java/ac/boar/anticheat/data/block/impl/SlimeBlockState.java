@@ -4,6 +4,7 @@ import ac.boar.anticheat.data.block.AbstractBoarBlockState;
 import ac.boar.anticheat.data.block.BoarBlockStateDelegate;
 import ac.boar.anticheat.player.BoarPlayer;
 import org.cloudburstmc.math.vector.Vector3i;
+import org.cloudburstmc.protocol.bedrock.codec.v944.Bedrock_v944;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 
 public class SlimeBlockState extends AbstractBoarBlockState {
@@ -27,6 +28,8 @@ public class SlimeBlockState extends AbstractBoarBlockState {
         } else {
             if (player.velocity.y < 0.0) {
                 player.velocity.y = -player.velocity.y * (living ? 1 : 0.8F);
+            } else if (player.getSession().protocolVersion() >= Bedrock_v944.CODEC.getProtocolVersion()) {
+                player.velocity.y = 0;
             }
         }
     }

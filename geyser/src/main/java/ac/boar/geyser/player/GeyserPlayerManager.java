@@ -15,6 +15,7 @@ import ac.boar.protocol.CloudburstConnection;
 import ac.boar.geyser.anticheat.player.accessor.GeyserEntityAccessor;
 import ac.boar.geyser.anticheat.player.accessor.GeyserInventoryAccessor;
 import ac.boar.geyser.anticheat.player.accessor.GeyserWorldAccessor;
+import ac.boar.geyser.mappings.block.GeyserFallingFlowMaterials;
 import ac.boar.geyser.mappings.entity.GeyserEntity;
 import ac.boar.geyser.model.GeyserNetworkSession;
 import ac.boar.mappings.entity.Entity;
@@ -85,7 +86,8 @@ public class GeyserPlayerManager extends BoarPlayerManager<GeyserSession> {
 
         return new BlockMappingInfo(bedrockAir, bedrockWater, bedrockLava,
                 bedrockPowderSnow, airIds, mappings::isItemFrame,
-                bedrockBlockToJava::get, mappings::getBedrockBlockId
+                bedrockBlockToJava::get, mappings::getBedrockBlockId,
+                GeyserFallingFlowMaterials.create(session.protocolVersion(), mappings)
         );
     }
 

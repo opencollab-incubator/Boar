@@ -1,6 +1,7 @@
 package ac.boar.anticheat.prediction.engine.base;
 
 import ac.boar.anticheat.player.BoarPlayer;
+import ac.boar.anticheat.prediction.engine.data.BounceGravityCorrection;
 import ac.boar.anticheat.util.MathUtil;
 import ac.boar.anticheat.util.math.Vec3;
 import ac.boar.mappings.block.Blocks;
@@ -13,6 +14,10 @@ public abstract class PredictionEngine {
 
     public abstract Vec3 travel(Vec3 vec3);
     public abstract void finalizeMovement();
+
+    public void finalizeMovement(final BounceGravityCorrection correction) {
+        this.finalizeMovement();
+    }
 
     protected final Vec3 moveRelative(Vec3 delta, float f) {
         return delta.add(MathUtil.getInputVector(player.input, f, player.yaw));

@@ -75,7 +75,8 @@ public class PlayerTicker extends LivingTicker {
 
     @Override
     protected void travel() {
-        if (player.getFlagTracker().has(EntityFlag.SWIMMING)) {
+        final boolean jumping = player.getInputData().contains(PlayerAuthInputData.JUMPING) || player.getInputData().contains(PlayerAuthInputData.AUTO_JUMPING_IN_WATER);
+        if (player.getFlagTracker().has(EntityFlag.SWIMMING) && !jumping) { // SwimControlSystem::tick
             float d = MathUtil.getRotationVector(player.pitch, player.yaw).y;
 
             // Seems to be the case, on JE they check for fluid state 0.9 blocks up to prevent player from resurfacing when swimming
@@ -86,16 +87,10 @@ public class PlayerTicker extends LivingTicker {
             } else {
                 float e = d < -0.2 ? 0.085F : 0.06F;
                 final FluidState state = player.compensatedWorld.getFluidState(player.position.toVector3i());
-                if ((d <= 0.0 || state.fluid() != Fluid.EMPTY) && !player.getInputData().contains(PlayerAuthInputData.JUMPING)) {
+                if (d <= 0.0 || state.fluid() != Fluid.EMPTY) {
                     player.velocity = player.velocity.add(0, (d - player.velocity.y) * e, 0);
                     player.getMovementTrace().log("swim: pitch adjust (pitchVecY=" + d + " e=" + e + "), vel=" + player.velocity);
                 }
-            }
-
-            // No fucking idea why, but if it's the case then it's the case, hacks but works.
-            if (player.unvalidatedTickEnd.y == 0 && player.ticksSinceSwimming > 0 && player.ticksSinceSwimming < 10 && player.getInputData().contains(PlayerAuthInputData.JUMPING)) {
-                player.getMovementTrace().log("swim: jump hack, y velocity set to 0");
-                player.velocity.y = 0;
             }
         }
         super.travel();

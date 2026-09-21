@@ -224,10 +224,8 @@ public abstract class AbstractBoarBlockState implements BoarBlockState {
 
     @Override
     public FluidState getFluidState(int level) {
-        if (level == 1) {
-            if (is(Blocks.WATER)) {
-                return new FluidState(Fluid.WATER, 8 / 9F, 8);
-            }
+        // see BlockSource::getLiquidBlock
+        if (level == 1 && !is(Blocks.WATER)) {
             return new FluidState(Fluid.EMPTY, 0, 0);
         }
 
@@ -238,7 +236,8 @@ public abstract class AbstractBoarBlockState implements BoarBlockState {
 
         Fluid fluid = water ? Fluid.WATER : Fluid.LAVA;
         int rawLevel = get(Properties.LEVEL);
-        if (rawLevel == 0 || rawLevel == 8) {
+        // from LiquidBlockBase::_getFlow - treat depths 8 through 15 as falling liquid
+        if (rawLevel == 0 || rawLevel >= 8) {
             return new FluidState(fluid, 8 / 9F, rawLevel);
         }
         return new FluidState(fluid, (8 - rawLevel) / 9F, rawLevel);

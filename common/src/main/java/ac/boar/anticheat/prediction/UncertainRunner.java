@@ -1,7 +1,6 @@
 package ac.boar.anticheat.prediction;
 
 import ac.boar.anticheat.compensated.CompensatedInventory;
-import ac.boar.anticheat.data.effect.Effect;
 import ac.boar.anticheat.data.enchantment.Enchantment;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.util.MathUtil;
@@ -19,49 +18,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class UncertainRunner {
     private final BoarPlayer player;
-
-    public void resolveUncertainBouncing() {
-        if (!player.bounce) {
-            return;
-        }
-
-        player.bounce = false;
-        if (player.velocity.y < player.unvalidatedTickEnd.y || player.unvalidatedTickEnd.y <= 0) {
-            return;
-        }
-
-        // Mini engine to try to find the minimal y value player can reach to prevent low-jump speed bypass on slime or bed.
-        // We don't need to account for elytra here cuz that edge case is wayyyy to niche.
-
-        float y = player.minBounceYVel;
-        if (player.touchingWater) {
-            y *= 0.8f;
-
-            float gravity = player.getEffectiveGravity();
-            if (player.hasEffect(Effect.LEVITATION)) {
-                y = y + (((player.getEffect(Effect.LEVITATION).getAmplifier() + 1) * 0.05F) - y) * 0.2F;
-            } else if (gravity != 0.0 && !player.getFlagTracker().has(EntityFlag.SWIMMING)) {
-                y = y - (gravity / 16.0F);
-            }
-        } else if (player.isInLava()) {
-            y *= 0.5f;
-            y += (-player.getEffectiveGravity() / 4.0F);
-        } else {
-            y -= player.getEffectiveGravity();
-            y *= 0.98f;
-        }
-
-        // The player y velocity is way too low, this is not possible.
-        if (y - player.unvalidatedTickEnd.y > 0.01) {
-//            System.out.println("(failed) Min: " + y + ", tickend=" + player.unvalidatedTickEnd.y);
-            return;
-        }
-
-//        System.out.println("Min: " + y + ", tickend=" + player.unvalidatedTickEnd.y);
-        player.getMovementTrace().log("uncertainty: bounce, accepted client y=" + player.unvalidatedTickEnd.y
-                + " (minPossible=" + y + ")");
-        player.velocity.y = player.unvalidatedTickEnd.y;
-    }
 
     // For now this will only be use for pushing player out of block, mojang making my life harder by make it differ from JE ofc.
     /**
@@ -150,31 +106,6 @@ public class UncertainRunner {
         boolean haveSoulSpeed = CompensatedInventory.getEnchantments(player.compensatedInventory.armorContainer.get(3).getData()).containsKey(Enchantment.SOUL_SPEED);
         if (player.soulSandBelow && !haveSoulSpeed && validYOffset && actualSpeedSmallerThanPredicted && sameDirection) {
             extra = offset;
-        }
-
-        if (player.beingPushByLava && validYOffset) {
-            extra += 0.004F;
-
-            if (sameDirection) {
-                if (player.input.horizontalLengthSquared() > 0) {
-                    Vec3 subtractedSpeed = actual.subtract(MathUtil.sign(player.afterCollision.x) * 0.02F, 0, MathUtil.sign(player.afterCollision.z) * 0.02F);
-
-                    if (subtractedSpeed.horizontalLengthSquared() < predicted.horizontalLengthSquared()) {
-                        extra = offset;
-                    }
-                } else {
-                    if (actual.horizontalLengthSquared() < predicted.horizontalLengthSquared()) {
-                        extra = offset;
-                    }
-                }
-            }
-        }
-
-        // .... This is weird, no idea why.
-        if (player.hasDepthStrider) {
-            if (actualSpeedSmallerThanPredicted && validYOffset) {
-                extra = offset;
-            }
         }
 
         if (player.getFlagTracker().has(EntityFlag.GLIDING)) {

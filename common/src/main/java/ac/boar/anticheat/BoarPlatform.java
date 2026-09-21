@@ -36,6 +36,10 @@ public interface BoarPlatform {
 
     BoarLogger logger();
 
+    default boolean consoleMovementTraces() {
+        return false;
+    }
+
     BoarPlayerManager<?> playerManager();
 
     void finalizeBlockMappings(ReferencePopulator<Block> populator);

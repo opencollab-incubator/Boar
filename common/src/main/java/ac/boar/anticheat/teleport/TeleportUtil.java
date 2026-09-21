@@ -132,6 +132,7 @@ public class TeleportUtil {
         this.correctionCooldown = true;
         this.player.sendLatencyStack(new MovementCorrectionAck());
         this.player.getConnection().sendPacket(correction);
+        this.player.getSession().sendMessage("Correction sent: sim tick " + correction.getTick());
         Boar.debug(player.getSession().name() + ": [movement-debug] sent correction tick=" + player.tick + " pos=" + correction.getPosition() + " delta=" + correction.getDelta() + " onGround=" + player.onGround, Boar.DebugMessage.WARNING);
     }
 }

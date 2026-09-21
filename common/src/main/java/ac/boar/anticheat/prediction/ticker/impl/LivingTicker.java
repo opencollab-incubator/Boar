@@ -4,10 +4,12 @@ import ac.boar.anticheat.collision.util.CuboidBlockIterator;
 import ac.boar.anticheat.compensated.CompensatedInventory;
 import ac.boar.anticheat.compensated.cache.entity.EntityCache;
 import ac.boar.anticheat.data.effect.Effect;
+import ac.boar.anticheat.data.Fluid;
 import ac.boar.anticheat.data.block.BoarBlockState;
 import ac.boar.anticheat.data.enchantment.Enchantment;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.prediction.engine.base.PredictionEngine;
+import ac.boar.anticheat.prediction.engine.data.BounceGravityCorrection;
 import ac.boar.anticheat.prediction.engine.impl.GlidingPredictionEngine;
 import ac.boar.anticheat.prediction.engine.impl.GroundAndAirPredictionEngine;
 import ac.boar.anticheat.prediction.engine.impl.fluid.LavaPredictionEngine;
@@ -198,7 +200,7 @@ public class LivingTicker extends EntityTicker {
     }
 
     protected void travel() {
-        if (player.isInLava() || player.touchingWater) {
+        if (player.selectedFluid != Fluid.EMPTY) {
             this.travelInFluid();
         } else if (player.getFlagTracker().has(EntityFlag.GLIDING)) {
 //            if (this.onClimbable()) {
@@ -221,24 +223,25 @@ public class LivingTicker extends EntityTicker {
         player.getMovementTrace().log("engine: GroundAndAir, velIn=" + player.velocity);
         player.velocity = engine.travel(player.velocity);
         player.getMovementTrace().log("engine: GroundAndAir, velAfterTravel=" + player.velocity);
-        this.doSelfMove(player.velocity.clone()); // this.move(MoverType.SELF, this.getDeltaMovement());
-        engine.finalizeMovement();
+        final BounceGravityCorrection correction = this.doSelfMove(player.velocity.clone());
+        engine.finalizeMovement(correction);
         player.getMovementTrace().log("engine: GroundAndAir, velAfterFinalize=" + player.velocity);
     }
 
     private void travelInFluid() {
         float d = player.position.y;
         final PredictionEngine engine;
-        if (player.touchingWater) {
-            engine = new WaterPredictionEngine(player);
-        } else {
+        // LiquidPhysicsSystem::_liquidBlockFetch
+        if (player.selectedFluid == Fluid.LAVA) {
             engine = new LavaPredictionEngine(player);
+        } else {
+            engine = new WaterPredictionEngine(player);
         }
         player.getMovementTrace().log("engine: " + engine.getClass().getSimpleName() + ", velIn=" + player.velocity);
         player.velocity = engine.travel(player.velocity);
         player.getMovementTrace().log("engine: " + engine.getClass().getSimpleName() + ", velAfterTravel=" + player.velocity);
-        this.doSelfMove(player.velocity.clone());
-        engine.finalizeMovement();
+        final BounceGravityCorrection correction = this.doSelfMove(player.velocity.clone());
+        engine.finalizeMovement(correction);
         player.getMovementTrace().log("engine: " + engine.getClass().getSimpleName() + ", velAfterFinalize=" + player.velocity);
 
         Vec3 vec33 = player.velocity;

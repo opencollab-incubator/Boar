@@ -24,6 +24,7 @@ import java.util.Map;
 public class LegacyAuthInputPackets {
     public static void updateUnvalidatedPosition(final BoarPlayer player, final PlayerAuthInputPacket packet) {
         player.prevUnvalidatedPosition = player.unvalidatedPosition.clone();
+        player.unvalidatedNativeOriginY = packet.getPosition().getY();
         player.unvalidatedPosition = new Vec3(packet.getPosition().down(player.getYOffset()));
         player.unvalidatedTickEnd = new Vec3(packet.getDelta());
     }
@@ -48,7 +49,6 @@ public class LegacyAuthInputPackets {
         final float extraOffsetNonTickEnd = uncertainRunner.extraOffsetNonTickEnd(offset);
         offset -= extraOffsetNonTickEnd;
         uncertainRunner.uncertainPushTowardsTheClosetSpace();
-        uncertainRunner.resolveUncertainBouncing();
 
         player.getMovementTrace().log("offset: raw=" + rawOffset + " extra=" + extraOffset
                 + " extraNonTickEnd=" + extraOffsetNonTickEnd + " final=" + offset
@@ -65,6 +65,7 @@ public class LegacyAuthInputPackets {
             player.velocity = player.unvalidatedTickEnd.clone();
             player.lastTickFinalVelocity = player.unvalidatedTickEnd.clone();
             player.setPos(player.unvalidatedPosition.clone(), false);
+            player.nativeOriginY = player.unvalidatedNativeOriginY;
         } else {
             // Keep the predicted movement during a pending correction or its cooldown tick.
             final boolean hasPendingCorrection = player.getTeleportUtil().hasPendingCorrection();
@@ -80,6 +81,7 @@ public class LegacyAuthInputPackets {
             if (canAcceptClient && offset < player.getPosAcceptanceThreshold()) {
                 player.getMovementTrace().log("post: accepted client position " + player.unvalidatedPosition);
                 player.setPos(player.unvalidatedPosition.clone(), false);
+                player.nativeOriginY = player.unvalidatedNativeOriginY;
             }
 
             if (!canAcceptClient) {
@@ -138,6 +140,7 @@ public class LegacyAuthInputPackets {
 
         if (processInputData) {
             processInputData(player);
+            updateVanillaOffset(player);
 
             // Player isn't moving forward but is sprinting and their flag sync, this shouldn't happen unless the player is swimming
             // The client keeps the swim and the sprint flag while the input vector's length is at least 0.7071 long, in any direction
@@ -151,16 +154,47 @@ public class LegacyAuthInputPackets {
         }
     }
 
+    private static boolean flagAtTickStart(BoarPlayer player, EntityFlag flag, PlayerAuthInputData start, PlayerAuthInputData stop) {
+        if (player.getInputData().contains(stop)) {
+            return true;
+        }
+        if (player.getInputData().contains(start)) {
+            return false;
+        }
+        return player.getFlagTracker().has(flag);
+    }
+
+    private static void updateVanillaOffset(final BoarPlayer player) {
+        // VanillaOffsetSystemUtil::_clientTick and UnderWaterSensingSystem::doUnderWaterSensing.
+        player.headSampleOffsetY = player.previousVanillaOffsetY;
+        player.previousVanillaOffsetY = player.vanillaOffsetY;
+
+        // UpdateHorizontalPoseSystem::update
+        final boolean horizontal = player.getFlagTracker().has(EntityFlag.GLIDING)
+                || player.getFlagTracker().has(EntityFlag.DAMAGE_NEARBY_MOBS)
+                || player.getFlagTracker().has(EntityFlag.SWIMMING)
+                || player.getFlagTracker().has(EntityFlag.CRAWLING);
+        float targetEyeHeight = 1.62001F;
+        if (horizontal) {
+            targetEyeHeight = 0.4F;
+        } else if (player.getFlagTracker().has(EntityFlag.SNEAKING)) {
+            // VanillaOffsetSystem::tick uses the world base game version from StartGame.
+            targetEyeHeight = 1.62001F - player.sneakingEyeHeightReduction;
+        }
+        final float targetOffsetY = 1.62001F - targetEyeHeight; // VanillaOffsetSystemUtil::_clientTick - there's supposed to be an offset here but all paths seem to produce zero
+        player.vanillaOffsetY += (targetOffsetY - player.vanillaOffsetY) * 0.5F;
+    }
+
     public static void processInputData(final BoarPlayer player) {
         if (!player.getFlagTracker().has(EntityFlag.USING_ITEM)) {
             player.sinceTridentUse = 0;
         }
 
-        if (player.getFlagTracker().has(EntityFlag.SWIMMING)) {
-            player.ticksSinceSwimming++;
-        } else {
-            player.ticksSinceSwimming = 0;
-        }
+        // ViewT<StrictEntityContext, Include<InterpolateMovementNeededComponent>, SwimAmountComponent, ActorDataFlagComponent const>::each<void (*)(StrictEntityContext const&, SwimAmountComponent&, ActorDataFlagComponent const&)>
+        // and registerActorMovementTickSystems
+        final boolean swimmingAtTickStart = flagAtTickStart(player, EntityFlag.SWIMMING, PlayerAuthInputData.START_SWIMMING, PlayerAuthInputData.STOP_SWIMMING);
+        final boolean crawlingAtTickStart = flagAtTickStart(player, EntityFlag.CRAWLING, PlayerAuthInputData.START_CRAWLING, PlayerAuthInputData.STOP_CRAWLING);
+        player.swimAmount = swimmingAtTickStart || crawlingAtTickStart ? Math.min(player.swimAmount + 0.1F, 1.0F) : Math.max(player.swimAmount - 0.1F, 0.0F);
 
         if (player.getFlagTracker().has(EntityFlag.CRAWLING)) {
             player.ticksSinceCrawling++;

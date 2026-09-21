@@ -26,6 +26,13 @@ public class PredictionRunner {
         player.getMovementTrace().log("prediction done: predictedPos=" + player.position
                 + " finalVel=" + player.velocity + " beforeCollision=" + player.beforeCollision
                 + " afterCollision=" + player.afterCollision);
+
+        if (Boar.getConfig().debugMode() && !player.getTrackedDebugPlayers().isEmpty()) {
+            Boar.debug("[prediction-witness] " + player.getSession().name() + " tick=" + player.tick
+                    + " path=prediction predictedPos=" + player.position + " finalVel=" + player.velocity
+                    + " beforeCollision=" + player.beforeCollision + " afterCollision=" + player.afterCollision,
+                    Boar.DebugMessage.WARNING);
+        }
     }
 
     private boolean findBestTickStartVelocity() {

@@ -122,6 +122,9 @@ public final class LatencyUtil {
                     // A throwing handler must not skip the rest of the batch — every ack in a
                     // bundle is independent. A failure must not discard later teleport or velocity updates.
                     try {
+                        if (Boar.getConfig().debugMode() && ack instanceof ac.boar.anticheat.ack.types.PlayerMetadataAck) {
+                            player.getMovementTrace().log("metadata dispatch: batch=" + this.id + " ack=" + System.identityHashCode(ack) + " playerTick=" + player.tick);
+                        }
                         registry.dispatch(player, ack);
                     } catch (Throwable t) {
                         Boar.getInstance().getPlatform().logger().error(player.getSession().name() + ": acknowledgment " + ack.getClass().getSimpleName() + " threw", t);

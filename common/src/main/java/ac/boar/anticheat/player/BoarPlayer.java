@@ -258,6 +258,12 @@ public final class BoarPlayer extends PlayerData {
         this.getItemUseTracker().postTick();
     }
 
+    @Override
+    public void setPos(final Vec3 vec3, final boolean prev) {
+        super.setPos(vec3, prev);
+        this.nativeOriginY = this.getYOffset() + vec3.y; // done in FinalizeMoveSystemImpl::tickFinalizeMoveSystem
+    }
+
     public float getYOffset() {
         if (this.vehicleData != null) {
             final EntityCache cache = this.compensatedWorld.getEntity(this.vehicleData.vehicleRuntimeId);
@@ -316,8 +322,14 @@ public final class BoarPlayer extends PlayerData {
         boolean autoJumping = this.getInputData().contains(PlayerAuthInputData.AUTO_JUMPING_IN_WATER);
         boolean jumping = this.getInputData().contains(PlayerAuthInputData.JUMPING);
 
-        boolean canJumpInWater = this.getFluidHeight(Fluid.WATER) != 0, canJumpInLava = this.isInLava();
+        boolean canJumpInWater = this.selectedFluid == Fluid.WATER, canJumpInLava = this.selectedFluid == Fluid.LAVA;
         if ((jumping || autoJumping) && (canJumpInWater || canJumpInLava)) {
+            final boolean swimmingWithDryHead = this.getFlagTracker().has(EntityFlag.SWIMMING) && !this.headInWater;
+            final boolean partialSwimAmount = this.swimAmount > 0 && this.swimAmount < 1;
+            if (swimmingWithDryHead || partialSwimAmount) {
+                this.getMovementTrace().log("liquid jump: swim-state return, dryHead=" + swimmingWithDryHead + " partialAmount=" + partialSwimAmount + " selected=" + this.selectedFluid);
+                return canJumpInWater ? new Vec3(vec3.x, 0, vec3.z) : vec3; // MobJumpSystem::doMobJumpSystem
+            }
             vec3 = vec3.add(0, 0.04F, 0);
         } else if (this.onGround && this.getInputData().contains(PlayerAuthInputData.START_JUMPING)) {
             vec3 = this.jumpFromGround(vec3);

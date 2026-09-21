@@ -112,6 +112,7 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
         if (player.vehicleData != null) { // TODO: Vehicle prediction.
             player.getMovementTrace().log("path: vehicle, accepted client position");
             player.position = player.unvalidatedPosition;
+            player.nativeOriginY = player.unvalidatedNativeOriginY;
             player.compensatedWorld.cleanChunksAtPlayerPosition();
             return;
         }
@@ -171,14 +172,17 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
                 && packet.getMode() != MovePlayerPacket.Mode.HEAD_ROTATION) {
             // Convert unsupported smoothed and respawn movement modes to teleports.
             if (packet.getMode() == MovePlayerPacket.Mode.NORMAL || packet.getMode() == MovePlayerPacket.Mode.RESPAWN) {
-                packet.setMode(MovePlayerPacket.Mode.TELEPORT);
+                packet.setMode(MovePlayerPacket.Mode.TELEPORT); // TODO: handle these properly
+                if (packet.getTeleportationCause() == null) {
+                    packet.setTeleportationCause(MovePlayerPacket.TeleportationCause.BEHAVIOR);
+                }
             }
 
-            packet.setOnGround(true);
+            packet.setOnGround(true); // TODO: also handle this properly
             Boar.debug(player.getSession().name() + ": [movement-debug] queued server teleport source=MovePlayerPacket mode="
                     + packet.getMode() + " cause=" + packet.getTeleportationCause() + " pos=" + packet.getPosition()
                     + " tick=" + player.tick + " dead=" + player.dead, Boar.DebugMessage.WARNING);
-            player.getTeleportUtil().queue(new TeleportData(new Vec3(packet.getPosition()), packet.isOnGround()));
+            player.getTeleportUtil().queue(new TeleportData(new Vec3(packet.getPosition()), packet.isOnGround(), packet.getMode() == MovePlayerPacket.Mode.TELEPORT ? TeleportData.Source.MOVE_PLAYER_TELEPORT : TeleportData.Source.OTHER));
         }
 
         // The vanilla server sends runtime id 0 in the player's own RespawnPacket (Player::recheckSpawnPosition) so accept 0 as well as the player's id.
@@ -190,7 +194,7 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
             if (packet.getState() == RespawnPacket.State.SERVER_READY) {
                 Boar.debug(player.getSession().name() + ": [movement-debug] queued server teleport source=RespawnPacket runtimeId="
                         + packet.getRuntimeEntityId() + " pos=" + packet.getPosition() + " tick=" + player.tick, Boar.DebugMessage.WARNING);
-                player.getTeleportUtil().queue(new TeleportData(new Vec3(packet.getPosition()), true));
+                player.getTeleportUtil().queue(new TeleportData(new Vec3(packet.getPosition()), true, TeleportData.Source.RESPAWN));
             }
         }
     }

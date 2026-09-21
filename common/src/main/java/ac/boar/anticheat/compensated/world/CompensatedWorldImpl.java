@@ -1,6 +1,8 @@
 package ac.boar.anticheat.compensated.world;
 
 import ac.boar.anticheat.Boar;
+import ac.boar.anticheat.collision.CollisionRecord;
+import org.cloudburstmc.math.GenericMath;
 import ac.boar.anticheat.collision.util.CuboidBlockIterator;
 import ac.boar.anticheat.compensated.cache.entity.EntityCache;
 import ac.boar.anticheat.compensated.world.base.CompensatedWorld;
@@ -43,6 +45,49 @@ public class CompensatedWorldImpl extends CompensatedWorld {
         }
 
         return getBlockState(x, y, z, 0).getFluidState(0);
+    }
+
+    public List<CollisionRecord> collectMovementColliders(final Box volume, final Box sweptBox) {
+        final List<CollisionRecord> records = new ArrayList<>();
+        for (Box shape : this.getEntityCollisions(volume)) {
+            records.add(new CollisionRecord(shape, null, null));
+        }
+        final int minX = GenericMath.floor(volume.minX - 1.0F);
+        final int maxX = GenericMath.floor(volume.maxX + 1.0F);
+        final int minZ = GenericMath.floor(volume.minZ - 1.0F);
+        final int maxZ = GenericMath.floor(volume.maxZ + 1.0F);
+        final int minY = Math.max(this.getMinY(), GenericMath.floor(volume.minY - 1.0F));
+        final int maxY = Math.min(this.getHeightY() - 1, GenericMath.floor(volume.maxY + 1.0F));
+        if (minY >= maxY) {
+            return records;
+        }
+
+        // BlockSourceVisitor::visitCollisionShapes<BlockSourceVisitor::MoveCollisionVisitor>
+        for (int x = minX; x <= maxX; x++) {
+            for (int z = minZ; z <= maxZ; z++) {
+                if (!this.isChunkLoaded(x, z)) {
+                    continue;
+                }
+                for (int y = minY; y <= maxY; y++) {
+                    final BoarBlockState state = this.getBlockState(x, y, z, 0);
+                    final Vector3i position = Vector3i.from(x, y, z);
+                    // preserve leniency for bamboo and dripstone until we impl properly
+                    if ((state.is(Blocks.BAMBOO) || state.is(Blocks.POINTED_DRIPSTONE)) && new Box(x, y, z, x + 1, y + 1, z + 1).intersects(sweptBox)) {
+                        getPlayer().nearBamboo = true;
+                        if (state.is(Blocks.POINTED_DRIPSTONE)) {
+                            getPlayer().nearDripstone = true;
+                        }
+                    }
+                    for (Box shape : state.findCollision(this.getPlayer(), position, volume, false)) {
+                        // see BlockType::addCollisionShapes and BlockCollisionBoxComponent::addComponentCollisionShapes
+                        if (shape.minX < shape.maxX && shape.minY < shape.maxY && shape.minZ < shape.maxZ && shape.intersects(volume)) {
+                            records.add(new CollisionRecord(shape, state, position));
+                        }
+                    }
+                }
+            }
+        }
+        return records;
     }
 
     public List<Box> collectColliders(List<Box> list, Box aABB) {

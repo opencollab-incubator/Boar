@@ -6,17 +6,14 @@ import ac.boar.anticheat.ack.types.GameTypeAck;
 import ac.boar.anticheat.ack.types.PlayerMetadataAck;
 import ac.boar.anticheat.ack.types.UpdateAbilitiesAck;
 import ac.boar.anticheat.ack.types.UpdateAttributesAck;
-import ac.boar.anticheat.compensated.cache.container.ContainerCache;
 import ac.boar.anticheat.compensated.cache.entity.EntityCache;
-import ac.boar.anticheat.data.ItemUseTracker;
 import ac.boar.anticheat.data.input.PredictionData;
-import ac.boar.anticheat.data.inventory.BoarItemStack;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.player.data.PlayerData;
 import ac.boar.anticheat.util.DimensionUtil;
+import ac.boar.anticheat.util.VanillaOffsetUtil;
 import ac.boar.anticheat.util.math.Vec3;
 import ac.boar.anticheat.validator.blockbreak.ServerBreakBlockValidator;
-import ac.boar.mappings.item.Items;
 import ac.boar.protocol.api.CloudburstPacketEvent;
 import ac.boar.protocol.api.PacketListener;
 import org.cloudburstmc.protocol.bedrock.data.AttributeData;
@@ -27,7 +24,6 @@ import org.cloudburstmc.protocol.bedrock.data.attribute.AttributeModifierData;
 import org.cloudburstmc.protocol.bedrock.data.attribute.AttributeOperation;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
-import org.cloudburstmc.protocol.bedrock.packet.MovementPredictionSyncPacket;
 import org.cloudburstmc.protocol.bedrock.packet.SetEntityDataPacket;
 import org.cloudburstmc.protocol.bedrock.packet.SetPlayerGameTypePacket;
 import org.cloudburstmc.protocol.bedrock.packet.StartGamePacket;
@@ -44,6 +40,7 @@ public class ServerDataPackets implements PacketListener {
 
         if (event.getPacket() instanceof StartGamePacket start) {
             player.runtimeEntityId = start.getRuntimeEntityId();
+            player.sneakingEyeHeightReduction = VanillaOffsetUtil.sneakingEyeHeightReduction(start.getVanillaVersion());
 
             final Vec3 wirePosition = new Vec3(start.getPlayerPosition());
             final Vec3 playerPosition = wirePosition.down(player.getYOffset());
@@ -52,6 +49,7 @@ public class ServerDataPackets implements PacketListener {
             player.setPos(playerPosition, false);
             player.prevPosition = playerPosition.clone();
             player.unvalidatedPosition = playerPosition.clone();
+            player.unvalidatedNativeOriginY = player.nativeOriginY;
             player.prevUnvalidatedPosition = playerPosition.clone();
             player.velocity = Vec3.ZERO.clone();
             player.lastTickFinalVelocity = Vec3.ZERO.clone();
@@ -107,12 +105,18 @@ public class ServerDataPackets implements PacketListener {
             Vector3i bedPosition = packet.getMetadata().get(EntityDataTypes.BED_POSITION);
 
             final EnumMap<EntityFlag, Boolean> flags = packet.getMetadata().getFlags();
+            final Boolean observedSwimming = flags == null ? null : flags.get(EntityFlag.SWIMMING);
+            final Boolean observedSprinting = flags == null ? null : flags.get(EntityFlag.SPRINTING);
+            final boolean observedFlagsKey = packet.getMetadata().containsKey(EntityDataTypes.FLAGS);
+            final boolean observedFlags2Key = packet.getMetadata().containsKey(EntityDataTypes.FLAGS_2);
             if (flags == null && height == null && width == null && scale == null && bedPosition == null) {
                 return;
             }
 
             final Set<EntityFlag> flagsCopy;
+            Boolean swimming = null;
             if (flags != null) {
+                swimming = flags.get(EntityFlag.SWIMMING);
                 flagsCopy = EnumSet.noneOf(EntityFlag.class);
                 flags.forEach((k, v) -> {
                     if (v != null && v) {
@@ -122,13 +126,24 @@ public class ServerDataPackets implements PacketListener {
             } else {
                 flagsCopy = null;
             }
-
             if (width != null) {
                 width = Math.max(0f, width - 1e-4f);
             }
 
             // Dimension seems to be controlled server-side as far as I know (tested with clumsy).
-            player.queueAcknowledgment(new PlayerMetadataAck(width, height, scale, flagsCopy, bedPosition, player.tick));
+            final PlayerMetadataAck acknowledgment = new PlayerMetadataAck(width, height, scale, flagsCopy, swimming, bedPosition, player.tick);
+            if (Boar.getConfig().debugMode()) {
+                final int acknowledgmentId = System.identityHashCode(acknowledgment);
+                player.getMovementTrace().log("metadata enqueue: ack=" + acknowledgmentId + " playerTick=" + player.tick
+                        + " packetTick=" + packet.getTick() + " keys=" + packet.getMetadata().keySet()
+                        + " air=" + packet.getMetadata().get(EntityDataTypes.AIR_SUPPLY)
+                        + " flagMap=" + (flags == null ? 0 : System.identityHashCode(flags))
+                        + " hasFlagsKey=" + observedFlagsKey + " hasFlags2Key=" + observedFlags2Key
+                        + " observedSwimming=" + observedSwimming + " observedSprinting=" + observedSprinting
+                        + " swimming=" + swimming + " flags=" + flagsCopy
+                        + " width=" + width + " height=" + height + " scale=" + scale);
+            }
+            player.queueAcknowledgment(acknowledgment);
         }
 
         if (event.getPacket() instanceof UpdateAttributesPacket packet) {

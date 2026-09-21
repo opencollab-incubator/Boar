@@ -36,6 +36,7 @@ public class Prediction extends BaseCheck implements OffsetHandlerCheck {
         }
         if (posDiff < player.getPosAcceptanceThreshold()) {
             player.position = player.unvalidatedPosition.clone();
+            player.nativeOriginY = player.unvalidatedNativeOriginY;
             return;
         }
 
@@ -63,6 +64,14 @@ public class Prediction extends BaseCheck implements OffsetHandlerCheck {
                 + " claimedCollision=(h=" + claimedHorizontal + ",v=" + claimedVertical + ")";
         player.getTeleportUtil().correct();
 
+        final String consoleTrace;
+        if (Boar.getConfig().debugMode() && Boar.getInstance().getPlatform().consoleMovementTraces()) {
+            consoleTrace = player.getMovementTrace().dump(failureInfo);
+            Boar.getInstance().getPlatform().logger().warn("[movement-trace] " + player.getSession().name() + ": " + consoleTrace);
+        } else {
+            consoleTrace = null;
+        }
+
         final int cooldown = Boar.getConfig().correctionFlagCooldownTicks();
         if (this.lastFlagTick != Long.MIN_VALUE && player.tick - this.lastFlagTick < cooldown) {
             this.suppressedFails++;
@@ -88,13 +97,14 @@ public class Prediction extends BaseCheck implements OffsetHandlerCheck {
         final String verbose = "o: " + posDiff + suppressedNote;
         if (checkEnabled) {
             if (Boar.getConfig().debugMode()) {
-                this.correction.fail(verbose + "\n" + player.getMovementTrace().dump(failureInfo + suppressedNote));
+                final String trace = consoleTrace != null ? consoleTrace : player.getMovementTrace().dump(failureInfo + suppressedNote);
+                this.correction.fail(verbose + "\n" + trace);
             } else {
                 this.correction.fail(verbose);
             }
             return;
         }
-        if (Boar.getConfig().debugMode()) {
+        if (Boar.getConfig().debugMode() && consoleTrace == null) {
             player.getMovementTrace().flush(failureInfo + suppressedNote);
         }
     }

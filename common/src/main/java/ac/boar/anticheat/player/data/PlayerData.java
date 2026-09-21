@@ -79,6 +79,8 @@ public class PlayerData {
     public boolean prevInteractRotUnchanged = false;
 
     public Vec3 position = Vec3.ZERO, prevPosition = Vec3.ZERO;
+    // Keep accepted packet origin Y separately since the feet conversion can lose float precision - yes, I tested that out
+    public float nativeOriginY, unvalidatedNativeOriginY;
     public Vector3f rotation = Vector3f.ZERO;
 
     // Sprinting, sneaking, swimming and other status.
@@ -86,9 +88,17 @@ public class PlayerData {
     private final FlagTracker flagTracker = new FlagTracker();
 
     public float sneakingAttributeModifier;
+    public float sneakingEyeHeightReduction = 0.35F;
 
     public int glideBoostTicks;
-    public int ticksSinceSwimming, ticksSinceCrawling, ticksSinceCanSlowdown;
+    public int ticksSinceCrawling, ticksSinceCanSlowdown;
+    // ViewT<StrictEntityContext, Include<InterpolateMovementNeededComponent>, SwimAmountComponent, ActorDataFlagComponent const>::each<void (*)(StrictEntityContext const&, SwimAmountComponent&, ActorDataFlagComponent const&)>
+    // The swimAmount rises toward 1 while swimming or crawling. Otherwise, it falls toward 0
+    public float swimAmount;
+
+    public float vanillaOffsetY = 0.0F, previousVanillaOffsetY = 0.0F;
+    public float headSampleOffsetY = 0.0F;
+    public boolean headInWater;
 
     public boolean doingInventoryAction;
     public AtomicLong desyncedFlag = new AtomicLong(-1);
@@ -157,23 +167,19 @@ public class PlayerData {
     public Vec3 beforeCollision = Vec3.ZERO, afterCollision = Vec3.ZERO;
 
     public boolean onGround;
-    public boolean bounce;
-    public float minBounceYVel;
 
     public Vec3 stuckSpeedMultiplier = Vec3.ZERO;
 
     public float fallDistance = 0;
 
-    public boolean hasDepthStrider;
     public boolean touchingWater;
+    public Fluid selectedFluid = Fluid.EMPTY;
     public boolean horizontalCollision, verticalCollision;
     public boolean stuckInCollider, penetratedLastFrame;
     public boolean soulSandBelow;
 
     public boolean nearBamboo;
     public boolean nearDripstone;
-
-    public boolean beingPushByLava;
 
     public final Map<Fluid, Float> fluidHeight = new HashMap<>();
     public float getFluidHeight(Fluid tagKey) {
@@ -232,7 +238,7 @@ public class PlayerData {
         this.setPos(vec3, true);
     }
 
-    public final void setPos(Vec3 vec3, boolean prev) {
+    public void setPos(Vec3 vec3, boolean prev) {
         if (prev) {
             this.prevPosition = this.position.clone();
         }
