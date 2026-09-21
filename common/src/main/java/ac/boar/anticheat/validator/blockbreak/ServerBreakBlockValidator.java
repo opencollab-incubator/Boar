@@ -18,13 +18,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-import static org.cloudburstmc.protocol.bedrock.data.PlayerActionType.ABORT_BREAK;
-import static org.cloudburstmc.protocol.bedrock.data.PlayerActionType.BLOCK_CONTINUE_DESTROY;
-import static org.cloudburstmc.protocol.bedrock.data.PlayerActionType.BLOCK_PREDICT_DESTROY;
-import static org.cloudburstmc.protocol.bedrock.data.PlayerActionType.START_BREAK;
+import static org.cloudburstmc.protocol.bedrock.data.PlayerActionType.*;
 
 @CheckInfo(name = "Block Break")
 public class ServerBreakBlockValidator extends BaseCheck {
+
     private final static List<PlayerActionType> ALLOWED_ACTIONS = List.of(
             START_BREAK,
             ABORT_BREAK,
@@ -44,10 +42,15 @@ public class ServerBreakBlockValidator extends BaseCheck {
         }
 
         final List<PlayerBlockActionData> validActions = new ArrayList<>();
-
         for (final PlayerBlockActionData action : packet.getPlayerActions()) {
             final PlayerActionType actionType = action.getAction();
             final int face = action.getFace();
+
+            // TODO: see if we need to have any other actions pass through
+            if (actionType == DROP_ITEM) {
+                validActions.add(action);
+                continue;
+            }
 
             // These action are shouldn't be process, and likely won't be process by Geyser anyway.
             if (!ALLOWED_ACTIONS.contains(actionType) || action.getBlockPosition() == null || !MathUtil.isValid(action.getBlockPosition())) {
