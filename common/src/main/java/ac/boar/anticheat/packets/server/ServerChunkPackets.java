@@ -38,164 +38,168 @@ public class ServerChunkPackets implements PacketListener {
         final BoarPlayer player = event.getPlayer();
         final CompensatedWorld world = player.compensatedWorld;
 
-        if (event.getPacket() instanceof ChunkRadiusUpdatedPacket packet) {
-            player.queueAcknowledgment(new ChunkRadiusUpdateAck(packet.getRadius()));
-        } else if (event.getPacket() instanceof LevelChunkPacket packet) {
-            // Servers will have to implement their own custom handlers for chunks if they want to use the sub-chunk cache system.
-            if (packet.isCachingEnabled()) {
-                return;
-            }
-            // Sub-chunk request mode is enabled - actual chunk data will arrive in SubChunkPackets.
-            if (packet.isRequestSubChunks()) {
-                fillSectionsAboveLimit(player, packet);
-                return;
-            }
-
-            final int subChunksCount = packet.getSubChunksLength();
-            if (subChunksCount <= -2 || packet.getDimension() < 0 || packet.getDimension() > 2) {
-                // These cases will all be ignored.
-                return;
-            }
-
-            final int x = packet.getChunkX() << 4, z = packet.getChunkZ() << 4;
-            // Avoid spamming latency if possible, unless the player is seriously lagging then this shouldn't false.
-            /* if (Math.abs(player.position.x - x) <= 16 || Math.abs(player.position.z - z) <= 16) {
-                player.sendLatencyStack();
-            } */
-
-            final Dimension dimension = DimensionUtil.dimensionFromId(packet.getDimension());
-            final BoarChunkSection[] sections = new BoarChunkSection[dimension.height() >> 4];
-            final int airId = player.mappingInfo.airId();
-            final ChunkSectionCache cache = Boar.getInstance().getChunkCache();
-
-            final ByteBuf buf = packet.getData().retainedDuplicate();
-            try {
-                for (int i = 0; i < subChunksCount; i++) {
-                    final int start = buf.readerIndex();
-                    // Measure the byte range of the sub-chunk without a decode. On a cache hit, no
-                    // decode occurs. On a cache miss, the decoder below reads this slice.
-                    final int sectionY = ChunkDecoder.skipSubChunk(buf, i, dimension.minY());
-                    final int end = buf.readerIndex();
-                    if (sectionY < 0 || sectionY >= sections.length) {
-                        continue;
-                    }
-                    final int index = i;
-                    final ByteBuf slice = buf.slice(start, end - start);
-                    sections[sectionY] = cache.getOrDecode(slice, airId,
-                            () -> ChunkDecoder.readSubChunk(slice, airId, index, dimension.minY()).section());
+        switch (event.getPacket()) {
+            case ChunkRadiusUpdatedPacket packet -> player.queueAcknowledgment(new ChunkRadiusUpdateAck(packet.getRadius()));
+            case LevelChunkPacket packet -> {
+                // Servers will have to implement their own custom handlers for chunks if they want to use the sub-chunk cache system.
+                if (packet.isCachingEnabled()) {
+                    return;
+                }
+                // Sub-chunk request mode is enabled - actual chunk data will arrive in SubChunkPackets.
+                if (packet.isRequestSubChunks()) {
+                    fillSectionsAboveLimit(player, packet);
+                    return;
                 }
 
-                // Ignore the rest, I only need the chunk data.
-            } catch (Exception e) {
-                // Bedrock just ignore and use whatever they were able to read.
-                Boar.getInstance().getPlatform().logger().error(player.getSession().name() + ": failed to decode chunk " + packet.getChunkX() + "," + packet.getChunkZ(), e);
-            } finally {
-                buf.release();
-            }
-
-            // Make sure any sections that were missing aren't marked as null as those would be considered
-            // "missing" and that primarily is the concern for the sub-chunk system
-            for (int i = 0; i < sections.length; i++) {
-                if (sections[i] == null) {
-                    sections[i] = cache.allAirSection(airId);
-                }
-            }
-
-            final ChunkLoadAck ack = new ChunkLoadAck(packet.getChunkX(), packet.getChunkZ(), dimension, sections);
-            if (player.pendingDimensionSwitches > 0) {
-                player.queueAcknowledgment(ack);
-            } else {
-                player.dispatchAcknowledgment(ack);
-            }
-        } else if (event.getPacket() instanceof SubChunkPacket packet) {
-            if (packet.isCacheEnabled()) {
-                return;
-            }
-
-            // TODO: Implement handling custom dimensions
-            if (packet.getDimension() < 0 || packet.getDimension() > 2) {
-                return;
-            }
-
-            final Dimension dimension = DimensionUtil.dimensionFromId(packet.getDimension());
-            final Vector3i center = packet.getCenterPosition();
-            for (SubChunkData entry : packet.getSubChunks()) {
-                final SubChunkRequestResult result = entry.getResult();
-                final Vector3i offset = entry.getPosition();
-                final int chunkX = center.getX() + offset.getX();
-                final int chunkZ = center.getZ() + offset.getZ();
-                final int sectionY = (center.getY() + offset.getY()) - (dimension.minY() >> 4);
-
-                if (result != SubChunkRequestResult.SUCCESS && result != SubChunkRequestResult.SUCCESS_ALL_AIR) {
-                    Boar.chunkDebug(player.getSession().name() + ": received non-successful sub-chunk request result " + result + " for chunk (" + chunkX + " " + chunkZ + ") for sub-chunk " + sectionY, Boar.DebugMessage.WARNING);
-                    continue;
+                final int subChunksCount = packet.getSubChunksLength();
+                if (subChunksCount <= -2 || packet.getDimension() < 0 || packet.getDimension() > 2) {
+                    // These cases will all be ignored.
+                    return;
                 }
 
+                final int x = packet.getChunkX() << 4, z = packet.getChunkZ() << 4;
+                // Avoid spamming latency if possible, unless the player is seriously lagging then this shouldn't false.
+                /* if (Math.abs(player.position.x - x) <= 16 || Math.abs(player.position.z - z) <= 16) {
+                    player.sendLatencyStack();
+                } */
+
+                final Dimension dimension = DimensionUtil.dimensionFromId(packet.getDimension());
+                final BoarChunkSection[] sections = new BoarChunkSection[dimension.height() >> 4];
                 final int airId = player.mappingInfo.airId();
-                BoarChunkSection section = null;
-                if (result == SubChunkRequestResult.SUCCESS) {
-                    if (entry.getData() != null) {
-                        final ByteBuf data = entry.getData();
-                        section = Boar.getInstance().getChunkCache().getOrDecode(data, airId, () -> {
-                            final ByteBuf dup = data.retainedDuplicate();
-                            try {
-                                return ChunkDecoder.readSubChunk(dup, airId, sectionY, dimension.minY()).section();
-                            } catch (Exception ex) {
-                                Boar.getInstance().getPlatform().logger().error(player.getSession().name() + ": failed to decode sub-chunk section " + sectionY, ex);
-                                return null;
-                            } finally {
-                                dup.release();
-                            }
-                        });
-                    } else {
-                        Boar.chunkDebug(player.getSession().name() + ": received sub-chunk " + sectionY + " but no data was provided", Boar.DebugMessage.WARNING);
+                final ChunkSectionCache cache = Boar.getInstance().getChunkCache();
+
+                final ByteBuf buf = packet.getData().retainedDuplicate();
+                try {
+                    for (int i = 0; i < subChunksCount; i++) {
+                        final int start = buf.readerIndex();
+                        // Measure the byte range of the sub-chunk without a decode. On a cache hit, no
+                        // decode occurs. On a cache miss, the decoder below reads this slice.
+                        final int sectionY = ChunkDecoder.skipSubChunk(buf, i, dimension.minY());
+                        final int end = buf.readerIndex();
+                        if (sectionY < 0 || sectionY >= sections.length) {
+                            continue;
+                        }
+                        final int index = i;
+                        final ByteBuf slice = buf.slice(start, end - start);
+                        sections[sectionY] = cache.getOrDecode(slice, airId,
+                                () -> ChunkDecoder.readSubChunk(slice, airId, index, dimension.minY()).section());
+                    }
+
+                    // Ignore the rest, I only need the chunk data.
+                } catch (Exception e) {
+                    // Bedrock just ignore and use whatever they were able to read.
+                    Boar.getInstance().getPlatform().logger().error(player.getSession().name() + ": failed to decode chunk " + packet.getChunkX() + "," + packet.getChunkZ(), e);
+                } finally {
+                    buf.release();
+                }
+
+                // Make sure any sections that were missing aren't marked as null as those would be considered
+                // "missing" and that primarily is the concern for the sub-chunk system
+                for (int i = 0; i < sections.length; i++) {
+                    if (sections[i] == null) {
+                        sections[i] = cache.allAirSection(airId);
                     }
                 }
 
-                // decoding error or server didn't send?? anyway we just set to air here so that it isn't considered to be "missing"
-                if (section == null) {
-                    section = Boar.getInstance().getChunkCache().allAirSection(airId);
-                }
-
-                final SubChunkLoadAck ack = new SubChunkLoadAck(chunkX, chunkZ, sectionY, dimension, section);
+                final ChunkLoadAck ack = new ChunkLoadAck(packet.getChunkX(), packet.getChunkZ(), dimension, sections);
                 if (player.pendingDimensionSwitches > 0) {
                     player.queueAcknowledgment(ack);
                 } else {
                     player.dispatchAcknowledgment(ack);
                 }
             }
-        } else if (event.getPacket() instanceof UpdateBlockPacket packet) {
-            // Ugly hack.
-            if (packet.getDataLayer() == 0 && Boar.getConfig().ignoreGhostBlock() && !player.inLoadingScreen && player.sinceLoadingScreen >= 2) {
-                boolean newBlockIsAir = player.mappingInfo.airIds().contains(packet.getDefinition().getRuntimeId());
-                boolean oldBlockIsAir = player.mappingInfo.airIds().contains(player.compensatedWorld.getRawBlockAt(packet.getBlockPosition().getX(), packet.getBlockPosition().getY(), packet.getBlockPosition().getZ(), 0));
+            case SubChunkPacket packet -> {
+                if (packet.isCacheEnabled()) {
+                    return;
+                }
 
-                if (newBlockIsAir && !oldBlockIsAir) {
-                    int distance = Math.abs(packet.getBlockPosition().getY() - GenericMath.floor(player.position.y - 1));
-                    if (distance <= 1) {
-                        player.tickSinceBlockResync = 5;
-                        world.updateBlock(packet.getBlockPosition(), packet.getDataLayer(), packet.getDefinition().getRuntimeId());
+                // TODO: Implement handling custom dimensions
+                if (packet.getDimension() < 0 || packet.getDimension() > 2) {
+                    return;
+                }
+
+                final Dimension dimension = DimensionUtil.dimensionFromId(packet.getDimension());
+                final Vector3i center = packet.getCenterPosition();
+                for (SubChunkData entry : packet.getSubChunks()) {
+                    final SubChunkRequestResult result = entry.getResult();
+                    final Vector3i offset = entry.getPosition();
+                    final int chunkX = center.getX() + offset.getX();
+                    final int chunkZ = center.getZ() + offset.getZ();
+                    final int sectionY = (center.getY() + offset.getY()) - (dimension.minY() >> 4);
+
+                    if (result != SubChunkRequestResult.SUCCESS && result != SubChunkRequestResult.SUCCESS_ALL_AIR) {
+                        Boar.chunkDebug(player.getSession().name() + ": received non-successful sub-chunk request result " + result + " for chunk (" + chunkX + " " + chunkZ + ") for sub-chunk " + sectionY, Boar.DebugMessage.WARNING);
+                        continue;
+                    }
+
+                    final int airId = player.mappingInfo.airId();
+                    BoarChunkSection section = null;
+                    if (result == SubChunkRequestResult.SUCCESS) {
+                        if (entry.getData() != null) {
+                            final ByteBuf data = entry.getData();
+                            section = Boar.getInstance().getChunkCache().getOrDecode(data, airId, () -> {
+                                final ByteBuf dup = data.retainedDuplicate();
+                                try {
+                                    return ChunkDecoder.readSubChunk(dup, airId, sectionY, dimension.minY()).section();
+                                } catch (Exception ex) {
+                                    Boar.getInstance().getPlatform().logger().error(player.getSession().name() + ": failed to decode sub-chunk section " + sectionY, ex);
+                                    return null;
+                                } finally {
+                                    dup.release();
+                                }
+                            });
+                        } else {
+                            Boar.chunkDebug(player.getSession().name() + ": received sub-chunk " + sectionY + " but no data was provided", Boar.DebugMessage.WARNING);
+                        }
+                    }
+
+                    // decoding error or server didn't send?? anyway we just set to air here so that it isn't considered to be "missing"
+                    if (section == null) {
+                        section = Boar.getInstance().getChunkCache().allAirSection(airId);
+                    }
+
+                    final SubChunkLoadAck ack = new SubChunkLoadAck(chunkX, chunkZ, sectionY, dimension, section);
+                    if (player.pendingDimensionSwitches > 0) {
+                        player.queueAcknowledgment(ack);
+                    } else {
+                        player.dispatchAcknowledgment(ack);
                     }
                 }
             }
+            case UpdateBlockPacket packet -> {
+                // Ugly hack.
+                if (packet.getDataLayer() == 0 && Boar.getConfig().ignoreGhostBlock() && !player.inLoadingScreen && player.sinceLoadingScreen >= 2) {
+                    boolean newBlockIsAir = player.mappingInfo.airIds().contains(packet.getDefinition().getRuntimeId());
+                    boolean oldBlockIsAir = player.mappingInfo.airIds().contains(player.compensatedWorld.getRawBlockAt(packet.getBlockPosition().getX(), packet.getBlockPosition().getY(), packet.getBlockPosition().getZ(), 0));
 
-            // Avoid spamming latency if possible, unless the player is seriously lagging then this shouldn't false.
-            /* boolean send = player.position.distanceTo(new Vec3(packet.getBlockPosition())) <= 16;
-            if (send) {
-                player.sendLatencyStack();
-            } */
+                    if (newBlockIsAir && !oldBlockIsAir) {
+                        int distance = Math.abs(packet.getBlockPosition().getY() - GenericMath.floor(player.position.y - 1));
+                        if (distance <= 1) {
+                            player.tickSinceBlockResync = 5;
+                            world.updateBlock(packet.getBlockPosition(), packet.getDataLayer(), packet.getDefinition().getRuntimeId());
+                        }
+                    }
+                }
 
-            player.queueAcknowledgment(new BlockUpdateAck(packet.getBlockPosition(), packet.getDataLayer(), packet.getDefinition().getRuntimeId()));
-        } else if (event.getPacket() instanceof UpdateSubChunkBlocksPacket packet) {
-            // TODO: Figure out the difference between standard block entries and extra block entries and re-evaluate if this current handling is correct.
-            for (BlockChangeEntry entry : packet.getStandardBlocks()) {
-                player.queueAcknowledgment(new BlockUpdateAck(entry.getPosition(), 0, entry.getDefinition().getRuntimeId()));
+                // Avoid spamming latency if possible, unless the player is seriously lagging then this shouldn't false.
+                /* boolean send = player.position.distanceTo(new Vec3(packet.getBlockPosition())) <= 16;
+                if (send) {
+                    player.sendLatencyStack();
+                } */
+
+                player.queueAcknowledgment(new BlockUpdateAck(packet.getBlockPosition(), packet.getDataLayer(), packet.getDefinition().getRuntimeId()));
             }
-            for (BlockChangeEntry entry : packet.getExtraBlocks()) {
-                player.queueAcknowledgment(new BlockUpdateAck(entry.getPosition(), 1, entry.getDefinition().getRuntimeId()));
+            case UpdateSubChunkBlocksPacket packet -> {
+                // TODO: Figure out the difference between standard block entries and extra block entries and re-evaluate if this current handling is correct.
+                for (BlockChangeEntry entry : packet.getStandardBlocks()) {
+                    player.queueAcknowledgment(new BlockUpdateAck(entry.getPosition(), 0, entry.getDefinition().getRuntimeId()));
+                }
+                for (BlockChangeEntry entry : packet.getExtraBlocks()) {
+                    player.queueAcknowledgment(new BlockUpdateAck(entry.getPosition(), 1, entry.getDefinition().getRuntimeId()));
+                }
             }
-        } else if (event.getPacket() instanceof BlockEntityDataPacket packet) {
-            player.sendLatencyStack(new BlockEntityUpdateAck(packet.getBlockPosition(), packet.getData()));
+            case BlockEntityDataPacket packet -> player.sendLatencyStack(new BlockEntityUpdateAck(packet.getBlockPosition(), packet.getData()));
+            default -> {}
         }
     }
 

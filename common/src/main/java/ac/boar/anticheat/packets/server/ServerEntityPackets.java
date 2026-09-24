@@ -18,60 +18,55 @@ public class ServerEntityPackets implements PacketListener {
     @Override
     public void onPacketSend(final CloudburstPacketEvent event) {
         final BoarPlayer player = event.getPlayer();
-        if (event.getPacket() instanceof RemoveEntityPacket packet) {
-            player.sendLatencyStack(new EntityRemoveAck(packet.getUniqueEntityId()));
-        } else if (event.getPacket() instanceof AddEntityPacket packet) {
-            this.handleEntityAdd(player, packet.getRuntimeEntityId(), packet.getUniqueEntityId(), packet.getPosition(), packet.getMetadata(),
-                    packet.getRotation().getX(), packet.getRotation().getY(), packet.getHeadRotation());
-        } else if (event.getPacket() instanceof AddPlayerPacket packet) {
-            this.handleEntityAdd(player, packet.getRuntimeEntityId(), packet.getUniqueEntityId(), packet.getPosition(), packet.getMetadata(),
-                    packet.getRotation().getX(), packet.getRotation().getY(), packet.getRotation().getZ());
-        } else if (event.getPacket() instanceof MoveEntityDeltaPacket packet) {
-            final EntityCache entity = player.compensatedWorld.getTrackedEntity(packet.getRuntimeEntityId());
-            if (entity == null) {
-                return;
-            }
+        switch (event.getPacket()) {
+            case RemoveEntityPacket packet -> player.sendLatencyStack(new EntityRemoveAck(packet.getUniqueEntityId()));
+            case AddEntityPacket packet -> this.handleEntityAdd(player, packet.getRuntimeEntityId(), packet.getUniqueEntityId(), packet.getPosition(), packet.getMetadata(), packet.getRotation().getX(), packet.getRotation().getY(), packet.getHeadRotation());
+            case AddPlayerPacket packet -> this.handleEntityAdd(player, packet.getRuntimeEntityId(), packet.getUniqueEntityId(), packet.getPosition(), packet.getMetadata(), packet.getRotation().getX(), packet.getRotation().getY(), packet.getRotation().getZ());
+            case MoveEntityDeltaPacket packet -> {
+                final EntityCache entity = player.compensatedWorld.getTrackedEntity(packet.getRuntimeEntityId());
+                if (entity == null) {
+                    return;
+                }
 
-            final Set<MoveEntityDeltaPacket.Flag> flags = packet.getFlags();
-            Float posX = null, posY = null, posZ = null;
-            Float pitch = null, yaw = null, headYaw = null;
-            if (flags.contains(MoveEntityDeltaPacket.Flag.HAS_X)) {
-                posX = packet.getX();
-            }
-            if (flags.contains(MoveEntityDeltaPacket.Flag.HAS_Y)) {
-                posY = packet.getY();
-            }
-            if (flags.contains(MoveEntityDeltaPacket.Flag.HAS_Z)) {
-                posZ = packet.getZ();
-            }
-            if (flags.contains(MoveEntityDeltaPacket.Flag.HAS_PITCH)) {
-                pitch = packet.getPitch();
-            }
-            if (flags.contains(MoveEntityDeltaPacket.Flag.HAS_YAW)) {
-                yaw = packet.getYaw();
-            }
-            if (flags.contains(MoveEntityDeltaPacket.Flag.HAS_HEAD_YAW)) {
-                headYaw = packet.getHeadYaw();
-            }
+                final Set<MoveEntityDeltaPacket.Flag> flags = packet.getFlags();
+                Float posX = null, posY = null, posZ = null;
+                Float pitch = null, yaw = null, headYaw = null;
+                if (flags.contains(MoveEntityDeltaPacket.Flag.HAS_X)) {
+                    posX = packet.getX();
+                }
+                if (flags.contains(MoveEntityDeltaPacket.Flag.HAS_Y)) {
+                    posY = packet.getY();
+                }
+                if (flags.contains(MoveEntityDeltaPacket.Flag.HAS_Z)) {
+                    posZ = packet.getZ();
+                }
+                if (flags.contains(MoveEntityDeltaPacket.Flag.HAS_PITCH)) {
+                    pitch = packet.getPitch();
+                }
+                if (flags.contains(MoveEntityDeltaPacket.Flag.HAS_YAW)) {
+                    yaw = packet.getYaw();
+                }
+                if (flags.contains(MoveEntityDeltaPacket.Flag.HAS_HEAD_YAW)) {
+                    headYaw = packet.getHeadYaw();
+                }
 
-            this.queuePositionUpdate(event, entity, posX, posY, posZ, pitch, yaw, headYaw, true);
-        } else if (event.getPacket() instanceof MoveEntityAbsolutePacket packet) {
-            player.compensatedWorld
-                    .fetchTrackedEntity(packet.getRuntimeEntityId())
-                    .ifPresent(entity -> this.queuePositionUpdate(event, entity, packet.getPosition(), packet.getRotation(), true));
-        } else if (event.getPacket() instanceof MovePlayerPacket packet) {
-            if (packet.getRuntimeEntityId() == player.runtimeEntityId) {
-                return;
+                this.queuePositionUpdate(event, entity, posX, posY, posZ, pitch, yaw, headYaw, true);
             }
-
-            player.compensatedWorld
-                    .fetchTrackedEntity(packet.getRuntimeEntityId())
-                    .ifPresent(entity -> this.queuePositionUpdate(event, entity, packet.getPosition(), packet.getRotation(), packet.getMode() == MovePlayerPacket.Mode.NORMAL));
+            case MoveEntityAbsolutePacket packet -> {
+                player.compensatedWorld
+                        .fetchTrackedEntity(packet.getRuntimeEntityId())
+                        .ifPresent(entity -> this.queuePositionUpdate(event, entity, packet.getPosition(), packet.getRotation(), true));
+            }
+            case MovePlayerPacket packet when packet.getRuntimeEntityId() != player.runtimeEntityId -> {
+                player.compensatedWorld
+                        .fetchTrackedEntity(packet.getRuntimeEntityId())
+                        .ifPresent(entity -> this.queuePositionUpdate(event, entity, packet.getPosition(), packet.getRotation(), packet.getMode() == MovePlayerPacket.Mode.NORMAL));
+            }
+            default -> {}
         }
     }
 
-    private void handleEntityAdd(final BoarPlayer player, final long runtimeId, final long uniqueId, final Vector3f rawPosition, final EntityDataMap metadata,
-                                 final float pitch, final float yaw, final float headYaw) {
+    private void handleEntityAdd(final BoarPlayer player, final long runtimeId, final long uniqueId, final Vector3f rawPosition, final EntityDataMap metadata, final float pitch, final float yaw, final float headYaw) {
         final EntityCache entity = player.compensatedWorld.addToCache(player, runtimeId, uniqueId);
         if (entity == null) {
             return;

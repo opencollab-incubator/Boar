@@ -37,20 +37,57 @@ public class PlayerInventoryPackets implements PacketListener {
         final BoarPlayer player = event.getPlayer();
         final CompensatedInventory inventory = player.compensatedInventory;
 
-        if (event.getPacket() instanceof InventoryTransactionPacket packet) {
-            try { // In case I messed up.
-                boolean cancelled = !player.transactionValidator.handle(packet);
-                if (cancelled) {
-                    final String details = "invalid transaction: " + player.transactionValidator.getFailReason()
-                            + " | type=" + packet.getTransactionType()
-                            + ", action=" + packet.getActionType()
-                            + ", hotbarSlot=" + packet.getHotbarSlot()
-                            + ", heldSlot=" + inventory.heldItemSlot
-                            + ", blockPos=" + packet.getBlockPosition()
-                            + ", blockFace=" + packet.getBlockFace()
-                            + ", clickPos=" + packet.getClickPosition()
-                            + ", itemInHand=" + ItemTransactionValidator.describe(packet.getItemInHand())
-                            + ", actions=" + packet.getActions().size()
+        switch (event.getPacket()) {
+            case InventoryTransactionPacket packet -> {
+                try { // In case I messed up.
+                    boolean cancelled = !player.transactionValidator.handle(packet);
+                    if (cancelled) {
+                        final String details = "invalid transaction: " + player.transactionValidator.getFailReason()
+                                + " | type=" + packet.getTransactionType()
+                                + ", action=" + packet.getActionType()
+                                + ", hotbarSlot=" + packet.getHotbarSlot()
+                                + ", heldSlot=" + inventory.heldItemSlot
+                                + ", blockPos=" + packet.getBlockPosition()
+                                + ", blockFace=" + packet.getBlockFace()
+                                + ", clickPos=" + packet.getClickPosition()
+                                + ", itemInHand=" + ItemTransactionValidator.describe(packet.getItemInHand())
+                                + ", actions=" + packet.getActions().size()
+                                + ", gameType=" + player.gameType;
+
+                        if (player.disableMitigations()) {
+                            player.getCheckHolder().manuallyFail(Inventory.class, details);
+                        } else {
+                            Boar.debug(player.getSession().name() + ": " + details, Boar.DebugMessage.WARNING);
+                        }
+                    }
+                    event.setCancelled(cancelled && !player.disableMitigations());
+                } catch (Exception exception) {
+                    Boar.getInstance().getPlatform().logger().error(
+                            "Failed to validate inventory transaction for player " + player.getSession().name()
+                                    + ": type=" + packet.getTransactionType()
+                                    + ", action=" + packet.getActionType()
+                                    + ", slot=" + packet.getHotbarSlot()
+                                    + ", blockPosition=" + packet.getBlockPosition(),
+                            exception);
+                }
+            }
+            case ItemStackRequestPacket packet -> {
+                final boolean skipped = inventory.openContainer == null;
+                for (final ItemStackRequest request : packet.getRequests()) {
+                    Boar.debug(player.getSession().name() + ": item stack " + describeRequest(request)
+                            + " | openContainer=" + (inventory.openContainer == null ? "none"
+                                    : inventory.openContainer.getType() + ":" + inventory.openContainer.getId())
+                            + ", validated=" + !skipped
+                            + ", gameType=" + player.gameType, Boar.DebugMessage.INFO);
+                }
+
+                // TODO: Reverse engineer the 1.26.30 client and compare against other server software(s) to make sure inventory handling is matching.
+                // Also should look into why certain actions are failing to be validated.
+                if (!player.transactionValidator.handle(packet)) {
+                    final String details = "invalid item stack request: " + player.transactionValidator.getFailReason()
+                            + " | requests=" + packet.getRequests().size()
+                            + ", openContainer=" + (inventory.openContainer == null ? "none"
+                                    : inventory.openContainer.getType() + ":" + inventory.openContainer.getId())
                             + ", gameType=" + player.gameType;
 
                     if (player.disableMitigations()) {
@@ -59,84 +96,46 @@ public class PlayerInventoryPackets implements PacketListener {
                         Boar.debug(player.getSession().name() + ": " + details, Boar.DebugMessage.WARNING);
                     }
                 }
-                event.setCancelled(cancelled && !player.disableMitigations());
-            } catch (Exception exception) {
-                Boar.getInstance().getPlatform().logger().error(
-                        "Failed to validate inventory transaction for player " + player.getSession().name()
-                                + ": type=" + packet.getTransactionType()
-                                + ", action=" + packet.getActionType()
-                                + ", slot=" + packet.getHotbarSlot()
-                                + ", blockPosition=" + packet.getBlockPosition(),
-                        exception);
             }
-        }
+            case InteractPacket packet -> {
+                if (player.runtimeEntityId != packet.getRuntimeEntityId()) {
+                    return;
+                }
 
-        if (event.getPacket() instanceof ItemStackRequestPacket packet) {
-            final boolean skipped = inventory.openContainer == null;
-            for (final ItemStackRequest request : packet.getRequests()) {
-                Boar.debug(player.getSession().name() + ": item stack " + describeRequest(request)
-                        + " | openContainer=" + (inventory.openContainer == null ? "none"
-                                : inventory.openContainer.getType() + ":" + inventory.openContainer.getId())
-                        + ", validated=" + !skipped
-                        + ", gameType=" + player.gameType, Boar.DebugMessage.INFO);
-            }
-
-            // TODO: Reverse engineer the 1.26.30 client and compare against other server software(s) to make sure inventory handling is matching.
-            // Also should look into why certain actions are failing to be validated.
-            if (!player.transactionValidator.handle(packet)) {
-                final String details = "invalid item stack request: " + player.transactionValidator.getFailReason()
-                        + " | requests=" + packet.getRequests().size()
-                        + ", openContainer=" + (inventory.openContainer == null ? "none"
-                                : inventory.openContainer.getType() + ":" + inventory.openContainer.getId())
-                        + ", gameType=" + player.gameType;
-
-                if (player.disableMitigations()) {
-                    player.getCheckHolder().manuallyFail(Inventory.class, details);
-                } else {
-                    Boar.debug(player.getSession().name() + ": " + details, Boar.DebugMessage.WARNING);
+                // This is controlled by server as Geyser use server auth.
+                if (packet.getAction() == InteractPacket.Action.OPEN_INVENTORY) {
+                    // player.compensatedInventory.openContainer = player.compensatedInventory.inventoryContainer;
                 }
             }
-        }
+            case ContainerClosePacket packet -> {
+                if (inventory.openContainer == null) {
+                    return;
+                }
 
-        if (event.getPacket() instanceof InteractPacket packet) {
-            if (player.runtimeEntityId != packet.getRuntimeEntityId()) {
-                return;
+                if (packet.getId() != inventory.openContainer.getId() && packet.getId() != -1) {
+                    return;
+                }
+
+                inventory.openContainer = null;
             }
+            case MobEquipmentPacket packet -> {
+                final int newSlot = packet.getHotbarSlot();
+                if (player.runtimeEntityId != packet.getRuntimeEntityId()) {
+                    return;
+                }
 
-            // This is controlled by server as Geyser use server auth.
-            if (packet.getAction() == InteractPacket.Action.OPEN_INVENTORY) {
-                // player.compensatedInventory.openContainer = player.compensatedInventory.inventoryContainer;
+                if (newSlot < 0 || newSlot > 8 || packet.getContainerId() != ContainerId.INVENTORY || inventory.heldItemSlot == newSlot) {
+                    return;
+                }
+
+                inventory.heldItemSlot = newSlot;
+
+                if (player.getItemUseTracker().getItem() != null || player.getFlagTracker().has(EntityFlag.USING_ITEM)) {
+                    player.getItemUseTracker().release();
+                    player.getItemUseTracker().setDirtyUsing(ItemUseTracker.DirtyUsing.NONE);
+                }
             }
-        }
-
-        if (event.getPacket() instanceof ContainerClosePacket packet) {
-            if (inventory.openContainer == null) {
-                return;
-            }
-
-            if (packet.getId() != inventory.openContainer.getId() && packet.getId() != -1) {
-                return;
-            }
-
-            inventory.openContainer = null;
-        }
-
-        if (event.getPacket() instanceof MobEquipmentPacket packet) {
-            final int newSlot = packet.getHotbarSlot();
-            if (player.runtimeEntityId != packet.getRuntimeEntityId()) {
-                return;
-            }
-
-            if (newSlot < 0 || newSlot > 8 || packet.getContainerId() != ContainerId.INVENTORY || inventory.heldItemSlot == newSlot) {
-                return;
-            }
-
-            inventory.heldItemSlot = newSlot;
-
-            if (player.getItemUseTracker().getItem() != null || player.getFlagTracker().has(EntityFlag.USING_ITEM)) {
-                player.getItemUseTracker().release();
-                player.getItemUseTracker().setDirtyUsing(ItemUseTracker.DirtyUsing.NONE);
-            }
+            default -> {}
         }
     }
 
@@ -145,47 +144,23 @@ public class PlayerInventoryPackets implements PacketListener {
         final BoarPlayer player = event.getPlayer();
         final CompensatedInventory inventory = player.compensatedInventory;
 
-        if (event.getPacket() instanceof CreativeContentPacket packet) {
-            player.queueAcknowledgment(new CreativeContentAck(packet.getContents()));
-        }
-
-        if (event.getPacket() instanceof CraftingDataPacket packet) {
-            player.queueAcknowledgment(new CraftingDataAck(packet.getCraftingData(), packet.getPotionMixData()));
-        }
-
-        if (event.getPacket() instanceof ContainerOpenPacket packet) {
-            player.queueAcknowledgment(new ContainerOpenAck(packet.getId(), packet.getType(), packet.getBlockPosition(), packet.getUniqueEntityId()));
-        }
-
-        if (event.getPacket() instanceof UpdateTradePacket packet) {
-            if (packet.getPlayerUniqueEntityId() != player.runtimeEntityId || packet.getContainerType() != ContainerType.TRADE) {
-                return;
+        switch (event.getPacket()) {
+            case CreativeContentPacket packet -> player.queueAcknowledgment(new CreativeContentAck(packet.getContents()));
+            case CraftingDataPacket packet -> player.queueAcknowledgment(new CraftingDataAck(packet.getCraftingData(), packet.getPotionMixData()));
+            case ContainerOpenPacket packet -> player.queueAcknowledgment(new ContainerOpenAck(packet.getId(), packet.getType(), packet.getBlockPosition(), packet.getUniqueEntityId()));
+            case UpdateTradePacket packet when packet.getPlayerUniqueEntityId() == player.runtimeEntityId && packet.getContainerType() == ContainerType.TRADE -> {
+                player.sendLatencyStack(new UpdateTradeAck((byte) packet.getContainerId(), packet.getContainerType(), packet.getOffers(), packet.getTraderUniqueEntityId()));
             }
-
-            player.sendLatencyStack(new UpdateTradeAck((byte) packet.getContainerId(), packet.getContainerType(), packet.getOffers(), packet.getTraderUniqueEntityId()));
-        }
-
-        if (event.getPacket() instanceof InventorySlotPacket packet) {
-            player.sendLatencyStack(new InventorySlotAck(packet.getContainerId(), packet.getSlot(), packet.getItem(), packet.getStorageItem()));
-        }
-
-        if (event.getPacket() instanceof InventoryContentPacket packet) {
-            player.sendLatencyStack(new InventoryContentAck(packet.getContainerId(), packet.getContents(), packet.getStorageItem()));
-        }
-
-        if (event.getPacket() instanceof ItemStackResponsePacket packet) {
-            player.sendLatencyStack(new ItemStackResponseAck(new ArrayList<>(packet.getEntries())));
-        }
-
-        if (event.getPacket() instanceof PlayerHotbarPacket packet) {
-            if (packet.getContainerId() != inventory.inventoryContainer.getId() || !packet.isSelectHotbarSlot()) {
-                return;
+            case InventorySlotPacket packet -> player.sendLatencyStack(new InventorySlotAck(packet.getContainerId(), packet.getSlot(), packet.getItem(), packet.getStorageItem()));
+            case InventoryContentPacket packet -> player.sendLatencyStack(new InventoryContentAck(packet.getContainerId(), packet.getContents(), packet.getStorageItem()));
+            case ItemStackResponsePacket packet -> player.sendLatencyStack(new ItemStackResponseAck(new ArrayList<>(packet.getEntries())));
+            case PlayerHotbarPacket packet when packet.getContainerId() == inventory.inventoryContainer.getId() && packet.isSelectHotbarSlot() -> {
+                final int slot = packet.getSelectedHotbarSlot();
+                if (slot >= 0 && slot < 9) {
+                    player.sendLatencyStack(new HotbarSlotAck(slot));
+                }
             }
-
-            final int slot = packet.getSelectedHotbarSlot();
-            if (slot >= 0 && slot < 9) {
-                player.sendLatencyStack(new HotbarSlotAck(slot));
-            }
+            default -> {}
         }
     }
 

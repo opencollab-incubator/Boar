@@ -158,37 +158,35 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
     public void onPacketSend(CloudburstPacketEvent event) {
         final BoarPlayer player = event.getPlayer();
 
-        if (event.getPacket() instanceof ChangeDimensionPacket packet) {
-            int dimensionId = packet.getDimension();
-            final Dimension dimension = DimensionUtil.dimensionFromId(dimensionId);
+        switch (event.getPacket()) {
+            case ChangeDimensionPacket packet -> {
+                int dimensionId = packet.getDimension();
+                final Dimension dimension = DimensionUtil.dimensionFromId(dimensionId);
 
-            player.pendingDimensionSwitches++;
-            player.queueAcknowledgment(new DimensionSwitchAck(dimension, packet.getLoadingScreenId()));
-        }
-
-        if (event.getPacket() instanceof MovePlayerPacket packet && packet.getRuntimeEntityId() == player.runtimeEntityId && packet.getMode() != MovePlayerPacket.Mode.HEAD_ROTATION) {
-            Boar.debug(player.getSession().name() + ": [movement-debug] queued server teleport source=MovePlayerPacket mode="
-                    + packet.getMode() + " cause=" + packet.getTeleportationCause() + " pos=" + packet.getPosition()
-                    + " tick=" + player.tick + " dead=" + player.dead, Boar.DebugMessage.WARNING);
-            final TeleportData.Source source = switch (packet.getMode()) {
-                case NORMAL -> TeleportData.Source.MOVE_PLAYER_NORMAL;
-                case RESPAWN -> TeleportData.Source.MOVE_PLAYER_RESPAWN;
-                default -> TeleportData.Source.MOVE_PLAYER_TELEPORT;
-            };
-            player.getTeleportUtil().queue(new TeleportData(new Vec3(packet.getPosition()), packet.isOnGround(), source));
-        }
-
-        // The vanilla server sends runtime id 0 in the player's own RespawnPacket (Player::recheckSpawnPosition) so accept 0 as well as the player's id.
-        if (event.getPacket() instanceof RespawnPacket packet &&
-                (packet.getRuntimeEntityId() == player.runtimeEntityId || packet.getRuntimeEntityId() == 0) &&
-                packet.getState() != RespawnPacket.State.CLIENT_READY) {
-            player.sendLatencyStack(new RespawnStateAck(packet.getState()));
-
-            if (packet.getState() == RespawnPacket.State.SERVER_READY) {
-                Boar.debug(player.getSession().name() + ": [movement-debug] queued server teleport source=RespawnPacket runtimeId="
-                        + packet.getRuntimeEntityId() + " pos=" + packet.getPosition() + " tick=" + player.tick, Boar.DebugMessage.WARNING);
-                player.getTeleportUtil().queue(new TeleportData(new Vec3(packet.getPosition()), true, TeleportData.Source.RESPAWN));
+                player.pendingDimensionSwitches++;
+                player.queueAcknowledgment(new DimensionSwitchAck(dimension, packet.getLoadingScreenId()));
             }
+            case MovePlayerPacket packet when packet.getRuntimeEntityId() == player.runtimeEntityId && packet.getMode() != MovePlayerPacket.Mode.HEAD_ROTATION -> {
+                Boar.debug(player.getSession().name() + ": [movement-debug] queued server teleport source=MovePlayerPacket mode="
+                        + packet.getMode() + " cause=" + packet.getTeleportationCause() + " pos=" + packet.getPosition()
+                        + " tick=" + player.tick + " dead=" + player.dead, Boar.DebugMessage.WARNING);
+                final TeleportData.Source source = switch (packet.getMode()) {
+                    case NORMAL -> TeleportData.Source.MOVE_PLAYER_NORMAL;
+                    case RESPAWN -> TeleportData.Source.MOVE_PLAYER_RESPAWN;
+                    default -> TeleportData.Source.MOVE_PLAYER_TELEPORT;
+                };
+                player.getTeleportUtil().queue(new TeleportData(new Vec3(packet.getPosition()), packet.isOnGround(), source));
+            }
+            // The vanilla server sends runtime id 0 in the player's own RespawnPacket (Player::recheckSpawnPosition) so accept 0 as well as the player's id.
+            case RespawnPacket packet when (packet.getRuntimeEntityId() == player.runtimeEntityId || packet.getRuntimeEntityId() == 0) && packet.getState() != RespawnPacket.State.CLIENT_READY -> {
+                player.sendLatencyStack(new RespawnStateAck(packet.getState()));
+                if (packet.getState() == RespawnPacket.State.SERVER_READY) {
+                    Boar.debug(player.getSession().name() + ": [movement-debug] queued server teleport source=RespawnPacket runtimeId="
+                            + packet.getRuntimeEntityId() + " pos=" + packet.getPosition() + " tick=" + player.tick, Boar.DebugMessage.WARNING);
+                    player.getTeleportUtil().queue(new TeleportData(new Vec3(packet.getPosition()), true, TeleportData.Source.RESPAWN));
+                }
+            }
+            default -> {}
         }
     }
 }

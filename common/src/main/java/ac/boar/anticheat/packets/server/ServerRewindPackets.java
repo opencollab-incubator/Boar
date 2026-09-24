@@ -11,16 +11,13 @@ import org.cloudburstmc.protocol.bedrock.packet.UpdateAttributesPacket;
 public final class ServerRewindPackets implements PacketListener {
     @Override
     public void onPacketSend(final CloudburstPacketEvent event) {
-        if (event.getPacket() instanceof MobEffectPacket packet) {
-            packet.setTick(0L);
-        } else if (event.getPacket() instanceof MovePlayerPacket packet) {
-            packet.setTick(0L);
-        } else if (event.getPacket() instanceof SetEntityDataPacket packet) {
-            packet.setTick(0L);
-        } else if (event.getPacket() instanceof SetEntityMotionPacket packet) {
-            packet.setTick(0L);
-        } else if (event.getPacket() instanceof UpdateAttributesPacket packet) {
-            packet.setTick(0L);
+        switch (event.getPacket()) {
+            case MobEffectPacket packet -> packet.setTick(0L);
+            case MovePlayerPacket packet -> packet.setTick(0L);
+            case SetEntityDataPacket packet -> packet.setTick(0L);
+            case SetEntityMotionPacket packet -> packet.setTick(0L);
+            case UpdateAttributesPacket packet -> packet.setTick(0L);
+            default -> {}
         }
     }
 }

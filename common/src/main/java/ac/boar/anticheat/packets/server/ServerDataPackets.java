@@ -38,125 +38,110 @@ public class ServerDataPackets implements PacketListener {
     public void onPacketSend(final CloudburstPacketEvent event) {
         final BoarPlayer player = event.getPlayer();
 
-        if (event.getPacket() instanceof StartGamePacket start) {
-            player.runtimeEntityId = start.getRuntimeEntityId();
-            player.sneakingEyeHeightReduction = VanillaOffsetUtil.sneakingEyeHeightReduction(start.getVanillaVersion());
+        switch (event.getPacket()) {
+            case StartGamePacket start -> {
+                player.runtimeEntityId = start.getRuntimeEntityId();
+                player.sneakingEyeHeightReduction = VanillaOffsetUtil.sneakingEyeHeightReduction(start.getVanillaVersion());
 
-            final Vec3 wirePosition = new Vec3(start.getPlayerPosition());
-            final Vec3 playerPosition = wirePosition.down(player.getYOffset());
-            player.compensatedWorld.clearChunks();
-            player.compensatedWorld.setDimension(DimensionUtil.dimensionFromId(start.getDimensionId()));
-            player.setPos(playerPosition, false);
-            player.prevPosition = playerPosition.clone();
-            player.unvalidatedPosition = playerPosition.clone();
-            player.unvalidatedNativeOriginY = player.nativeOriginY;
-            player.prevUnvalidatedPosition = playerPosition.clone();
-            player.velocity = Vec3.ZERO.clone();
-            player.lastTickFinalVelocity = Vec3.ZERO.clone();
-            player.predictionResult = new PredictionData(Vec3.ZERO, Vec3.ZERO, Vec3.ZERO);
-            player.insideUnloadedChunk = true;
-            player.getTeleportUtil().reset(wirePosition);
-            player.currentLoadingScreen = null;
-            player.inLoadingScreen = true;
+                final Vec3 wirePosition = new Vec3(start.getPlayerPosition());
+                final Vec3 playerPosition = wirePosition.down(player.getYOffset());
+                player.compensatedWorld.clearChunks();
+                player.compensatedWorld.setDimension(DimensionUtil.dimensionFromId(start.getDimensionId()));
+                player.setPos(playerPosition, false);
+                player.prevPosition = playerPosition.clone();
+                player.unvalidatedPosition = playerPosition.clone();
+                player.unvalidatedNativeOriginY = player.nativeOriginY;
+                player.prevUnvalidatedPosition = playerPosition.clone();
+                player.velocity = Vec3.ZERO.clone();
+                player.lastTickFinalVelocity = Vec3.ZERO.clone();
+                player.predictionResult = new PredictionData(Vec3.ZERO, Vec3.ZERO, Vec3.ZERO);
+                player.insideUnloadedChunk = true;
+                player.getTeleportUtil().reset(wirePosition);
+                player.currentLoadingScreen = null;
+                player.inLoadingScreen = true;
 
-            start.setAuthoritativeMovementMode(AuthoritativeMovementMode.SERVER_WITH_REWIND);
-            start.setRewindHistorySize(Boar.getConfig().rewindHistory());
-            player.serverBreakBlockValidator = (ServerBreakBlockValidator) player.getCheckHolder().get(ServerBreakBlockValidator.class);
+                start.setAuthoritativeMovementMode(AuthoritativeMovementMode.SERVER_WITH_REWIND);
+                start.setRewindHistorySize(Boar.getConfig().rewindHistory());
+                player.serverBreakBlockValidator = (ServerBreakBlockValidator) player.getCheckHolder().get(ServerBreakBlockValidator.class);
 
-            player.sendLatencyStack(new GameTypeAck(start.getPlayerGameType()));
-        }
-
-        if (event.getPacket() instanceof SetPlayerGameTypePacket packet) {
-            player.sendLatencyStack(new GameTypeAck(GameType.from(packet.getGamemode())));
-        }
-
-        if (event.getPacket() instanceof UpdatePlayerGameTypePacket packet && packet.getEntityId() == player.runtimeEntityId) {
-            player.sendLatencyStack(new GameTypeAck(packet.getGameType()));
-        }
-
-        if (event.getPacket() instanceof UpdateAbilitiesPacket packet) {
-            if (packet.getUniqueEntityId() != player.runtimeEntityId) {
-                return;
+                player.sendLatencyStack(new GameTypeAck(start.getPlayerGameType()));
             }
+            case SetPlayerGameTypePacket packet -> player.sendLatencyStack(new GameTypeAck(GameType.from(packet.getGamemode())));
+            case UpdatePlayerGameTypePacket packet when packet.getEntityId() == player.runtimeEntityId -> player.sendLatencyStack(new GameTypeAck(packet.getGameType()));
+            case UpdateAbilitiesPacket packet when packet.getUniqueEntityId() == player.runtimeEntityId -> player.queueAcknowledgment(new UpdateAbilitiesAck(packet.getAbilityLayers()));
+            case SetEntityDataPacket packet -> {
+                if (packet.getRuntimeEntityId() != player.runtimeEntityId) {
+                    final EntityCache cache = player.compensatedWorld.getTrackedEntity(packet.getRuntimeEntityId());
+                    if (cache == null) {
+                        return;
+                    }
 
-            player.queueAcknowledgment(new UpdateAbilitiesAck(packet.getAbilityLayers()));
-        }
-
-        if (event.getPacket() instanceof SetEntityDataPacket packet) {
-            if (packet.getRuntimeEntityId() != player.runtimeEntityId) {
-                final EntityCache cache = player.compensatedWorld.getTrackedEntity(packet.getRuntimeEntityId());
-                if (cache == null) {
+                    // No need to send latency, we only use a few's metadata values from them and most of them almost never actually changed so we should be good,
+                    // for eg: (COLLIDEABLE flag is always true for certain entity regardless of what).
+                    player.queueAcknowledgment(new EntityMetadataAck(cache.getRuntimeId(), packet.getMetadata()));
                     return;
                 }
 
-                // No need to send latency, we only use a few's metadata values from them and most of them almost never actually changed so we should be good,
-                // for eg: (COLLIDEABLE flag is always true for certain entity regardless of what).
-                player.queueAcknowledgment(new EntityMetadataAck(cache.getRuntimeId(), packet.getMetadata()));
-                return;
-            }
+                if (player.vehicleData != null) {
+                    return;
+                }
 
-            if (player.vehicleData != null) {
-                return;
-            }
+                Float height = packet.getMetadata().get(EntityDataTypes.HEIGHT);
+                Float width = packet.getMetadata().get(EntityDataTypes.WIDTH);
+                Float scale = packet.getMetadata().get(EntityDataTypes.SCALE);
+                Vector3i bedPosition = packet.getMetadata().get(EntityDataTypes.BED_POSITION);
 
-            Float height = packet.getMetadata().get(EntityDataTypes.HEIGHT);
-            Float width = packet.getMetadata().get(EntityDataTypes.WIDTH);
-            Float scale = packet.getMetadata().get(EntityDataTypes.SCALE);
-            Vector3i bedPosition = packet.getMetadata().get(EntityDataTypes.BED_POSITION);
+                final EnumMap<EntityFlag, Boolean> flags = packet.getMetadata().getFlags();
+                final Boolean observedSwimming = flags == null ? null : flags.get(EntityFlag.SWIMMING);
+                final Boolean observedSprinting = flags == null ? null : flags.get(EntityFlag.SPRINTING);
+                final boolean observedFlagsKey = packet.getMetadata().containsKey(EntityDataTypes.FLAGS);
+                final boolean observedFlags2Key = packet.getMetadata().containsKey(EntityDataTypes.FLAGS_2);
+                if (flags == null && height == null && width == null && scale == null && bedPosition == null) {
+                    return;
+                }
 
-            final EnumMap<EntityFlag, Boolean> flags = packet.getMetadata().getFlags();
-            final Boolean observedSwimming = flags == null ? null : flags.get(EntityFlag.SWIMMING);
-            final Boolean observedSprinting = flags == null ? null : flags.get(EntityFlag.SPRINTING);
-            final boolean observedFlagsKey = packet.getMetadata().containsKey(EntityDataTypes.FLAGS);
-            final boolean observedFlags2Key = packet.getMetadata().containsKey(EntityDataTypes.FLAGS_2);
-            if (flags == null && height == null && width == null && scale == null && bedPosition == null) {
-                return;
-            }
+                final Set<EntityFlag> flagsCopy;
+                Boolean swimming = null;
+                if (flags != null) {
+                    swimming = flags.get(EntityFlag.SWIMMING);
+                    flagsCopy = EnumSet.noneOf(EntityFlag.class);
+                    flags.forEach((k, v) -> {
+                        if (v != null && v) {
+                            flagsCopy.add(k);
+                        }
+                    });
+                } else {
+                    flagsCopy = null;
+                }
+                if (width != null) {
+                    width = Math.max(0f, width - 1e-4f);
+                }
 
-            final Set<EntityFlag> flagsCopy;
-            Boolean swimming = null;
-            if (flags != null) {
-                swimming = flags.get(EntityFlag.SWIMMING);
-                flagsCopy = EnumSet.noneOf(EntityFlag.class);
-                flags.forEach((k, v) -> {
-                    if (v != null && v) {
-                        flagsCopy.add(k);
-                    }
-                });
-            } else {
-                flagsCopy = null;
+                // Dimension seems to be controlled server-side as far as I know (tested with clumsy).
+                final PlayerMetadataAck acknowledgment = new PlayerMetadataAck(width, height, scale, flagsCopy, swimming, bedPosition, player.tick);
+                if (Boar.getConfig().debugMode()) {
+                    final int acknowledgmentId = System.identityHashCode(acknowledgment);
+                    player.getMovementTrace().log("metadata enqueue: ack=" + acknowledgmentId + " playerTick=" + player.tick
+                            + " packetTick=" + packet.getTick() + " keys=" + packet.getMetadata().keySet()
+                            + " air=" + packet.getMetadata().get(EntityDataTypes.AIR_SUPPLY)
+                            + " flagMap=" + (flags == null ? 0 : System.identityHashCode(flags))
+                            + " hasFlagsKey=" + observedFlagsKey + " hasFlags2Key=" + observedFlags2Key
+                            + " observedSwimming=" + observedSwimming + " observedSprinting=" + observedSprinting
+                            + " swimming=" + swimming + " flags=" + flagsCopy
+                            + " width=" + width + " height=" + height + " scale=" + scale);
+                }
+                player.queueAcknowledgment(acknowledgment);
             }
-            if (width != null) {
-                width = Math.max(0f, width - 1e-4f);
+            case UpdateAttributesPacket packet when packet.getRuntimeEntityId() == player.runtimeEntityId -> {
+                if (!packet.getAttributes().isEmpty()) {
+                    // sometimes the attribute list can be immutable
+                    List<AttributeData> attributes = new ArrayList<>(packet.getAttributes());
+                    attributes.replaceAll(ServerDataPackets::stripModifiers);
+                    packet.setAttributes(attributes);
+                }
+                player.sendLatencyStack(new UpdateAttributesAck(packet.getAttributes()));
             }
-
-            // Dimension seems to be controlled server-side as far as I know (tested with clumsy).
-            final PlayerMetadataAck acknowledgment = new PlayerMetadataAck(width, height, scale, flagsCopy, swimming, bedPosition, player.tick);
-            if (Boar.getConfig().debugMode()) {
-                final int acknowledgmentId = System.identityHashCode(acknowledgment);
-                player.getMovementTrace().log("metadata enqueue: ack=" + acknowledgmentId + " playerTick=" + player.tick
-                        + " packetTick=" + packet.getTick() + " keys=" + packet.getMetadata().keySet()
-                        + " air=" + packet.getMetadata().get(EntityDataTypes.AIR_SUPPLY)
-                        + " flagMap=" + (flags == null ? 0 : System.identityHashCode(flags))
-                        + " hasFlagsKey=" + observedFlagsKey + " hasFlags2Key=" + observedFlags2Key
-                        + " observedSwimming=" + observedSwimming + " observedSprinting=" + observedSprinting
-                        + " swimming=" + swimming + " flags=" + flagsCopy
-                        + " width=" + width + " height=" + height + " scale=" + scale);
-            }
-            player.queueAcknowledgment(acknowledgment);
-        }
-
-        if (event.getPacket() instanceof UpdateAttributesPacket packet) {
-            if (packet.getRuntimeEntityId() != player.runtimeEntityId) {
-                return;
-            }
-            if (!packet.getAttributes().isEmpty()) {
-                // sometimes the attribute list can be immutable
-                List<AttributeData> attributes = new ArrayList<>(packet.getAttributes());
-                attributes.replaceAll(ServerDataPackets::stripModifiers);
-                packet.setAttributes(attributes);
-            }
-            player.sendLatencyStack(new UpdateAttributesAck(packet.getAttributes()));
+            default -> {}
         }
     }
 
