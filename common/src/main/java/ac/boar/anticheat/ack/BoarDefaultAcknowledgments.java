@@ -439,7 +439,7 @@ public final class BoarDefaultAcknowledgments {
     }
 
     private static void handleHotbarSlot(BoarPlayer player, HotbarSlotAck ack) {
-        player.compensatedInventory.heldItemSlot = ack.slot();
+        player.compensatedInventory.switchHeldSlot(ack.slot());
     }
 
     private static void handleMobEffect(BoarPlayer player, MobEffectAck ack) {

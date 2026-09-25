@@ -11,12 +11,10 @@ import ac.boar.anticheat.ack.types.ItemStackResponseAck;
 import ac.boar.anticheat.ack.types.UpdateTradeAck;
 import ac.boar.anticheat.compensated.CompensatedInventory;
 import ac.boar.anticheat.check.impl.inventory.Inventory;
-import ac.boar.anticheat.data.ItemUseTracker;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.validator.inventory.ItemTransactionValidator;
 import ac.boar.protocol.api.CloudburstPacketEvent;
 import ac.boar.protocol.api.PacketListener;
-import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ContainerId;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ContainerType;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.ItemStackRequest;
@@ -118,21 +116,9 @@ public class PlayerInventoryPackets implements PacketListener {
 
                 inventory.openContainer = null;
             }
-            case MobEquipmentPacket packet -> {
-                final int newSlot = packet.getHotbarSlot();
-                if (player.runtimeEntityId != packet.getRuntimeEntityId()) {
-                    return;
-                }
-
-                if (newSlot < 0 || newSlot > 8 || packet.getContainerId() != ContainerId.INVENTORY || inventory.heldItemSlot == newSlot) {
-                    return;
-                }
-
-                inventory.heldItemSlot = newSlot;
-
-                if (player.getItemUseTracker().getItem() != null || player.getFlagTracker().has(EntityFlag.USING_ITEM)) {
-                    player.getItemUseTracker().release();
-                    player.getItemUseTracker().setDirtyUsing(ItemUseTracker.DirtyUsing.NONE);
+            case MobEquipmentPacket packet when player.runtimeEntityId == packet.getRuntimeEntityId() && packet.getContainerId() == ContainerId.INVENTORY -> {
+                if (!inventory.switchHeldSlot(packet.getHotbarSlot())) {
+                    event.setCancelled(true);
                 }
             }
             default -> {}

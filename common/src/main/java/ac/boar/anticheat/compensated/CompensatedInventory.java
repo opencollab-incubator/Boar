@@ -4,6 +4,7 @@ import ac.boar.anticheat.compensated.cache.container.ContainerCache;
 import ac.boar.anticheat.compensated.cache.container.impl.ArmorContainerCache;
 import ac.boar.anticheat.compensated.cache.container.impl.CraftingGridContainerCache;
 import ac.boar.anticheat.compensated.cache.container.impl.PlayerContainerCache;
+import ac.boar.anticheat.data.ItemUseTracker;
 import ac.boar.anticheat.data.enchantment.Enchantment;
 import ac.boar.anticheat.data.inventory.ItemCache;
 import ac.boar.anticheat.data.inventory.SlotSnapshot;
@@ -15,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.nbt.NbtType;
+import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ContainerId;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ContainerType;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
@@ -57,6 +59,24 @@ public class CompensatedInventory {
     public final Map<Integer, List<SlotSnapshot>> pendingRequests = new LinkedHashMap<>();
 
     public int rejectionStreak;
+
+    public boolean switchHeldSlot(final int slot) {
+        if (slot < 0 || slot > 8) {
+            return false;
+        }
+
+        // slot is the same, we can forward it to the server but no additional handling needs to happen here
+        if (this.heldItemSlot == slot) {
+            return true;
+        }
+
+        this.heldItemSlot = slot;
+        if (this.player.getItemUseTracker().getItem() != null || this.player.getFlagTracker().has(EntityFlag.USING_ITEM)) {
+            this.player.getItemUseTracker().release();
+            this.player.getItemUseTracker().setDirtyUsing(ItemUseTracker.DirtyUsing.NONE);
+        }
+        return true;
+    }
 
     public ContainerCache getContainer(byte id) {
         if (id == inventoryContainer.getId()) {
