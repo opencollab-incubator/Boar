@@ -1,6 +1,8 @@
 package ac.boar.anticheat.packets.input;
 
 import ac.boar.anticheat.Boar;
+import org.cloudburstmc.protocol.bedrock.data.PlayerAuthInputData;
+import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 import ac.boar.anticheat.ack.types.DimensionSwitchAck;
 import ac.boar.anticheat.ack.types.RespawnStateAck;
 import ac.boar.anticheat.check.impl.reach.Reach;
@@ -77,6 +79,20 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
 
         LegacyAuthInputPackets.processAuthInput(player, packet, true);
         LegacyAuthInputPackets.updateUnvalidatedPosition(player, packet);
+
+        if (player.tick <= player.ackDebugUntilTick || (Boar.getConfig().debugMode() && player.getFlagTracker().has(EntityFlag.USING_ITEM))) {
+            final var input = packet.getInputData();
+            Boar.debug(player.getSession().name() + ": [ack-debug] tick=" + player.tick + " t=" + (System.nanoTime() / 1_000_000L % 100_000L)
+                    + "ms INPUT clientSprinting=" + input.contains(PlayerAuthInputData.SPRINTING)
+                    + (input.contains(PlayerAuthInputData.START_SPRINTING) ? " START_SPRINTING" : "")
+                    + (input.contains(PlayerAuthInputData.STOP_SPRINTING) ? " STOP_SPRINTING" : "")
+                    + (input.contains(PlayerAuthInputData.START_USING_ITEM) ? " START_USING_ITEM" : "")
+                    + (input.contains(PlayerAuthInputData.PERFORM_ITEM_INTERACTION) && packet.getItemUseTransaction() != null
+                        ? " PERFORM_ITEM_INTERACTION(action=" + packet.getItemUseTransaction().getActionType() + ")" : "")
+                    + " boarSprinting=" + player.getFlagTracker().has(EntityFlag.SPRINTING)
+                    + " boarUsing=" + player.getFlagTracker().has(EntityFlag.USING_ITEM)
+                    + " boarSpeed=" + player.getSpeed(), Boar.DebugMessage.INFO);
+        }
 
         final int chunkX = GenericMath.floor(player.position.x) >> 4;
         final int chunkZ = GenericMath.floor(player.position.z) >> 4;

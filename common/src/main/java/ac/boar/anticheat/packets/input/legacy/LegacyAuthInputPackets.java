@@ -4,6 +4,7 @@ import ac.boar.anticheat.check.api.Check;
 import ac.boar.anticheat.check.api.impl.OffsetHandlerCheck;
 import ac.boar.anticheat.collision.Collider;
 import ac.boar.anticheat.compensated.cache.container.ContainerCache;
+import ac.boar.anticheat.Boar;
 import ac.boar.anticheat.data.ItemUseTracker;
 import ac.boar.anticheat.data.inventory.BoarItemStack;
 import ac.boar.anticheat.player.BoarPlayer;
@@ -13,6 +14,7 @@ import ac.boar.anticheat.util.math.Vec3;
 import ac.boar.mappings.item.Items;
 import org.cloudburstmc.protocol.bedrock.data.Ability;
 import org.cloudburstmc.protocol.bedrock.data.InputMode;
+import org.cloudburstmc.protocol.bedrock.data.GameType;
 import org.cloudburstmc.protocol.bedrock.data.PlayerAuthInputData;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
@@ -78,7 +80,7 @@ public class LegacyAuthInputPackets {
                 player.velocity = player.unvalidatedTickEnd.clone();
             }
 
-            if (canAcceptClient && offset < player.getPosAcceptanceThreshold()) {
+            if (canAcceptClient && offset < player.getPosAcceptanceThreshold() + player.getPositionUlp()) {
                 player.getMovementTrace().log("post: accepted client position " + player.unvalidatedPosition);
                 player.setPos(player.unvalidatedPosition.clone(), false);
                 player.nativeOriginY = player.unvalidatedNativeOriginY;
@@ -185,6 +187,18 @@ public class LegacyAuthInputPackets {
         player.vanillaOffsetY += (targetOffsetY - player.vanillaOffsetY) * 0.5F;
     }
 
+    // Returns true if the client is slowed by item use this tick. That includes a "using" the server's metadata put it in, which we
+    // don't track, so go by the client's own vector (raw 1.0 -> 0.1225) and the START_USING_ITEM it echoes back.
+    // The client won't start sprinting while this is true.
+    private static boolean isClientItemSlowed(final BoarPlayer player) {
+        if (player.getInputData().contains(PlayerAuthInputData.START_USING_ITEM)) {
+            return true;
+        }
+        final float rawLen = player.input.horizontalLength();
+        final float mx = player.clientMotion.getX(), my = player.clientMotion.getY();
+        return rawLen > 1.0E-4F && (float) Math.sqrt(mx * mx + my * my) < rawLen * 0.5F;
+    }
+
     public static void processInputData(final BoarPlayer player) {
         if (!player.getFlagTracker().has(EntityFlag.USING_ITEM)) {
             player.sinceTridentUse = 0;
@@ -229,6 +243,8 @@ public class LegacyAuthInputPackets {
                 case START_SPRINTING -> {
                     boolean forwardMovement = player.input.getZ() > 0;
                     player.setSprinting(forwardMovement);
+                    player.clientSprintIntent = true;
+                    player.serverClearedSprint = false;
 
                     // Don't let player send an START_SPRINTING to force server to send back a sprinting attribute or allow the
                     // client to trick the server into letting it get sprinting speed while not moving forward.
@@ -236,7 +252,11 @@ public class LegacyAuthInputPackets {
                         iterator.remove();
                     }
                 }
-                case STOP_SPRINTING -> player.setSprinting(false);
+                case STOP_SPRINTING -> {
+                    player.setSprinting(false);
+                    player.clientSprintIntent = false;
+                    player.serverClearedSprint = false;
+                }
 
                 case START_SWIMMING -> player.getFlagTracker().set(EntityFlag.SWIMMING, true);
                 case STOP_SWIMMING -> player.getFlagTracker().set(EntityFlag.SWIMMING, false);
@@ -270,40 +290,25 @@ public class LegacyAuthInputPackets {
                 }
 
                 case START_USING_ITEM -> {
+                    // We prefer to obtain the item use state only from transactions now (click-air starts, release/finish stops)
+                    // This input can arrive after the client already let go (since PAI is end-of-tick), so it must not turn "using" back on
                     final ItemData itemData = player.compensatedInventory.inventoryContainer.getHeldItemData();
                     BoarItemStack itemStack = BoarItemStack.of(player.getSession(), itemData);
 
-                    final ItemUseTracker.DirtyUsing armed = player.getItemUseTracker().getDirtyUsing();
-                    if (armed == ItemUseTracker.DirtyUsing.NONE && player.getFlagTracker().has(EntityFlag.USING_ITEM)) {
-                        // The client sent the flag again while still using an item? Here we'll just keep the current using item state
-                        continue;
-                    }
-
                     // TODO: Try and debug inventory issues further.
                     if (itemStack.isEmpty()) {
-                        player.getFlagTracker().set(EntityFlag.USING_ITEM, true);
-                        player.lastItemUseStateChangeTick = player.tick;
-                        player.getItemUseTracker().setDirtyUsing(ItemUseTracker.DirtyUsing.NONE);
                         continue;
                     }
 
-                    if (armed == ItemUseTracker.DirtyUsing.NONE) {
-                        if (player.getItemUseTracker().canBeUse(itemData, itemStack.item())) {
-                            player.getFlagTracker().set(EntityFlag.USING_ITEM, true);
-                            player.getItemUseTracker().use(itemData, itemStack.item(), true);
-                            player.getItemUseTracker().setDirtyUsing(ItemUseTracker.DirtyUsing.NONE);
-                            continue;
-                        }
-
-                        if (!player.disableMitigations()) {
-                            iterator.remove();
-                        }
+                    // Still keep the server from starting a use with an item that can't be used
+                    if (!player.getItemUseTracker().canBeUsed(itemData, itemStack.item()) && !player.disableMitigations()) {
+                        iterator.remove();
                         continue;
                     }
 
-                    player.getFlagTracker().set(EntityFlag.USING_ITEM, true);
-                    player.getItemUseTracker().use(itemData, itemStack.item(), true);
-                    player.getItemUseTracker().setDirtyUsing(ItemUseTracker.DirtyUsing.NONE);
+                    if (!player.getFlagTracker().has(EntityFlag.USING_ITEM)) {
+                        Boar.debug(player.getSession().name() + ": [item-use-debug] tick=" + player.tick + " START_USING_ITEM input ignored, no use transaction (not using)", Boar.DebugMessage.INFO);
+                    }
                 }
 
                 // Should we really validate crawling, I mean sure 1 block gap, but it's that big of advantage if they lose speed
@@ -329,6 +334,24 @@ public class LegacyAuthInputPackets {
             player.getFlagTracker().set(EntityFlag.USING_ITEM, false);
             player.getItemUseTracker().setDirtyUsing(ItemUseTracker.DirtyUsing.NONE);
         }
+        // The server stopped a sprint the client started itself. Its value lasts one tick (there's another comment about this
+        // somewhere else pls read that) after that the client turns sprint back on by itself if the sprint key is still held and it
+        // can sprint, and doesn't send START_SPRINTING
+        if (player.serverClearedSprint) {
+            if (player.getFlagTracker().has(EntityFlag.SPRINTING)) {
+                player.serverClearedSprint = false;
+            } else if (player.tick >= player.serverClearedSprintTick + 2
+                    && player.getInputData().contains(PlayerAuthInputData.SPRINT_DOWN)
+                    && player.input.getZ() >= 0.7071F
+                    && !player.getFlagTracker().has(EntityFlag.USING_ITEM)
+                    && !isClientItemSlowed(player)
+                    && (player.hunger > 6 || player.gameType == GameType.CREATIVE)) {
+                player.setSprinting(true);
+                player.serverClearedSprint = false;
+                Boar.debug(player.getSession().name() + ": [sprint-debug] tick=" + player.tick + " silent re-sprint after server stop", Boar.DebugMessage.INFO);
+            }
+        }
+
         player.dirtySpinStop = false;
     }
 }

@@ -34,16 +34,21 @@ public class Prediction extends BaseCheck implements OffsetHandlerCheck {
         if (player.tick < 10 || !this.shouldDoFail()) {
             return;
         }
-        if (posDiff < player.getPosAcceptanceThreshold()) {
+
+        final float positionUlp = player.getPositionUlp();
+        final float acceptanceThreshold = player.getPosAcceptanceThreshold() + positionUlp;
+        final float alertThreshold = Boar.getConfig().alertThreshold() + positionUlp;
+
+        if (posDiff < acceptanceThreshold) {
             player.position = player.unvalidatedPosition.clone();
             player.nativeOriginY = player.unvalidatedNativeOriginY;
             return;
         }
 
         if (posDiff > 1e-6) {
-            Boar.debug(player.getSession().name() + ": [movement-debug] prediction posDiff tick=" + player.tick + " posDiff=" + posDiff + " acceptance/max=" + player.getPosAcceptanceThreshold() + " alert=" + Boar.getConfig().alertThreshold() + " type=" + player.bestPossibility.getType() + " predictedPos=" + player.position + " actualPos=" + player.unvalidatedPosition + " predictedDelta=" + player.velocity + " actualDelta=" + player.unvalidatedTickEnd, Boar.DebugMessage.WARNING);
+            Boar.debug(player.getSession().name() + ": [movement-debug] prediction posDiff tick=" + player.tick + " posDiff=" + posDiff + " acceptance/max=" + acceptanceThreshold + " alert=" + alertThreshold + " type=" + player.bestPossibility.getType() + " predictedPos=" + player.position + " actualPos=" + player.unvalidatedPosition + " predictedDelta=" + player.velocity + " actualDelta=" + player.unvalidatedTickEnd, Boar.DebugMessage.WARNING);
         }
-        if (posDiff < Boar.getConfig().alertThreshold()) {
+        if (posDiff < alertThreshold) {
             // The difference is above the acceptance threshold but below the alert threshold.
             if (!player.disableMitigations()) {
                 this.driftTowardsClient();
@@ -55,8 +60,8 @@ public class Prediction extends BaseCheck implements OffsetHandlerCheck {
         final boolean claimedHorizontal = player.getInputData().contains(PlayerAuthInputData.HORIZONTAL_COLLISION);
         final boolean claimedVertical = player.getInputData().contains(PlayerAuthInputData.VERTICAL_COLLISION);
         final String failureInfo = "prediction failure tick=" + player.tick
-                + " posDiff=" + posDiff + " alertThreshold=" + Boar.getConfig().alertThreshold()
-                + " acceptance=" + player.getPosAcceptanceThreshold()
+                + " posDiff=" + posDiff + " alertThreshold=" + alertThreshold
+                + " acceptance=" + acceptanceThreshold
                 + " type=" + player.bestPossibility.getType()
                 + " predictedPos=" + player.position + " actualPos=" + player.unvalidatedPosition
                 + " predictedDelta=" + player.velocity + " actualDelta=" + player.unvalidatedTickEnd

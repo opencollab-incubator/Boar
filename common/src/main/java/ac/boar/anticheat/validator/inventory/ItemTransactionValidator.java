@@ -137,6 +137,9 @@ public final class ItemTransactionValidator {
                         player.setDirtyRiptide(player.sinceTridentUse, player.compensatedInventory.inventoryContainer.getHeldItemData());
                     }
 
+                    if (player.getFlagTracker().has(EntityFlag.USING_ITEM)) {
+                        itemUseDebug("released (action=" + packet.getActionType() + ")");
+                    }
                     player.getItemUseTracker().release();
                     player.getItemUseTracker().setDirtyUsing(ItemUseTracker.DirtyUsing.NONE);
                 } else {
@@ -438,6 +441,16 @@ public final class ItemTransactionValidator {
 
                     // This seems to for things that is not related to block interact and only for item interaction.
                     case 1 -> {
+                        // Debug: every click-air while we think the player is using an item, to see if the "done eating" click arrives and why it might not count.
+                        if (player.getFlagTracker().has(EntityFlag.USING_ITEM)) {
+                            final boolean matches = packet.getItemInHand() != null && validate(SD1, packet.getItemInHand());
+                            itemUseDebug("click-air while using: heldMatches=" + matches
+                                    + " finishing=" + (matches && player.getItemUseTracker().isFinishedConsuming(SD1))
+                                    + " elapsed=" + (player.getItemUseTracker().getUseStartTick() < 0 ? "?" : String.valueOf(player.tick - player.getItemUseTracker().getUseStartTick()))
+                                    + " claimed=" + describe(packet.getItemInHand()) + " predicted=" + describe(SD1)
+                                    + " using=" + describe(player.getItemUseTracker().getUsedItem()));
+                        }
+
                         if (packet.getItemInHand() == null || !validate(SD1, packet.getItemInHand())) {
                             // If for some reason we don't have an item here in Boar's inventory we'll inspect the client-authoritative item. Shouldn't cause
                             // too many issues since it would result in a slow-down if anything with no benefits to a cheater.
@@ -445,9 +458,17 @@ public final class ItemTransactionValidator {
                             if (isEmpty(SD1) && !isEmpty(packet.getItemInHand())) {
                                 final BoarItemStack claimed = BoarItemStack.of(player.getSession(), packet.getItemInHand());
                                 if (claimed.item() != null) {
-                                    player.getItemUseTracker().use(packet.getItemInHand(), claimed.item(), false);
+                                    this.handleUseClick(packet.getItemInHand(), claimed.item());
                                 }
                             }
+                            return true;
+                        }
+
+                        // Stop the slowdown since the client restarts it itself if it keeps using
+                        if (player.getItemUseTracker().isFinishedConsuming(SD1)) {
+                            itemUseDebug("finished consuming " + describe(SD1) + " after " + (player.tick - player.getItemUseTracker().getUseStartTick()) + " ticks");
+                            player.getItemUseTracker().release();
+                            player.getItemUseTracker().setDirtyUsing(ItemUseTracker.DirtyUsing.NONE);
                             return true;
                         }
 
@@ -456,8 +477,7 @@ public final class ItemTransactionValidator {
 //                            player.glideBoostTicks = 20; // Latest geyser break this.
                         }
 
-                        player.getItemUseTracker().use(SD1, item.item(), false);
-//                        System.out.println("Dirty using use: " + packet.getItemInHand());
+                        this.handleUseClick(SD1, item.item());
 
                         List<LegacySetItemSlotData> legacySlots = packet.getLegacySlots();
                         if (packet.getActions().size() == 1 && !legacySlots.isEmpty()) {
@@ -589,6 +609,19 @@ public final class ItemTransactionValidator {
         }
 
         return null;
+    }
+
+    private void handleUseClick(final ItemData usedItem, final Item item) {
+        if (player.getFlagTracker().has(EntityFlag.USING_ITEM)) {
+            return;
+        }
+        if (player.getItemUseTracker().startFromTransaction(usedItem, item)) {
+            itemUseDebug("started using " + describe(usedItem));
+        }
+    }
+
+    private void itemUseDebug(final String message) {
+        Boar.debug(player.getSession().name() + ": [item-use-debug] tick=" + player.tick + " " + message, Boar.DebugMessage.INFO);
     }
 
     private void sendPopup(final String message) {

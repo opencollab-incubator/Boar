@@ -82,6 +82,11 @@ public class ServerDataPackets implements PacketListener {
                     return;
                 }
 
+                // Our own metadata sent with a correction: the client only uses it for the replay (it has a tick).
+                if (packet == player.correctionMetadataPacket) {
+                    return;
+                }
+
                 if (player.vehicleData != null) {
                     return;
                 }
@@ -103,6 +108,7 @@ public class ServerDataPackets implements PacketListener {
                 final Set<EntityFlag> flagsCopy;
                 Boolean swimming = null;
                 if (flags != null) {
+                    player.lastServerFlags = new EnumMap<>(flags);
                     swimming = flags.get(EntityFlag.SWIMMING);
                     flagsCopy = EnumSet.noneOf(EntityFlag.class);
                     flags.forEach((k, v) -> {
@@ -134,10 +140,25 @@ public class ServerDataPackets implements PacketListener {
             }
             case UpdateAttributesPacket packet when packet.getRuntimeEntityId() == player.runtimeEntityId -> {
                 if (!packet.getAttributes().isEmpty()) {
+                    if (Boar.getConfig().debugMode()) {
+                        for (final AttributeData data : packet.getAttributes()) {
+                            if (data.getName().equals("minecraft:movement")) {
+                                Boar.debug(player.getSession().name() + ": [speed-debug] tick=" + player.tick
+                                        + (packet == player.correctionAttributesPacket ? " correction sent speed value=" : " server sent speed value=") + data.getValue()
+                                        + " base=" + data.getDefaultValue() + " mods=" + data.getModifiers() + " -> we send " + stripModifiers(data).getValue()
+                                        + " base=" + stripModifiers(data).getDefaultValue(), Boar.DebugMessage.INFO);
+                            }
+                        }
+                    }
                     // sometimes the attribute list can be immutable
                     List<AttributeData> attributes = new ArrayList<>(packet.getAttributes());
                     attributes.replaceAll(ServerDataPackets::stripModifiers);
                     packet.setAttributes(attributes);
+                    for (final AttributeData data : attributes) {
+                        if (data.getName().equals("minecraft:movement")) {
+                            player.lastMovementAttribute = data;
+                        }
+                    }
                 }
                 player.sendLatencyStack(new UpdateAttributesAck(packet.getAttributes()));
             }

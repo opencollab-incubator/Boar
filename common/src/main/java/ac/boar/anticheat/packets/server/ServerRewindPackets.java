@@ -14,9 +14,17 @@ public final class ServerRewindPackets implements PacketListener {
         switch (event.getPacket()) {
             case MobEffectPacket packet -> packet.setTick(0L);
             case MovePlayerPacket packet -> packet.setTick(0L);
-            case SetEntityDataPacket packet -> packet.setTick(0L);
+            case SetEntityDataPacket packet -> {
+                if (packet != event.getPlayer().correctionMetadataPacket) {
+                    packet.setTick(0L);
+                }
+            }
             case SetEntityMotionPacket packet -> packet.setTick(0L);
-            case UpdateAttributesPacket packet -> packet.setTick(0L);
+            case UpdateAttributesPacket packet -> {
+                if (packet != event.getPlayer().correctionAttributesPacket) {
+                    packet.setTick(0L);
+                }
+            }
             default -> {}
         }
     }

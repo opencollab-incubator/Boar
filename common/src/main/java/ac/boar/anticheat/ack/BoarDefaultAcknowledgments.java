@@ -192,6 +192,9 @@ public final class BoarDefaultAcknowledgments {
                     + " current=" + player.getFlagTracker().cloneFlags());
         }
         if (ack.flags() != null) {
+            if (ack.flags().contains(EntityFlag.USING_ITEM)) {
+                player.getItemUseTracker().onServerUsingAcked(ack.sentTick());
+            }
             player.getFlagTracker().set(player, ack.flags(), ack.sentTick());
         }
         if (ack.swimming() != null) {
@@ -237,6 +240,9 @@ public final class BoarDefaultAcknowledgments {
             if (data.getName().equals("minecraft:movement")) {
                 player.clientNeedsMovementSpeedAttributeUpdate = false;
             }
+            if (data.getName().equals("minecraft:player.hunger")) {
+                player.hunger = data.getValue();
+            }
 
             final AttributeInstance attribute = player.attributes.get(data.getName());
             if (attribute == null) {
@@ -249,6 +255,13 @@ public final class BoarDefaultAcknowledgments {
 
             for (AttributeModifierData mod : data.getModifiers()) {
                 attribute.addTemporaryModifier(mod);
+            }
+
+            if (Boar.getConfig().debugMode() && data.getName().equals("minecraft:movement")) {
+                // The client drops its sprint boost here too and takes the packet's value (BaseAttributeMap::updateAttribute).
+                Boar.debug(player.getSession().name() + ": [speed-debug] tick=" + player.tick + " speed ack applied value=" + data.getValue()
+                        + " base=" + data.getDefaultValue() + " boarSpeed=" + player.getSpeed()
+                        + " boarSprinting=" + player.getFlagTracker().has(EntityFlag.SPRINTING), Boar.DebugMessage.INFO);
             }
         }
     }

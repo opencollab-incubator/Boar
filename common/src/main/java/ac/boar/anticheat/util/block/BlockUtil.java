@@ -15,6 +15,16 @@ public final class BlockUtil {
             return;
         }
 
+        syncBlock(player, vector, blockState);
+        // Reset the item in hand to prevent "missing" blocks, needs more testing
+        player.getInventoryAccessor().updateSlot(player.getInventoryAccessor().heldItemSlot());
+    }
+
+    public static void syncBlock(BoarPlayer player, Vector3i vector) {
+        syncBlock(player, vector, player.getWorldAccessor().blockStateAt(vector, 0));
+    }
+
+    public static void syncBlock(BoarPlayer player, Vector3i vector, BoarBlockState blockState) {
         // Skip the block resync if:
         // - a server update for this spot is still on its way to the client
         // - the client just placed a block here and the server hasn't answered yet
@@ -36,9 +46,6 @@ public final class BlockUtil {
             updateWaterPacket.getFlags().addAll(UpdateBlockPacket.FLAG_ALL_PRIORITY);
             player.getConnection().sendPacket(updateWaterPacket);
         }
-
-        // Reset the item in hand to prevent "missing" blocks
-        player.getInventoryAccessor().updateSlot(player.getInventoryAccessor().heldItemSlot()); // TODO test
     }
 
     public static Vector3i getBlockPosition(Vector3i blockPos, int face) {
