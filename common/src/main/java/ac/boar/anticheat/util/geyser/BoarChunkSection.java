@@ -29,15 +29,20 @@ import ac.boar.anticheat.util.MathUtil;
 import org.cloudburstmc.protocol.common.util.Preconditions;
 
 public final class BoarChunkSection {
-    private final BlockStorage[] storage;
+
+    private static final int MAX_LAYERS = 2;
+
+    private BlockStorage[] storage;
+    private final int airId;
     private boolean shared;
 
-    public BoarChunkSection(BlockStorage[] storage) {
+    public BoarChunkSection(BlockStorage[] storage, int airId) {
         this.storage = storage;
+        this.airId = airId;
     }
 
     public BoarChunkSection(int initialBlockId) {
-        this(new BlockStorage[]{new BlockStorage(initialBlockId), new BlockStorage(initialBlockId)});
+        this(new BlockStorage[]{new BlockStorage(initialBlockId), new BlockStorage(initialBlockId)}, initialBlockId);
     }
 
     // This class has no storage() accessor on purpose. Access to the internal array would let callers
@@ -56,7 +61,7 @@ public final class BoarChunkSection {
         for (int i = 0; i < this.storage.length; i++) {
             copy[i] = this.storage[i] == null ? null : this.storage[i].copy();
         }
-        return new BoarChunkSection(copy);
+        return new BoarChunkSection(copy, this.airId);
     }
 
     public int getFullBlock(int x, int y, int z, int layer) {
@@ -69,10 +74,18 @@ public final class BoarChunkSection {
 
     public void setFullBlock(int x, int y, int z, int layer, int block) {
         Preconditions.checkArgument(!this.shared, "attempted to mutate a shared chunk section (needs CoW)");
-        if (layer < 0 || layer >= this.storage.length) {
+        if (layer < 0 || layer >= MAX_LAYERS) {
             return;
         }
         checkBounds(x, y, z);
+        if (layer >= this.storage.length) {
+            final BlockStorage[] grown = new BlockStorage[layer + 1];
+            System.arraycopy(this.storage, 0, grown, 0, this.storage.length);
+            for (int i = this.storage.length; i < grown.length; i++) {
+                grown[i] = new BlockStorage(this.airId);
+            }
+            this.storage = grown;
+        }
         this.storage[layer].setFullBlock(MathUtil.blockPosition(x, y, z), block);
     }
 

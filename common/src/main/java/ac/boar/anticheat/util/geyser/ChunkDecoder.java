@@ -116,6 +116,6 @@ public final class ChunkDecoder {
         for (int layer = 0; layer < layerCount; layer++) {
             layers[layer] = readLayer(buf, airId);
         }
-        return new DecodedSubChunk(new BoarChunkSection(layers), sectionY);
+        return new DecodedSubChunk(new BoarChunkSection(layers, airId), sectionY);
     }
 }
