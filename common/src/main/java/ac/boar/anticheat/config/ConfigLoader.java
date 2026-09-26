@@ -71,7 +71,6 @@ public class ConfigLoader {
                         s = s.replace("max-tolerance-compensated-reach: 2.91", "max-tolerance-compensated-reach: " + config.toleranceReach());
                         s = s.replace("disabled-checks: []", "disabled-checks: " + Arrays.toString(config.disabledChecks().toArray(new String[0])));
                         s = s.replace("disable-mitigations: false", "disable-mitigations: " + config.disableMitigations());
-                        s = s.replace("ignore-ghost-block: false", "ignore-ghost-block: " + config.ignoreGhostBlock());
                         s = s.replace("differ-till-alert: 0.0", "differ-till-alert: " + config.alertThreshold());
                         s = s.replace("debug-mode: false", "debug-mode: " + config.debugMode());
                         s = s.replace("max-latency-wait: 15000", "max-latency-wait: " + config.maxLatencyWait());

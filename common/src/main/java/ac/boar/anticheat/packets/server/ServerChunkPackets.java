@@ -6,7 +6,6 @@ import ac.boar.anticheat.ack.types.BlockUpdateAck;
 import ac.boar.anticheat.ack.types.ChunkLoadAck;
 import ac.boar.anticheat.ack.types.ChunkRadiusUpdateAck;
 import ac.boar.anticheat.ack.types.SubChunkLoadAck;
-import ac.boar.anticheat.compensated.world.base.CompensatedWorld;
 import ac.boar.anticheat.compensated.world.cache.ChunkSectionCache;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.util.Dimension;
@@ -16,7 +15,6 @@ import ac.boar.anticheat.util.geyser.ChunkDecoder;
 import ac.boar.protocol.api.CloudburstPacketEvent;
 import ac.boar.protocol.api.PacketListener;
 import io.netty.buffer.ByteBuf;
-import org.cloudburstmc.math.GenericMath;
 import org.cloudburstmc.math.vector.Vector3i;
 import org.cloudburstmc.protocol.bedrock.data.BlockChangeEntry;
 import org.cloudburstmc.protocol.bedrock.data.ServerboundLoadingScreenPacketType;
@@ -36,7 +34,6 @@ public class ServerChunkPackets implements PacketListener {
     @Override
     public void onPacketSend(CloudburstPacketEvent event) {
         final BoarPlayer player = event.getPlayer();
-        final CompensatedWorld world = player.compensatedWorld;
 
         switch (event.getPacket()) {
             case ChunkRadiusUpdatedPacket packet -> player.queueAcknowledgment(new ChunkRadiusUpdateAck(packet.getRadius()));
@@ -167,20 +164,6 @@ public class ServerChunkPackets implements PacketListener {
                 }
             }
             case UpdateBlockPacket packet -> {
-                // Ugly hack.
-                if (packet.getDataLayer() == 0 && Boar.getConfig().ignoreGhostBlock() && !player.inLoadingScreen && player.sinceLoadingScreen >= 2) {
-                    boolean newBlockIsAir = player.mappingInfo.airIds().contains(packet.getDefinition().getRuntimeId());
-                    boolean oldBlockIsAir = player.mappingInfo.airIds().contains(player.compensatedWorld.getRawBlockAt(packet.getBlockPosition().getX(), packet.getBlockPosition().getY(), packet.getBlockPosition().getZ(), 0));
-
-                    if (newBlockIsAir && !oldBlockIsAir) {
-                        int distance = Math.abs(packet.getBlockPosition().getY() - GenericMath.floor(player.position.y - 1));
-                        if (distance <= 1) {
-                            player.tickSinceBlockResync = 5;
-                            world.updateBlock(packet.getBlockPosition(), packet.getDataLayer(), packet.getDefinition().getRuntimeId());
-                        }
-                    }
-                }
-
                 // Avoid spamming latency if possible, unless the player is seriously lagging then this shouldn't false.
                 /* boolean send = player.position.distanceTo(new Vec3(packet.getBlockPosition())) <= 16;
                 if (send) {

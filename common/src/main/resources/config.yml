@@ -44,14 +44,6 @@ disabled-checks: []
 # player at runtime with BoarPlayer#setDisableMitigations.
 disable-mitigations: false
 
-# Normally Boar will account for lag, that also including block, if on the server side the block below player is Air but if
-# on the client side, it's an actual block, then Boar will account for this. However, with this enable, Boar will forcefully
-# rewind player if player is standing on a ghost block, this for ex: prevent player from abusing high ping to climb up walls in
-# region that doesn't allow block placing (ex: WorldEdit).
-
-# NOTE: This will only take effect if player is STANDING on the block.
-ignore-ghost-block: false
-
 # How long do we wait for player to respond to latency confirmation/acknowledgements till we kicked the player for timed out.
 # This value shouldn't be too low to account for lagging player and shouldn't be too high so cheaters won't be able to stop responding to latency for too long.
 max-latency-wait: 15000

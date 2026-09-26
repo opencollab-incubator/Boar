@@ -149,14 +149,10 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
             player.getMovementTrace().log("path: unloaded chunk, no movement expected");
             processImmobile(player);
         } else {
-            if (player.isMovementExempted()
-                    || player.inLoadingScreen
-                    || player.sinceLoadingScreen < 2
-                    || player.tickSinceBlockResync > 0) {
+            if (player.isMovementExempted() || player.inLoadingScreen || player.sinceLoadingScreen < 2) {
                 player.getMovementTrace().log("path: exempted (movementExempt=" + player.isMovementExempted()
                         + " inLoadingScreen=" + player.inLoadingScreen
-                        + " sinceLoadingScreen=" + player.sinceLoadingScreen
-                        + " blockResync=" + player.tickSinceBlockResync + ")");
+                        + " sinceLoadingScreen=" + player.sinceLoadingScreen + ")");
                 processExempted(player);
             } else {
                 player.getMovementTrace().log("path: prediction");

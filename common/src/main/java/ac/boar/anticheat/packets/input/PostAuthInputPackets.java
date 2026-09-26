@@ -35,7 +35,6 @@ public class PostAuthInputPackets implements PacketListener {
             }
             LegacyAuthInputPackets.correctInputData(player, packet);
 
-            if (player.tickSinceBlockResync > 0) player.tickSinceBlockResync--;
             player.blockPlacements.tick();
         }
     }

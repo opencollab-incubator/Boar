@@ -113,8 +113,7 @@ public final class MovementTrace {
         log("effects: " + this.effectsString() + " speedAttr=" + this.speedString());
         log("counters: glideBoost=" + player.glideBoostTicks + " swimAmount=" + player.swimAmount
                 + " sinceCrawl=" + player.ticksSinceCrawling + " sinceCanSlowdown=" + player.ticksSinceCanSlowdown
-                + " autoSpin=" + player.autoSpinAttackTicks + " sinceLoadingScreen=" + player.sinceLoadingScreen
-                + " blockResync=" + player.tickSinceBlockResync);
+                + " autoSpin=" + player.autoSpinAttackTicks + " sinceLoadingScreen=" + player.sinceLoadingScreen);
         log("world: teleporting=" + player.getTeleportUtil().isTeleporting()
                 + " pendingCorrection=" + player.getTeleportUtil().hasPendingCorrection()
                 + " correctionCooldown=" + player.getTeleportUtil().isCorrectionCooldown()

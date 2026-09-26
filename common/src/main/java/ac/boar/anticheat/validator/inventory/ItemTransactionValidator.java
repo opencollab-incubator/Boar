@@ -342,7 +342,6 @@ public final class ItemTransactionValidator {
                             BlockUtil.restoreCorrectBlock(player, packet.getBlockPosition());
 
                             placementDebug("denied clicked=" + position + " face=" + blockFace + " reason=clicked block is air, resynced");
-                            player.tickSinceBlockResync = 5;
 
                             // At high ping the server can briefly turn a block the client stands on back into air (optimistic block updates for surrounding blocks)
                             // Just keep the click from reaching the server for now

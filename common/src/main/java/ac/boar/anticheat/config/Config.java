@@ -37,9 +37,6 @@ public final class Config {
     @JsonProperty("disable-mitigations")
     @JsonSetter(nulls = Nulls.SKIP)
     private boolean disableMitigations;
-    @JsonProperty("ignore-ghost-block")
-    @JsonSetter(nulls = Nulls.SKIP)
-    private boolean ignoreGhostBlock;
     @JsonProperty("max-latency-wait")
     @JsonSetter(nulls = Nulls.SKIP)
     private long maxLatencyWait = 15000L;
@@ -87,10 +84,6 @@ public final class Config {
 
     public boolean disableMitigations() {
         return disableMitigations;
-    }
-
-    public boolean ignoreGhostBlock() {
-        return ignoreGhostBlock;
     }
 
     public long maxLatencyWait() {

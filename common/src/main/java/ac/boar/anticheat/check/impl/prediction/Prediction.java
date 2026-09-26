@@ -166,8 +166,7 @@ public class Prediction extends BaseCheck implements OffsetHandlerCheck {
     }
 
     private boolean canFlagMovement() {
-        return player.tickSinceBlockResync <= 0
-                && !player.insideUnloadedChunk
+        return !player.insideUnloadedChunk
                 && !player.getTeleportUtil().isTeleporting()
                 && !player.getTeleportUtil().hasPendingCorrection()
                 && !player.getTeleportUtil().isCorrectionCooldown()

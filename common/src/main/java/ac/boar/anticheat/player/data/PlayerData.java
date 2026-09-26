@@ -208,8 +208,6 @@ public class PlayerData {
 
     public Vector3i bedPosition = null;
 
-    public int tickSinceBlockResync;
-
     // Prediction related method
     public final float getPosAcceptanceThreshold() {
         return Boar.getConfig().acceptanceThreshold();
