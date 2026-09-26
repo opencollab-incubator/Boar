@@ -10,6 +10,7 @@ import ac.boar.anticheat.data.inventory.BoarItemStack;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.prediction.UncertainRunner;
 import ac.boar.anticheat.util.InputUtil;
+import ac.boar.anticheat.util.MathUtil;
 import ac.boar.anticheat.util.math.Vec3;
 import ac.boar.mappings.item.Items;
 import org.cloudburstmc.protocol.bedrock.data.Ability;
@@ -24,11 +25,18 @@ import java.util.Iterator;
 import java.util.Map;
 
 public class LegacyAuthInputPackets {
+
+    private static final float MAX_CLIENT_DELTA = 16.0F;
+
     public static void updateUnvalidatedPosition(final BoarPlayer player, final PlayerAuthInputPacket packet) {
         player.prevUnvalidatedPosition = player.unvalidatedPosition.clone();
         player.unvalidatedNativeOriginY = packet.getPosition().getY();
         player.unvalidatedPosition = new Vec3(packet.getPosition().down(player.getYOffset()));
-        player.unvalidatedTickEnd = new Vec3(packet.getDelta());
+        player.unvalidatedTickEnd = new Vec3(
+                MathUtil.clamp(packet.getDelta().getX(), -MAX_CLIENT_DELTA, MAX_CLIENT_DELTA),
+                MathUtil.clamp(packet.getDelta().getY(), -MAX_CLIENT_DELTA, MAX_CLIENT_DELTA),
+                MathUtil.clamp(packet.getDelta().getZ(), -MAX_CLIENT_DELTA, MAX_CLIENT_DELTA)
+        );
     }
 
     public static void doPostPrediction(final BoarPlayer player, final PlayerAuthInputPacket packet) {
