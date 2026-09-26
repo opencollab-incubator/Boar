@@ -92,7 +92,7 @@ public final class MovementTrace {
 
     /** Records the state of the player at the start of the tick. */
     private void snapshot() {
-        log("tick=" + player.tick);
+        log("tick=" + player.tick + " simFrame=" + player.simulationFrame);
         log("client: pos=" + player.unvalidatedPosition + " prevPos=" + player.prevUnvalidatedPosition
                 + " claimedDelta=" + player.unvalidatedTickEnd + " analogMotion=" + player.clientMotion
                 + " yaw=" + player.yaw + " pitch=" + player.pitch);

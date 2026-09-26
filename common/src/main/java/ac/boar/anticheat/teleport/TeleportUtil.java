@@ -228,7 +228,7 @@ public class TeleportUtil {
         final CorrectPlayerMovePredictionPacket correction = new CorrectPlayerMovePredictionPacket();
         correction.setPosition(player.position.add(0, player.getYOffset() + 0.001f, 0).toVector3f());
         correction.setOnGround(player.onGround);
-        correction.setTick(player.tick);
+        correction.setTick(player.simulationFrame);
         correction.setDelta(player.velocity.toVector3f());
         correction.setVehicleRotation(Vector2f.ZERO);
         correction.setPredictionType(player.vehicleData != null ? PredictionType.VEHICLE : PredictionType.PLAYER);
@@ -243,7 +243,7 @@ public class TeleportUtil {
         if (Boar.getInstance().getPlatform().developerDebug()) {
             this.player.getSession().sendMessage("correction sent at sim tick " + correction.getTick());
         }
-        Boar.debug(player.getSession().name() + ": [movement-debug] sent correction tick=" + player.tick + " pos=" + correction.getPosition() + " delta=" + correction.getDelta() + " onGround=" + player.onGround
+        Boar.debug(player.getSession().name() + ": [movement-debug] sent correction tick=" + player.tick + " simFrame=" + player.simulationFrame + " pos=" + correction.getPosition() + " delta=" + correction.getDelta() + " onGround=" + player.onGround
                 + " boarSprinting=" + player.getFlagTracker().has(org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag.SPRINTING)
                 + " clientVector=" + player.clientMotion + " rawInput=" + player.input.horizontalLength(), Boar.DebugMessage.WARNING);
     }
@@ -259,7 +259,7 @@ public class TeleportUtil {
         }
     }
 
-    // Like Omega: resend the server's last flags for this player, with our sprint state, with the correction's tick.
+    // Resend the server's last flags for this player, with our sprint state, with the correction's tick.
     private void syncMetadata() {
         final EnumMap<EntityFlag, Boolean> lastFlags = player.lastServerFlags;
         if (lastFlags == null || player.vehicleData != null) {
@@ -272,7 +272,7 @@ public class TeleportUtil {
         final SetEntityDataPacket packet = new SetEntityDataPacket();
         packet.setRuntimeEntityId(player.runtimeEntityId);
         packet.getMetadata().putFlags(flags);
-        packet.setTick(player.tick);
+        packet.setTick(player.simulationFrame);
 
         player.correctionMetadataPacket = packet;
         this.player.getConnection().sendPacket(packet);
@@ -294,7 +294,7 @@ public class TeleportUtil {
         final UpdateAttributesPacket packet = new UpdateAttributesPacket();
         packet.setRuntimeEntityId(player.runtimeEntityId);
         packet.setAttributes(new ArrayList<>(List.of(new AttributeData(Attribute.MOVEMENT.getIdentifier(), min, max, player.getSpeed(), movement.getBaseValue()))));
-        packet.setTick(player.tick);
+        packet.setTick(player.simulationFrame);
 
         player.correctionAttributesPacket = packet;
         this.player.getConnection().sendPacket(packet);

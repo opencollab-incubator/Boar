@@ -59,7 +59,11 @@ public class PlayerData {
     @Setter
     private Set<PlayerAuthInputData> inputData = new HashSet<>();
 
+    // Boar's own tick counter, +1 for every PlayerAuthInput. Use this for all timing, never the client's claimed tick.
     public long tick = -1; // Allow tick id 0.
+    // The tick the client claims in PlayerAuthInput. Only use it to stamp packets the client matches to its own frames
+    // (corrections, rewind packets). The client can send any value here.
+    public long simulationFrame;
     public long sinceAuthInput = System.currentTimeMillis();
 
     public Integer currentLoadingScreen = null;

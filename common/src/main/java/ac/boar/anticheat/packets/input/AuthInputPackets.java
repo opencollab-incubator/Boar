@@ -54,7 +54,8 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
             return;
         }
 
-        player.tick = claimedTick;
+        player.tick++;
+        player.simulationFrame = claimedTick;
         player.sinceAuthInput = System.currentTimeMillis();
 
         final Timer timer = (Timer) player.getCheckHolder().get(Timer.class);
