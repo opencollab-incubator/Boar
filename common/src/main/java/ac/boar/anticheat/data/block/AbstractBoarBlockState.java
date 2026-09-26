@@ -90,6 +90,11 @@ public abstract class AbstractBoarBlockState implements BoarBlockState {
     }
 
     @Override
+    public boolean isReplaceable(BoarPlayer player) {
+        return delegate.isReplaceable(player);
+    }
+
+    @Override
     public Vector3i getPosition() {
         return delegate.getPosition();
     }

@@ -8,6 +8,7 @@ import ac.boar.anticheat.check.api.holder.CheckHolder;
 import ac.boar.anticheat.collision.util.CuboidBlockIterator;
 import ac.boar.anticheat.compensated.CompensatedInventory;
 import ac.boar.anticheat.compensated.cache.entity.EntityCache;
+import ac.boar.anticheat.compensated.world.BlockPlacementTracker;
 import ac.boar.anticheat.compensated.world.CompensatedWorldImpl;
 import ac.boar.anticheat.data.Fluid;
 import ac.boar.anticheat.data.FluidState;
@@ -96,6 +97,7 @@ public final class BoarPlayer extends PlayerData {
 
     // Lag compensation
     public final CompensatedWorldImpl compensatedWorld = new CompensatedWorldImpl(this);
+    public final BlockPlacementTracker blockPlacements = new BlockPlacementTracker();
     public final CompensatedInventory compensatedInventory = new CompensatedInventory(this);
 
     // Validation

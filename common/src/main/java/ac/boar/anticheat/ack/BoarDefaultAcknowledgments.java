@@ -19,6 +19,7 @@ import ac.boar.anticheat.prediction.engine.data.Vector;
 import ac.boar.anticheat.prediction.engine.data.VectorType;
 import ac.boar.anticheat.util.geyser.BlockEntityInfo;
 import ac.boar.anticheat.util.geyser.BoarChunk;
+import ac.boar.anticheat.util.math.Vec3;
 import org.cloudburstmc.math.vector.Vector3i;
 import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.protocol.bedrock.data.Ability;
@@ -110,6 +111,15 @@ public final class BoarDefaultAcknowledgments {
     }
 
     private static void handleBlockUpdate(BoarPlayer player, BlockUpdateAck ack) {
+        final Vector3i pos = ack.position();
+        if (Boar.getConfig().debugMode() && player.position.distanceTo(new Vec3(pos.getX() + 0.5F, pos.getY() + 0.5F, pos.getZ() + 0.5F)) <= 4.0F) {
+            final int oldId = player.compensatedWorld.getRawBlockAt(pos.getX(), pos.getY(), pos.getZ(), ack.layer());
+            Boar.debug(player.getSession().name() + ": [placement-debug] tick=" + player.tick + " server block update pos=" + pos
+                    + " layer=" + ack.layer() + " runtimeId " + oldId + " -> " + ack.runtimeId()
+                    + " wasOurPlacement=" + player.blockPlacements.isUnansweredPlacement(pos), Boar.DebugMessage.INFO);
+        }
+
+        player.blockPlacements.onServerUpdateReceived(ack.position(), ack.layer());
         player.compensatedWorld.updateBlock(ack.position(), ack.layer(), ack.runtimeId());
     }
 
@@ -131,6 +141,7 @@ public final class BoarDefaultAcknowledgments {
         }
         player.compensatedWorld.clearChunks();
         player.compensatedWorld.setDimension(ack.dimension());
+        player.blockPlacements.clearPlacements();
         player.getFlagTracker().clear();
         player.getFlagTracker().flying(false);
     }

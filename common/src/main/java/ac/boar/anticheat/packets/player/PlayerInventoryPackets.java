@@ -58,7 +58,7 @@ public class PlayerInventoryPackets implements PacketListener {
                             Boar.debug(player.getSession().name() + ": " + details, Boar.DebugMessage.WARNING);
                         }
                     }
-                    event.setCancelled(cancelled && !player.disableMitigations());
+                    event.setCancelled((cancelled || player.transactionValidator.isShouldDropPacket()) && !player.disableMitigations());
                 } catch (Exception exception) {
                     Boar.getInstance().getPlatform().logger().error(
                             "Failed to validate inventory transaction for player " + player.getSession().name()

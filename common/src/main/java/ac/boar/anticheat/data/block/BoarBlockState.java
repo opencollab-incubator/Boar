@@ -27,6 +27,9 @@ public interface BoarBlockState {
 
     boolean isAir();
 
+    // True if placing a block against this one replaces it (tall grass, snow layer, etc.) instead of going next to it.
+    boolean isReplaceable(BoarPlayer player);
+
     void onSteppedOn(BoarPlayer player, Vector3i vector3i);
 
     boolean blocksMotion(BoarPlayer player);

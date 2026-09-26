@@ -187,14 +187,17 @@ public class ServerChunkPackets implements PacketListener {
                     player.sendLatencyStack();
                 } */
 
+                player.blockPlacements.onServerUpdateSent(packet.getBlockPosition());
                 player.queueAcknowledgment(new BlockUpdateAck(packet.getBlockPosition(), packet.getDataLayer(), packet.getDefinition().getRuntimeId()));
             }
             case UpdateSubChunkBlocksPacket packet -> {
                 // TODO: Figure out the difference between standard block entries and extra block entries and re-evaluate if this current handling is correct.
                 for (BlockChangeEntry entry : packet.getStandardBlocks()) {
+                    player.blockPlacements.onServerUpdateSent(entry.getPosition());
                     player.queueAcknowledgment(new BlockUpdateAck(entry.getPosition(), 0, entry.getDefinition().getRuntimeId()));
                 }
                 for (BlockChangeEntry entry : packet.getExtraBlocks()) {
+                    player.blockPlacements.onServerUpdateSent(entry.getPosition());
                     player.queueAcknowledgment(new BlockUpdateAck(entry.getPosition(), 1, entry.getDefinition().getRuntimeId()));
                 }
             }

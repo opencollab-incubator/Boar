@@ -36,7 +36,8 @@ public interface BoarPlatform {
 
     BoarLogger logger();
 
-    default boolean consoleMovementTraces() {
+    // Developer-only debug output: movement traces in the console, debug popups for the player, etc.
+    default boolean developerDebug() {
         return false;
     }
 

@@ -65,7 +65,7 @@ public class Prediction extends BaseCheck implements OffsetHandlerCheck {
         player.getTeleportUtil().correct();
 
         final String consoleTrace;
-        if (Boar.getConfig().debugMode() && Boar.getInstance().getPlatform().consoleMovementTraces()) {
+        if (Boar.getConfig().debugMode() && Boar.getInstance().getPlatform().developerDebug()) {
             consoleTrace = player.getMovementTrace().dump(failureInfo);
             Boar.getInstance().getPlatform().logger().warn("[movement-trace] " + player.getSession().name() + ": " + consoleTrace);
         } else {
