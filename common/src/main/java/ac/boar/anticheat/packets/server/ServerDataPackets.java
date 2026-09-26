@@ -59,6 +59,7 @@ public class ServerDataPackets implements PacketListener {
                 player.getTeleportUtil().reset(wirePosition);
                 player.currentLoadingScreen = null;
                 player.inLoadingScreen = true;
+                player.loadingScreenStartMs = System.currentTimeMillis();
 
                 start.setAuthoritativeMovementMode(AuthoritativeMovementMode.SERVER_WITH_REWIND);
                 start.setRewindHistorySize(Boar.getConfig().rewindHistory());

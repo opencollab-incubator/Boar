@@ -64,6 +64,7 @@ public class PlayerData {
 
     public Integer currentLoadingScreen = null;
     public boolean inLoadingScreen;
+    public long loadingScreenStartMs;
     public int sinceLoadingScreen;
 
     public int pendingDimensionSwitches;

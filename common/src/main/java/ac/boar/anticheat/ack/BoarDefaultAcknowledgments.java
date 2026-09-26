@@ -138,6 +138,7 @@ public final class BoarDefaultAcknowledgments {
         if (player.compensatedWorld.getDimension() != ack.dimension()) {
             player.currentLoadingScreen = ack.loadingScreenId();
             player.inLoadingScreen = true;
+            player.loadingScreenStartMs = System.currentTimeMillis();
         }
         player.compensatedWorld.clearChunks();
         player.compensatedWorld.setDimension(ack.dimension());

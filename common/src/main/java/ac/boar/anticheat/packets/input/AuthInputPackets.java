@@ -145,11 +145,16 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
             // client reports a fixed position with a zero delta
             player.getMovementTrace().log("path: dead, no movement expected");
             processImmobile(player);
+        } else if (player.inLoadingScreen) {
+            // Prevent abuse with clients that decide to never send the end loading screen for whatever reason (???)
+            // The client itself is immobile on a dimension change (LocalPlayer::changeDimension adds ActorIsImmobileFlagComponent)
+            player.getMovementTrace().log("path: loading screen, no movement expected");
+            processImmobile(player);
         } else if (player.insideUnloadedChunk) {
             player.getMovementTrace().log("path: unloaded chunk, no movement expected");
             processImmobile(player);
         } else {
-            if (player.isMovementExempted() || player.inLoadingScreen || player.sinceLoadingScreen < 2) {
+            if (player.isMovementExempted() || player.sinceLoadingScreen < 2) {
                 player.getMovementTrace().log("path: exempted (movementExempt=" + player.isMovementExempted()
                         + " inLoadingScreen=" + player.inLoadingScreen
                         + " sinceLoadingScreen=" + player.sinceLoadingScreen + ")");
@@ -176,6 +181,9 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
                 final Dimension dimension = DimensionUtil.dimensionFromId(dimensionId);
 
                 player.pendingDimensionSwitches++;
+                // The client moves to this position (LocalPlayer::changeDimension). Without this, holding still in the
+                // loading screen would keep the old position.
+                player.getTeleportUtil().queue(new TeleportData(new Vec3(packet.getPosition()), false, TeleportData.Source.OTHER));
                 player.queueAcknowledgment(new DimensionSwitchAck(dimension, packet.getLoadingScreenId()));
             }
             case MovePlayerPacket packet when packet.getRuntimeEntityId() == player.runtimeEntityId && packet.getMode() != MovePlayerPacket.Mode.HEAD_ROTATION -> {
