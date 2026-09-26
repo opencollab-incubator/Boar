@@ -66,7 +66,7 @@ public final class LatencyUtil {
             }
             head.dispatch(this.player);
             onLatencyAccepted(head);
-            this.prevAcceptedTime = System.currentTimeMillis();
+            this.prevAcceptedTime = head.ms;
             this.prevAcceptedLatency = head;
             released++;
             if (head == match) {
