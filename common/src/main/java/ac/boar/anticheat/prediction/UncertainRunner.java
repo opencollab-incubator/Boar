@@ -46,14 +46,9 @@ public class UncertainRunner {
             return;
         }
 
-        final boolean wasNearDripstone = player.nearDripstone;
-        player.nearDripstone = false;
-
         // Let's check to see if the player is actually inside a block...
         final List<Box> collisions = player.compensatedWorld.collectColliders(new ArrayList<>(), player.boundingBox.contract(1.0E-3F));
-        final boolean insideDripstone = player.nearDripstone;
-        player.nearDripstone |= wasNearDripstone;
-        if (collisions.isEmpty() && !insideDripstone) {
+        if (collisions.isEmpty()) {
             return;
         }
 
@@ -73,28 +68,8 @@ public class UncertainRunner {
         player.velocity = player.unvalidatedTickEnd.clone();
     }
 
-    public float extraDripstoneOffsetNonTickEnd(float offset) {
-        float extra = 0;
-
-        Vec3 actual = player.unvalidatedPosition.subtract(player.prevUnvalidatedPosition);
-        Vec3 predicted = player.position.subtract(player.prevUnvalidatedPosition);
-        boolean validYOffset = Math.abs(player.position.y - player.unvalidatedPosition.y) - extra <= player.getPosAcceptanceThreshold();
-        boolean actualSpeedSmallerThanPredicted = actual.horizontalLengthSquared() < predicted.horizontalLengthSquared();
-        boolean sameDirection = MathUtil.sameDirection(actual, predicted);
-        boolean sameDirectionOrZero = (MathUtil.sign(actual.x) == MathUtil.sign(predicted.x) || actual.x == 0)
-                && MathUtil.sign(actual.y) == MathUtil.sign(predicted.y) && (MathUtil.sign(actual.z) == MathUtil.sign(predicted.z) || actual.z == 0);
-        if (validYOffset && (sameDirection || sameDirectionOrZero) && actualSpeedSmallerThanPredicted && player.nearDripstone && player.horizontalCollision) {
-            extra = offset;
-        }
-
-        return extra;
-    }
-
     public float extraOffset(float offset) {
         float extra = 0;
-
-        Vec3 actual = player.unvalidatedPosition.subtract(player.prevUnvalidatedPosition);
-        Vec3 predicted = player.position.subtract(player.prevUnvalidatedPosition);
 
         if (player.getFlagTracker().has(EntityFlag.GLIDING)) {
             extra += 8.0E-4F; // gliding accuracy is... yuck.
@@ -102,15 +77,6 @@ public class UncertainRunner {
             if (offset <= 8.0E-4 && player.glideBoostTicks >= 0) {
                 extra = offset;
             }
-        }
-
-        boolean dripstoneHorizontalNotExceeded = actual.horizontalLengthSquared() <= predicted.horizontalLengthSquared() + 1.0E-6F;
-        boolean dripstoneHorizontalSaneDir = (MathUtil.sign(actual.x) == MathUtil.sign(predicted.x) || actual.x == 0)
-                && (MathUtil.sign(actual.z) == MathUtil.sign(predicted.z) || actual.z == 0);
-        if (player.nearDripstone && player.getInputData().contains(PlayerAuthInputData.VERTICAL_COLLISION)
-                && Math.abs(player.position.y - player.unvalidatedPosition.y) <= 0.3125F + player.getPosAcceptanceThreshold()
-                && dripstoneHorizontalNotExceeded && dripstoneHorizontalSaneDir) {
-            extra = offset;
         }
 
         return extra;

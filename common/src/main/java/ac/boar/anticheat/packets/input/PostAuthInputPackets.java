@@ -15,7 +15,6 @@ public class PostAuthInputPackets implements PacketListener {
             player.dirtyRiptide = false;
             player.thisTickSpinAttack = false;
             player.doingInventoryAction = false;
-            player.nearDripstone = false;
 
             if (player.vehicleData != null && player.getEntity().vehicle() == null && !player.disableMitigations()) {
                 event.setCancelled(true);

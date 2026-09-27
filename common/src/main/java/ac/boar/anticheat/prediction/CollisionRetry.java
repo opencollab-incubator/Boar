@@ -44,10 +44,6 @@ public final class CollisionRetry {
             return;
         }
 
-        // don't do collision retry-sim for dripstone for now (still need to implement dripstone + test)
-        if (player.nearDripstone) {
-            return;
-        }
         final float firstOffset = offset(player);
         if (firstOffset < config.alertThreshold() + player.getPositionUlp()) {
             return;
@@ -63,9 +59,7 @@ public final class CollisionRetry {
         // Don't try to run a secondary lenience sim if the player is starting inside a block
         final float horizontalContract = Math.max(1.0E-4F, 2.0F * player.getPositionUlp());
         final Box startBox = player.dimensions.getBoxAt(clientStart).contract(horizontalContract, 1.0E-4F, horizontalContract);
-        final boolean wasNearDripstone = player.nearDripstone;
         final boolean startFree = player.compensatedWorld.noCollision(startBox);
-        player.nearDripstone = wasNearDripstone; // noCollision can set this as a side effect
         if (!startFree) {
             log(player, "skipped reason=start-inside-block tick=" + player.tick + " clientStart=" + clientStart);
             chat(player, "§eretry skipped at sim tick " + player.simulationFrame + ": start inside a block");
@@ -94,8 +88,6 @@ public final class CollisionRetry {
             reason = "client-flags-differ";
         } else if (retryOffset > maxOffset) {
             reason = "offset";
-        } else if (player.nearDripstone) {
-            reason = "dripstone";
         } else {
             reason = null;
         }
@@ -119,7 +111,6 @@ public final class CollisionRetry {
         final UncertainRunner uncertainRunner = new UncertainRunner(player);
         float offset = player.position.distanceTo(player.unvalidatedPosition);
         offset -= uncertainRunner.extraOffset(offset);
-        offset -= uncertainRunner.extraDripstoneOffsetNonTickEnd(offset);
         return offset;
     }
 

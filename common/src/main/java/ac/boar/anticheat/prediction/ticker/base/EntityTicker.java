@@ -299,14 +299,6 @@ public class EntityTicker {
         player.verticalCollision = Math.abs(vec3.y - vec32.y) > FLT_EPSILON;
         player.onGround = (player.verticalCollision && vec3.y < 0.0F) || (wasOnGround && !player.verticalCollision && Math.abs(vec3.y) <= COLLISION_EPSILON);
 
-        // Pointed dripstone still uses the client's horizontal collision result.
-        if (player.nearDripstone && player.getInputData().contains(PlayerAuthInputData.HORIZONTAL_COLLISION)) {
-            player.getMovementTrace().log("move: dripstone uncertainty, trusting client horizontal collision");
-            player.horizontalCollision = true;
-            collidedX = player.unvalidatedTickEnd.x == 0;
-            collidedZ = player.unvalidatedTickEnd.z == 0;
-        }
-
         // Vanilla zeroes the velocity on each axis that the sneak edge guard reduced to zero
         // (SneakMovementSystem::tickSneakMovementSystem, 1.26.30, FLT_EPSILON test).
         if (oldVec3.x != vec3.x || oldVec3.z != vec3.z) {

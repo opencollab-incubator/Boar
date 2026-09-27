@@ -27,7 +27,7 @@ public final class PredictionState {
     private final Vec3 beforeCollision, afterCollision;
 
     private final boolean onGround, horizontalCollision, verticalCollision;
-    private final boolean stuckInCollider, penetratedLastFrame, nearDripstone;
+    private final boolean stuckInCollider, penetratedLastFrame;
     private final Vec3 stuckSpeedMultiplier;
 
     private final boolean touchingWater, headInWater;
@@ -68,7 +68,6 @@ public final class PredictionState {
         this.verticalCollision = player.verticalCollision;
         this.stuckInCollider = player.stuckInCollider;
         this.penetratedLastFrame = player.penetratedLastFrame;
-        this.nearDripstone = player.nearDripstone;
         this.stuckSpeedMultiplier = player.stuckSpeedMultiplier.clone();
 
         this.touchingWater = player.touchingWater;
@@ -122,7 +121,6 @@ public final class PredictionState {
         player.verticalCollision = this.verticalCollision;
         player.stuckInCollider = this.stuckInCollider;
         player.penetratedLastFrame = this.penetratedLastFrame;
-        player.nearDripstone = this.nearDripstone;
         player.stuckSpeedMultiplier = this.stuckSpeedMultiplier.clone();
 
         player.touchingWater = this.touchingWater;

@@ -56,12 +56,10 @@ public class LegacyAuthInputPackets {
         final float rawOffset = offset;
         float extraOffset = uncertainRunner.extraOffset(offset);
         offset -= extraOffset;
-        final float extraOffsetNonTickEnd = uncertainRunner.extraDripstoneOffsetNonTickEnd(offset);
-        offset -= extraOffsetNonTickEnd;
         uncertainRunner.uncertainPushTowardsTheClosetSpace();
 
         player.getMovementTrace().log("offset: raw=" + rawOffset + " extra=" + extraOffset
-                + " extraNonTickEnd=" + extraOffsetNonTickEnd + " final=" + offset
+                + " final=" + offset
                 + " predictedPos=" + player.position + " actualPos=" + player.unvalidatedPosition);
 
         for (Map.Entry<Class<?>, Check> entry : player.getCheckHolder().entrySet()) {

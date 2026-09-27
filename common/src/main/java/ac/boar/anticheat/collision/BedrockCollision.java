@@ -116,28 +116,6 @@ public class BedrockCollision {
             return collisions;
         }
 
-        if (state.is(Blocks.POINTED_DRIPSTONE)) {
-            if (!player.getInputData().contains(PlayerAuthInputData.VERTICAL_COLLISION) || box == null) {
-                return EMPTY_SHAPE;
-            }
-
-            List<Box> javaBoxes = state.getCollisionBoxes();
-            if (javaBoxes.isEmpty()) {
-                return EMPTY_SHAPE;
-            }
-
-            float minY = 1f, maxY = 0f;
-            for (Box b : javaBoxes) {
-                minY = Math.min(minY, b.minY);
-                maxY = Math.max(maxY, b.maxY);
-            }
-
-            List<Box> vertical = List.of(new Box(0, minY, 0, 1, maxY, 1));
-            Box verticalOffset = vertical.getFirst().offset(vector3i.getX(), vector3i.getY(), vector3i.getZ());
-            boolean likelyYCollision = verticalOffset.calculateMaxDistance(Axis.Y, player.boundingBox, player.velocity.y) != player.velocity.y;
-            return likelyYCollision && verticalOffset.intersects(box) ? vertical : EMPTY_SHAPE;
-        }
-
         if (state.is(Blocks.END_PORTAL_FRAME)) {
             return END_PORTAL_FRAME_SHAPE;
         }

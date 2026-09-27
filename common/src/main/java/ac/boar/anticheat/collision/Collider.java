@@ -63,7 +63,7 @@ public class Collider {
         final Vec3 movement = MovementCollision.clampMovement(requestedMovement);
         final Box boundingBox = player.boundingBox.clone();
         final Box volume = MovementCollision.collectionVolume(boundingBox, movement, PlayerData.STEP_HEIGHT);
-        final List<CollisionRecord> records = player.compensatedWorld.collectMovementColliders(volume, boundingBox.stretch(requestedMovement));
+        final List<CollisionRecord> records = player.compensatedWorld.collectMovementColliders(volume);
         final List<Box> colliders = records.stream().map(CollisionRecord::shape).toList();
 
         MovementResult collisionResult = collideWithAxes(boundingBox, movement, colliders, oneWay, penetration);

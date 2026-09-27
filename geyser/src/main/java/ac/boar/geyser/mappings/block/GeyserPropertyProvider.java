@@ -22,6 +22,7 @@ public class GeyserPropertyProvider implements PropertyProvider {
             );
             case "door_hinge" -> new GeyserProperty(Properties.DOOR_HINGE);
             case "drag" -> new GeyserProperty(Properties.DRAG);
+            case "dripstone_thickness" -> new GeyserProperty(Properties.SPELEOTHEM_THICKNESS);
             case "half" -> new GeyserProperty(Properties.HALF);
             case "hanging" -> new GeyserProperty(Properties.HANGING);
             case "has_book" -> new GeyserProperty(Properties.HAS_BOOK);
@@ -34,6 +35,10 @@ public class GeyserPropertyProvider implements PropertyProvider {
             case "open" -> new GeyserProperty(Properties.OPEN);
             case "respawn_anchor_charges" -> new GeyserProperty(Properties.RESPAWN_ANCHOR_CHARGES);
             case "vault_state" -> new GeyserProperty(Properties.VAULT_STATE);
+            case "vertical_direction" -> new GeyserProperty<>(
+                    Properties.VERTICAL_DIRECTION,
+                    raw -> (T) ac.boar.anticheat.util.math.Direction.VALUES[((Direction) raw).ordinal()]
+            );
             default -> throw new IllegalArgumentException("Unknown property: " + key);
         };
     }

@@ -198,8 +198,6 @@ public class PlayerData {
     public boolean horizontalCollision, verticalCollision;
     public boolean stuckInCollider, penetratedLastFrame;
 
-    public boolean nearDripstone;
-
     public final Map<Fluid, Float> fluidHeight = new HashMap<>();
     public float getFluidHeight(Fluid tagKey) {
         return this.fluidHeight.getOrDefault(tagKey, 0F);

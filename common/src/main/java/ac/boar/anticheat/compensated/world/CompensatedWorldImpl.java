@@ -47,7 +47,7 @@ public class CompensatedWorldImpl extends CompensatedWorld {
         return getBlockState(x, y, z, 0).getFluidState(0);
     }
 
-    public List<CollisionRecord> collectMovementColliders(final Box volume, final Box sweptBox) {
+    public List<CollisionRecord> collectMovementColliders(final Box volume) {
         final List<CollisionRecord> records = new ArrayList<>();
         for (Box shape : this.getEntityCollisions(volume)) {
             records.add(new CollisionRecord(shape, null, null));
@@ -71,10 +71,6 @@ public class CompensatedWorldImpl extends CompensatedWorld {
                 for (int y = minY; y <= maxY; y++) {
                     final BoarBlockState state = this.getBlockState(x, y, z, 0);
                     final Vector3i position = Vector3i.from(x, y, z);
-                    // preserve leniency for dripstone until we impl properly
-                    if (state.is(Blocks.POINTED_DRIPSTONE) && new Box(x, y, z, x + 1, y + 1, z + 1).intersects(sweptBox)) {
-                        getPlayer().nearDripstone = true;
-                    }
                     for (Box shape : state.findCollision(this.getPlayer(), position, volume, false)) {
                         // see BlockType::addCollisionShapes and BlockCollisionBoxComponent::addComponentCollisionShapes
                         if (shape.minX < shape.maxX && shape.minY < shape.maxY && shape.minZ < shape.maxZ && shape.intersects(volume)) {
@@ -98,10 +94,6 @@ public class CompensatedWorldImpl extends CompensatedWorld {
             int x = iterator.getX(), y = iterator.getY(), z = iterator.getZ();
             if (this.isChunkLoaded(x, z)) {
                 BoarBlockState state = this.getBlockState(x, y, z, 0);
-                if (state.is(Blocks.POINTED_DRIPSTONE) && new Box(x, y, z, x + 1, y + 1, z + 1).intersects(aABB)) {
-                    getPlayer().nearDripstone = true;
-                }
-
                 builder.addAll(state.findCollision(this.getPlayer(), Vector3i.from(x, y, z), aABB, true));
             }
         }
