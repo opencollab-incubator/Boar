@@ -50,6 +50,10 @@ public class ServerBreakBlockValidator extends BaseCheck {
             if (actionType == DROP_ITEM) {
                 validActions.add(action);
                 continue;
+            } else if (actionType == ABORT_BREAK) {
+                this.breakingData = null;
+                validActions.add(action);
+                continue;
             }
 
             // These action are shouldn't be process, and likely won't be process by Geyser anyway.
@@ -57,7 +61,7 @@ public class ServerBreakBlockValidator extends BaseCheck {
                 continue;
             }
 
-            if (actionType != ABORT_BREAK && (face < 0 || face >= Direction.VALUES.length)) {
+            if (face < 0 || face >= Direction.VALUES.length) {
                 continue;
             }
 
@@ -98,7 +102,6 @@ public class ServerBreakBlockValidator extends BaseCheck {
                     this.breakingData.setBreakingProcess(1F);
                 }
 
-                case ABORT_BREAK -> this.breakingData = null;
                 case BLOCK_PREDICT_DESTROY -> {
                     if (this.breakingData == null || !Objects.equals(blockPosition, this.breakingData.getPosition())) {
                         continue;
