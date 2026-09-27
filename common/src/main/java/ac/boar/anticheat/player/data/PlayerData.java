@@ -158,7 +158,7 @@ public class PlayerData {
     public final Set<Ability> abilities = new HashSet<>();
 
     // Riptide related
-    public boolean dirtyRiptide, dirtySpinStop, thisTickSpinAttack, thisTickOnGroundSpinAttack;
+    public boolean dirtyRiptide, dirtySpinStop, thisTickSpinAttack;
     public int autoSpinAttackTicks, sinceTridentUse;
     public ItemData riptideItem = ItemData.AIR;
     public void setDirtyRiptide(int j, ItemData data) {

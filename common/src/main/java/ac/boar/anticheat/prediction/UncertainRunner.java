@@ -92,9 +92,6 @@ public class UncertainRunner {
 
     public float extraOffset(float offset) {
         float extra = 0;
-        if (player.thisTickSpinAttack) {
-            extra += player.thisTickOnGroundSpinAttack ? 0.08F : 0.008F;
-        }
 
         Vec3 actual = player.unvalidatedPosition.subtract(player.prevUnvalidatedPosition);
         Vec3 predicted = player.position.subtract(player.prevUnvalidatedPosition);

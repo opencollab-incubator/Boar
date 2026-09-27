@@ -20,7 +20,6 @@ import ac.boar.anticheat.util.math.Box;
 import ac.boar.anticheat.util.math.Vec3;
 import ac.boar.mappings.block.Blocks;
 import org.cloudburstmc.math.GenericMath;
-import org.cloudburstmc.math.TrigMath;
 import org.cloudburstmc.protocol.bedrock.data.PlayerAuthInputData;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 
@@ -39,26 +38,39 @@ public class LivingTicker extends EntityTicker {
             player.getFlagTracker().set(EntityFlag.DAMAGE_NEARBY_MOBS, true);
             // System.out.println("Trying to riptide.");
 
-            int i = CompensatedInventory.getEnchantments(player.riptideItem).get(Enchantment.RIPTIDE);
-            float f = 1.5f + 0.75F * (i - 1);
+            // SpinAttackSystem::_tickSpinAttackAction
+            final int level = CompensatedInventory.getEnchantments(player.riptideItem).get(Enchantment.RIPTIDE);
+            final float yawIndex = player.rotation.getY() * MathUtil.DEGREE_TO_RAD * 10430.378F;
+            final float pitchIndex = player.rotation.getX() * MathUtil.DEGREE_TO_RAD * 10430.378F;
+            final float cosPitch = MathUtil.sin(pitchIndex + 16384.0F);
+            final float x = -(MathUtil.sin(yawIndex) * cosPitch);
+            final float sinPitch = MathUtil.sin(pitchIndex);
+            final float z = cosPitch * MathUtil.sin(yawIndex + 16384.0F);
+            final float length = (float) Math.sqrt(x * x + sinPitch * sinPitch + z * z);
 
-            float g = player.rotation.getY();
-            float h = player.rotation.getX();
-            float k = -TrigMath.sin(g * (MathUtil.DEGREE_TO_RAD)) * TrigMath.cos(h * (MathUtil.DEGREE_TO_RAD));
-            float l = -TrigMath.sin(h * (MathUtil.DEGREE_TO_RAD));
-            float m = TrigMath.cos(g * (MathUtil.DEGREE_TO_RAD)) * TrigMath.cos(h * (MathUtil.DEGREE_TO_RAD));
-            float n = (float) GenericMath.sqrt(k * k + l * l + m * m);
+            float dirX = 0, dirY = 0, dirZ = 0;
+            if (length >= 1.0E-4F) {
+                dirX = x / length;
+                dirY = -sinPitch / length;
+                dirZ = z / length;
+            }
 
-            player.velocity = player.velocity.add(k * (f / n), l * (f / n), m * (f / n));
+            final float strength = ((float) level + 1.0F) * 0.25F * 3.0F;
+            float pushY = strength * dirY;
+            // No 1.2 block lift like Java. On the ground the client only changes the Y push.
+            if (player.onGround) {
+                if (player.touchingWater && !player.headInWater) {
+                    pushY = (pushY / 0.8F) * 0.98F;
+                } else {
+                    pushY = pushY + 0.08F;
+                }
+            }
+
+            player.velocity = player.velocity.add(strength * dirX, pushY, strength * dirZ);
             player.getMovementTrace().log("riptide: vel=" + player.velocity + " onGround=" + player.onGround);
             player.autoSpinAttackTicks = 20;
-//            if (player.onGround) {
-//                this.doSelfMove(new Vec3(0, 1.1999999284744263F, 0));
-//                player.prevUnvalidatedPosition = player.position.clone();
-//            }
 
             player.thisTickSpinAttack = true;
-            player.thisTickOnGroundSpinAttack = player.onGround;
         }
 
         this.aiStep();

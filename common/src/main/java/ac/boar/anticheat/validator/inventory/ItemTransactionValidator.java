@@ -133,7 +133,7 @@ public final class ItemTransactionValidator {
                 }
 
                 if (packet.getActionType() == 0 || packet.getActionType() == 1) {
-                    if (packet.getActionType() == 1 && player.compensatedInventory.inventoryContainer.getHeldItem().is(Items.TRIDENT)) {
+                    if (packet.getActionType() == 0 && player.compensatedInventory.inventoryContainer.getHeldItem().is(Items.TRIDENT)) {
                         player.setDirtyRiptide(player.sinceTridentUse, player.compensatedInventory.inventoryContainer.getHeldItemData());
                     }
 

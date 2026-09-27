@@ -14,7 +14,6 @@ public class PostAuthInputPackets implements PacketListener {
         if (event.getPacket() instanceof PlayerAuthInputPacket packet) {
             player.dirtyRiptide = false;
             player.thisTickSpinAttack = false;
-            player.thisTickOnGroundSpinAttack = false;
             player.doingInventoryAction = false;
             player.nearDripstone = false;
 
