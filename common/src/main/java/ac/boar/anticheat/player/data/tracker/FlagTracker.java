@@ -18,8 +18,14 @@ public final class FlagTracker {
         this.flying = this.wasFlying = flying;
     }
     public void setFlying(boolean flying) {
-        this.wasFlying = this.flying;
+        // Keep it until the end of the tick. The server can send abilities twice in a row (CubeTap does on a gamemode
+        // change), and the second one must not wipe the "was flying" from the first.
+        this.wasFlying |= this.flying;
         this.flying = flying;
+    }
+
+    public void tickFlying() {
+        this.wasFlying = this.flying;
     }
 
     public void clear() {

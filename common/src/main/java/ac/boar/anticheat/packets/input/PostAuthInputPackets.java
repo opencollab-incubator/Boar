@@ -35,6 +35,7 @@ public class PostAuthInputPackets implements PacketListener {
             LegacyAuthInputPackets.correctInputData(player, packet);
 
             player.blockPlacements.tick();
+            player.getFlagTracker().tickFlying();
         }
     }
 }
