@@ -1,7 +1,5 @@
 package ac.boar.anticheat.prediction;
 
-import ac.boar.anticheat.compensated.CompensatedInventory;
-import ac.boar.anticheat.data.enchantment.Enchantment;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.util.MathUtil;
 import ac.boar.anticheat.util.math.Box;
@@ -100,15 +98,6 @@ public class UncertainRunner {
 
         Vec3 actual = player.unvalidatedPosition.subtract(player.prevUnvalidatedPosition);
         Vec3 predicted = player.position.subtract(player.prevUnvalidatedPosition);
-
-        boolean validYOffset = Math.abs(player.position.y - player.unvalidatedPosition.y) - extra <= player.getPosAcceptanceThreshold();
-        boolean sameDirection = MathUtil.sameDirection(actual, predicted);
-        boolean actualSpeedSmallerThanPredicted = actual.horizontalLengthSquared() < predicted.horizontalLengthSquared();
-
-        boolean haveSoulSpeed = CompensatedInventory.getEnchantments(player.compensatedInventory.armorContainer.get(3).getData()).containsKey(Enchantment.SOUL_SPEED);
-        if (player.soulSandBelow && !haveSoulSpeed && validYOffset && actualSpeedSmallerThanPredicted && sameDirection) {
-            extra = offset;
-        }
 
         if (player.getFlagTracker().has(EntityFlag.GLIDING)) {
             extra += 8.0E-4F; // gliding accuracy is... yuck.

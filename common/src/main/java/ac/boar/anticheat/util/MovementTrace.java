@@ -103,7 +103,7 @@ public final class MovementTrace {
                         : player.certainVelocity.getType() + ":" + player.certainVelocity.getVelocity()));
         log("state: onGround=" + player.onGround + " hColl=" + player.horizontalCollision
                 + " vColl=" + player.verticalCollision + " touchingWater=" + player.touchingWater
-                + " fluidHeights=" + player.fluidHeight + " soulSand=" + player.soulSandBelow
+                + " fluidHeights=" + player.fluidHeight
                 + " stuckMul=" + player.stuckSpeedMultiplier + " stuckInCollider=" + player.stuckInCollider
                 + " fallDistance=" + player.fallDistance);
         log("input: vec=" + player.input + " data=" + player.getInputData()

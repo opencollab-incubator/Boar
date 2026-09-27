@@ -43,8 +43,6 @@ public class EntityTicker {
         this.updateWaterState();
         this.updateHeadInWater();
         this.updateSwimming();
-
-        player.soulSandBelow = player.compensatedWorld.getBlockState(player.position.down(1.0E-3F).toVector3i(), 0).is(Blocks.SOUL_SAND);
     }
 
     protected void updateHeadInWater() {

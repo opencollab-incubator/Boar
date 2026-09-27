@@ -197,7 +197,6 @@ public class PlayerData {
     public Fluid selectedFluid = Fluid.EMPTY;
     public boolean horizontalCollision, verticalCollision;
     public boolean stuckInCollider, penetratedLastFrame;
-    public boolean soulSandBelow;
 
     public boolean nearDripstone;
 
