@@ -25,6 +25,9 @@ public final class Config {
     @JsonProperty("player-position-drift-amount")
     @JsonSetter(nulls = Nulls.SKIP)
     private float positionDriftAmount = 0.0F;
+    @JsonProperty("player-position-retry-max-offset")
+    @JsonSetter(nulls = Nulls.SKIP)
+    private float retryMaxOffset = 0.0F;
     @JsonProperty("max-tolerance-compensated-reach")
     @JsonSetter(nulls = Nulls.SKIP)
     private float toleranceReach = 2.91F;
@@ -68,6 +71,10 @@ public final class Config {
 
     public float positionDriftAmount() {
         return Math.max(0.0F, positionDriftAmount);
+    }
+
+    public float retryMaxOffset() {
+        return Math.max(0.0F, retryMaxOffset);
     }
 
     public float toleranceReach() {

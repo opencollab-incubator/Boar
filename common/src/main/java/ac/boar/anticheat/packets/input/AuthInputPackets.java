@@ -11,7 +11,9 @@ import ac.boar.anticheat.check.impl.timer.Timer;
 import ac.boar.anticheat.packets.input.legacy.LegacyAuthInputPackets;
 import ac.boar.anticheat.packets.input.teleport.TeleportHandler;
 import ac.boar.anticheat.player.BoarPlayer;
+import ac.boar.anticheat.prediction.CollisionRetry;
 import ac.boar.anticheat.prediction.PredictionRunner;
+import ac.boar.anticheat.prediction.PredictionState;
 import ac.boar.anticheat.teleport.data.TeleportData;
 import ac.boar.anticheat.util.Dimension;
 import ac.boar.anticheat.util.DimensionUtil;
@@ -162,7 +164,11 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
                 processExempted(player);
             } else {
                 player.getMovementTrace().log("path: prediction");
-                new PredictionRunner(player).run();
+                final PredictionState start = PredictionState.capture(player);
+                final PredictionRunner runner = new PredictionRunner(player);
+                runner.run();
+                CollisionRetry.attempt(player, start);
+                runner.capturePrediction();
             }
         }
 

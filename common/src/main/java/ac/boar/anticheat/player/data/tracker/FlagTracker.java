@@ -102,4 +102,9 @@ public final class FlagTracker {
 
         return flags;
     }
+
+    public void restoreFlags(final Set<EntityFlag> flags) {
+        this.flags.clear();
+        this.flags.addAll(flags);
+    }
 }

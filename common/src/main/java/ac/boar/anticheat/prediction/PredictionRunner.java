@@ -21,13 +21,9 @@ public class PredictionRunner {
             return;
         }
 
-        final Velocity velocityCheck = (Velocity) player.getCheckHolder().get(Velocity.class);
         new PlayerTicker(player).tick();
         player.predictionResult = new PredictionData(player.beforeCollision.clone(), player.afterCollision.clone(), player.velocity.clone());
         player.lastTickFinalVelocity = player.velocity.clone();
-        if (velocityCheck != null) {
-            velocityCheck.capturePrediction();
-        }
 
         player.getMovementTrace().log("prediction done: predictedPos=" + player.position
                 + " finalVel=" + player.velocity + " beforeCollision=" + player.beforeCollision
@@ -38,6 +34,13 @@ public class PredictionRunner {
                     + " path=prediction predictedPos=" + player.position + " finalVel=" + player.velocity
                     + " beforeCollision=" + player.beforeCollision + " afterCollision=" + player.afterCollision,
                     Boar.DebugMessage.WARNING);
+        }
+    }
+
+    public void capturePrediction() {
+        final Velocity velocityCheck = (Velocity) player.getCheckHolder().get(Velocity.class);
+        if (velocityCheck != null) {
+            velocityCheck.capturePrediction();
         }
     }
 
