@@ -15,24 +15,37 @@ public final class BlockUtil {
             return;
         }
 
-        BlockDefinition bedrockBlock = blockState.definition(player);
+        syncBlock(player, vector, blockState);
+        // Reset the item in hand to prevent "missing" blocks, needs more testing
+        player.getInventoryAccessor().updateSlot(player.getInventoryAccessor().heldItemSlot());
+    }
 
-        UpdateBlockPacket updateBlockPacket = new UpdateBlockPacket();
-        updateBlockPacket.setDataLayer(0);
-        updateBlockPacket.setBlockPosition(vector);
-        updateBlockPacket.setDefinition(bedrockBlock);
-        updateBlockPacket.getFlags().addAll(UpdateBlockPacket.FLAG_ALL_PRIORITY);
-        player.getConnection().sendPacket(updateBlockPacket);
+    public static void syncBlock(BoarPlayer player, Vector3i vector) {
+        syncBlock(player, vector, player.getWorldAccessor().blockStateAt(vector, 0));
+    }
 
-        UpdateBlockPacket updateWaterPacket = new UpdateBlockPacket();
-        updateWaterPacket.setDataLayer(1);
-        updateWaterPacket.setBlockPosition(vector);
-        updateWaterPacket.setDefinition(blockState.isWaterlogged() ? player.mappingInfo.waterDefinition() : player.mappingInfo.airDefinition());
-        updateWaterPacket.getFlags().addAll(UpdateBlockPacket.FLAG_ALL_PRIORITY);
-        player.getConnection().sendPacket(updateWaterPacket);
+    public static void syncBlock(BoarPlayer player, Vector3i vector, BoarBlockState blockState) {
+        // Skip the block resync if:
+        // - a server update for this spot is still on its way to the client
+        // - the client just placed a block here and the server hasn't answered yet
+        // Sending ours could overwrite either with an older state (e.g. air under a bridging player)
+        if (!player.blockPlacements.hasPendingServerUpdate(vector) && !player.blockPlacements.isUnansweredPlacement(vector)) {
+            BlockDefinition bedrockBlock = blockState.definition(player);
 
-        // Reset the item in hand to prevent "missing" blocks
-        player.getInventoryAccessor().updateSlot(player.getInventoryAccessor().heldItemSlot()); // TODO test
+            UpdateBlockPacket updateBlockPacket = new UpdateBlockPacket();
+            updateBlockPacket.setDataLayer(0);
+            updateBlockPacket.setBlockPosition(vector);
+            updateBlockPacket.setDefinition(bedrockBlock);
+            updateBlockPacket.getFlags().addAll(UpdateBlockPacket.FLAG_ALL_PRIORITY);
+            player.getConnection().sendPacket(updateBlockPacket);
+
+            UpdateBlockPacket updateWaterPacket = new UpdateBlockPacket();
+            updateWaterPacket.setDataLayer(1);
+            updateWaterPacket.setBlockPosition(vector);
+            updateWaterPacket.setDefinition(blockState.isWaterlogged() ? player.mappingInfo.waterDefinition() : player.mappingInfo.airDefinition());
+            updateWaterPacket.getFlags().addAll(UpdateBlockPacket.FLAG_ALL_PRIORITY);
+            player.getConnection().sendPacket(updateWaterPacket);
+        }
     }
 
     public static Vector3i getBlockPosition(Vector3i blockPos, int face) {

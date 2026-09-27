@@ -43,8 +43,6 @@ public class EntityTicker {
         this.updateWaterState();
         this.updateHeadInWater();
         this.updateSwimming();
-
-        player.soulSandBelow = player.compensatedWorld.getBlockState(player.position.down(1.0E-3F).toVector3i(), 0).is(Blocks.SOUL_SAND);
     }
 
     protected void updateHeadInWater() {
@@ -300,14 +298,6 @@ public class EntityTicker {
         // FinalizeMoveSystemImpl::tickFinalizeMoveSystem
         player.verticalCollision = Math.abs(vec3.y - vec32.y) > FLT_EPSILON;
         player.onGround = (player.verticalCollision && vec3.y < 0.0F) || (wasOnGround && !player.verticalCollision && Math.abs(vec3.y) <= COLLISION_EPSILON);
-
-        // Pointed dripstone still uses the client's horizontal collision result.
-        if (player.nearDripstone && player.getInputData().contains(PlayerAuthInputData.HORIZONTAL_COLLISION)) {
-            player.getMovementTrace().log("move: dripstone uncertainty, trusting client horizontal collision");
-            player.horizontalCollision = true;
-            collidedX = player.unvalidatedTickEnd.x == 0;
-            collidedZ = player.unvalidatedTickEnd.z == 0;
-        }
 
         // Vanilla zeroes the velocity on each axis that the sneak edge guard reduced to zero
         // (SneakMovementSystem::tickSneakMovementSystem, 1.26.30, FLT_EPSILON test).

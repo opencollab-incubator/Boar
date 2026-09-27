@@ -22,6 +22,7 @@ import org.cloudburstmc.math.vector.Vector2f;
 import org.cloudburstmc.math.vector.Vector3f;
 import org.cloudburstmc.math.vector.Vector3i;
 import org.cloudburstmc.protocol.bedrock.data.Ability;
+import org.cloudburstmc.protocol.bedrock.data.AttributeData;
 import org.cloudburstmc.protocol.bedrock.data.GameType;
 import org.cloudburstmc.protocol.bedrock.data.InputMode;
 import org.cloudburstmc.protocol.bedrock.data.InputInteractionModel;
@@ -30,7 +31,10 @@ import org.cloudburstmc.protocol.bedrock.data.attribute.AttributeModifierData;
 import org.cloudburstmc.protocol.bedrock.data.attribute.AttributeOperation;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
+import org.cloudburstmc.protocol.bedrock.packet.SetEntityDataPacket;
+import org.cloudburstmc.protocol.bedrock.packet.UpdateAttributesPacket;
 
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -55,11 +59,16 @@ public class PlayerData {
     @Setter
     private Set<PlayerAuthInputData> inputData = new HashSet<>();
 
+    // Boar's own tick counter, +1 for every PlayerAuthInput. Use this for all timing, never the client's claimed tick.
     public long tick = -1; // Allow tick id 0.
+    // The tick the client claims in PlayerAuthInput. Only use it to stamp packets the client matches to its own frames
+    // (corrections, rewind packets). The client can send any value here.
+    public long simulationFrame;
     public long sinceAuthInput = System.currentTimeMillis();
 
     public Integer currentLoadingScreen = null;
     public boolean inLoadingScreen;
+    public long loadingScreenStartMs;
     public int sinceLoadingScreen;
 
     public int pendingDimensionSwitches;
@@ -88,6 +97,14 @@ public class PlayerData {
     private final FlagTracker flagTracker = new FlagTracker();
 
     public float sneakingAttributeModifier;
+    public float hunger = 20;
+    public long ackDebugUntilTick = Long.MIN_VALUE;
+
+    public boolean clientSprintIntent;
+    // Server metadata turned off a sprint the client started itself. The client lets that win for one tick, then turns
+    // sprint back on by itself if it still can (SprintTriggerSystem::doIntentTick), without sending START_SPRINTING
+    public boolean serverClearedSprint;
+    public long serverClearedSprintTick;
     public float sneakingEyeHeightReduction = 0.35F;
 
     public int glideBoostTicks;
@@ -104,6 +121,10 @@ public class PlayerData {
     public AtomicLong desyncedFlag = new AtomicLong(-1);
 
     public boolean clientNeedsMovementSpeedAttributeUpdate = false;
+    public volatile AttributeData lastMovementAttribute;
+    public volatile UpdateAttributesPacket correctionAttributesPacket;
+    public volatile EnumMap<EntityFlag, Boolean> lastServerFlags;
+    public volatile SetEntityDataPacket correctionMetadataPacket;
 
     // Effect status related
     @Getter
@@ -137,7 +158,7 @@ public class PlayerData {
     public final Set<Ability> abilities = new HashSet<>();
 
     // Riptide related
-    public boolean dirtyRiptide, dirtySpinStop, thisTickSpinAttack, thisTickOnGroundSpinAttack;
+    public boolean dirtyRiptide, dirtySpinStop, thisTickSpinAttack;
     public int autoSpinAttackTicks, sinceTridentUse;
     public ItemData riptideItem = ItemData.AIR;
     public void setDirtyRiptide(int j, ItemData data) {
@@ -176,9 +197,6 @@ public class PlayerData {
     public Fluid selectedFluid = Fluid.EMPTY;
     public boolean horizontalCollision, verticalCollision;
     public boolean stuckInCollider, penetratedLastFrame;
-    public boolean soulSandBelow;
-
-    public boolean nearDripstone;
 
     public final Map<Fluid, Float> fluidHeight = new HashMap<>();
     public float getFluidHeight(Fluid tagKey) {
@@ -192,11 +210,13 @@ public class PlayerData {
 
     public Vector3i bedPosition = null;
 
-    public int tickSinceBlockResync;
-
     // Prediction related method
     public final float getPosAcceptanceThreshold() {
         return Boar.getConfig().acceptanceThreshold();
+    }
+
+    public final float getPositionUlp() {
+        return Math.max(Math.max(Math.ulp(this.position.x), Math.ulp(this.position.z)), Math.max(Math.ulp(this.unvalidatedPosition.x), Math.ulp(this.unvalidatedPosition.z)));
     }
 
     public final void setSprinting(boolean sprinting) {

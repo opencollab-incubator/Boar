@@ -26,6 +26,7 @@ import org.geysermc.geyser.level.physics.BoundingBox;
 import org.geysermc.geyser.registry.BlockRegistries;
 import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.geyser.session.cache.SkullCache;
+import org.geysermc.geyser.session.cache.tags.BlockTag;
 import org.geysermc.geyser.translator.collision.BlockCollision;
 import org.geysermc.geyser.translator.collision.SolidCollision;
 import org.geysermc.geyser.util.BlockUtils;
@@ -66,6 +67,16 @@ public class GeyserBoarBlockStateDelegate implements BoarBlockStateDelegate {
         }
 
         return session.getBlockMappings().getBedrockBlock(this.state);
+    }
+
+    @Override
+    public boolean isReplaceable(BoarPlayer player) {
+        if (this.state.block() == org.geysermc.geyser.level.block.Blocks.SNOW) {
+            return this.state.getValue(org.geysermc.geyser.level.block.property.Properties.LAYERS) == 1;
+        }
+
+        GeyserSession session = ((GeyserNetworkSession) player.getSession()).session();
+        return session.getTagCache().is(BlockTag.REPLACEABLE, this.state.block());
     }
 
     @Override

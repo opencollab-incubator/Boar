@@ -25,6 +25,9 @@ public final class Config {
     @JsonProperty("player-position-drift-amount")
     @JsonSetter(nulls = Nulls.SKIP)
     private float positionDriftAmount = 0.0F;
+    @JsonProperty("player-position-retry-max-offset")
+    @JsonSetter(nulls = Nulls.SKIP)
+    private float retryMaxOffset = 0.0F;
     @JsonProperty("max-tolerance-compensated-reach")
     @JsonSetter(nulls = Nulls.SKIP)
     private float toleranceReach = 2.91F;
@@ -37,9 +40,6 @@ public final class Config {
     @JsonProperty("disable-mitigations")
     @JsonSetter(nulls = Nulls.SKIP)
     private boolean disableMitigations;
-    @JsonProperty("ignore-ghost-block")
-    @JsonSetter(nulls = Nulls.SKIP)
-    private boolean ignoreGhostBlock;
     @JsonProperty("max-latency-wait")
     @JsonSetter(nulls = Nulls.SKIP)
     private long maxLatencyWait = 15000L;
@@ -73,6 +73,10 @@ public final class Config {
         return Math.max(0.0F, positionDriftAmount);
     }
 
+    public float retryMaxOffset() {
+        return Math.max(0.0F, retryMaxOffset);
+    }
+
     public float toleranceReach() {
         return Math.max(2.9F, toleranceReach);
     }
@@ -87,10 +91,6 @@ public final class Config {
 
     public boolean disableMitigations() {
         return disableMitigations;
-    }
-
-    public boolean ignoreGhostBlock() {
-        return ignoreGhostBlock;
     }
 
     public long maxLatencyWait() {

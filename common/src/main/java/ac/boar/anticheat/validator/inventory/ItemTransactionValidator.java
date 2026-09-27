@@ -2,6 +2,7 @@ package ac.boar.anticheat.validator.inventory;
 
 import ac.boar.anticheat.Boar;
 import ac.boar.anticheat.compensated.CompensatedInventory;
+import ac.boar.anticheat.compensated.cache.entity.EntityCache;
 import ac.boar.anticheat.data.InteractionResult;
 import ac.boar.anticheat.data.ItemUseTracker;
 import ac.boar.anticheat.data.block.BoarBlockState;
@@ -13,6 +14,7 @@ import ac.boar.anticheat.util.Reference;
 import ac.boar.anticheat.util.StringUtil;
 import ac.boar.anticheat.util.block.BlockUtil;
 import ac.boar.anticheat.util.math.Axis;
+import ac.boar.anticheat.util.math.Box;
 import ac.boar.anticheat.util.math.Direction;
 import ac.boar.anticheat.validator.inventory.click.ItemRequestProcessor;
 import ac.boar.mappings.block.Block;
@@ -29,6 +31,7 @@ import org.cloudburstmc.math.vector.Vector3i;
 import org.cloudburstmc.protocol.bedrock.codec.v1001.Bedrock_v1001;
 import org.cloudburstmc.protocol.bedrock.data.GameType;
 import org.cloudburstmc.protocol.bedrock.data.PlayerAuthInputData;
+import org.cloudburstmc.protocol.bedrock.data.definitions.BlockDefinition;
 import org.cloudburstmc.protocol.bedrock.data.definitions.ItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
@@ -42,9 +45,11 @@ import org.cloudburstmc.protocol.bedrock.data.inventory.transaction.LegacySetIte
 import org.cloudburstmc.protocol.bedrock.packet.InventorySlotPacket;
 import org.cloudburstmc.protocol.bedrock.packet.InventoryTransactionPacket;
 import org.cloudburstmc.protocol.bedrock.packet.ItemStackRequestPacket;
+import org.cloudburstmc.protocol.bedrock.packet.TextPacket;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 @RequiredArgsConstructor
 public final class ItemTransactionValidator {
@@ -54,6 +59,13 @@ public final class ItemTransactionValidator {
     @Getter
     private String failReason;
 
+    // True if the last transaction is valid but should not reach the server.
+    @Getter
+    private boolean shouldDropPacket;
+
+    private long lastFailureDebugTick = Long.MIN_VALUE;
+    private Vector3i lastFailureDebugPos;
+
     private boolean fail(final String reason) {
         this.failReason = reason;
         return false;
@@ -61,6 +73,7 @@ public final class ItemTransactionValidator {
 
     public boolean handle(final InventoryTransactionPacket packet) {
         this.failReason = null;
+        this.shouldDropPacket = false;
 
         final CompensatedInventory inventory = player.compensatedInventory;
         switch (packet.getTransactionType()) {
@@ -115,30 +128,33 @@ public final class ItemTransactionValidator {
             }
 
             case ITEM_RELEASE -> {
-                if (packet.getActionType() == 0) {
-                    if (player.compensatedInventory.inventoryContainer.getHeldItem().is(Items.TRIDENT)) {
+                if (!this.player.compensatedInventory.switchHeldSlot(packet.getHotbarSlot())) {
+                    return fail("ITEM_RELEASE: hotbar slot is invalid: " + packet.getHotbarSlot());
+                }
+
+                if (packet.getActionType() == 0 || packet.getActionType() == 1) {
+                    if (packet.getActionType() == 0 && player.compensatedInventory.inventoryContainer.getHeldItem().is(Items.TRIDENT)) {
                         player.setDirtyRiptide(player.sinceTridentUse, player.compensatedInventory.inventoryContainer.getHeldItemData());
                     }
 
+                    if (player.getFlagTracker().has(EntityFlag.USING_ITEM)) {
+                        itemUseDebug("released (action=" + packet.getActionType() + ")");
+                    }
                     player.getItemUseTracker().release();
                     player.getItemUseTracker().setDirtyUsing(ItemUseTracker.DirtyUsing.NONE);
-                } else if (packet.getActionType() == 1) {
-                    player.getItemUseTracker().release();
-                    player.getItemUseTracker().setDirtyUsing(ItemUseTracker.DirtyUsing.NONE);
+                } else {
+                    return fail("ITEM_RELEASE: unknown action: " + packet.getActionType());
                 }
             }
 
             case ITEM_USE -> {
                 final Vector3i position = packet.getBlockPosition();
-                final int slot = packet.getHotbarSlot();
-                if (slot < 0 || slot > 8) {
-                    return fail("ITEM_USE: hotbar slot out of bounds: " + slot);
+                if (!this.player.compensatedInventory.switchHeldSlot(packet.getHotbarSlot())) {
+                    return fail("ITEM_USE: hotbar slot is invalid: " + packet.getHotbarSlot());
                 }
 
                 final ItemData SD1 = inventory.inventoryContainer.getHeldItemData();
-
                 boolean noActions = packet.getActions().isEmpty();
-
                 if (!noActions) {
                     for (final InventoryActionData action : packet.getActions()) {
                         if (action.getSlot() < 0 || action.getSlot() > 8) {
@@ -150,22 +166,19 @@ public final class ItemTransactionValidator {
                             if (isEmpty(SD2)) {
                                 continue;
                             }
-                            return fail("ITEM_USE: action item mismatch, slot=" + action.getSlot()
-                                    + ", predicted=" + describe(SD2) + ", claimed=" + describe(action.getFromItem()));
+                            return fail("ITEM_USE: action item mismatch, slot=" + action.getSlot() + ", predicted=" + describe(SD2) + ", claimed=" + describe(action.getFromItem()));
                         }
                     }
                 }
 
                 final boolean emptyHandInteraction = isEmpty(SD1) && isEmpty(packet.getItemInHand());
                 if (noActions && !emptyHandInteraction && !isEmpty(SD1) && !validate(SD1, packet.getItemInHand())) {
-                    return fail("ITEM_USE: held item mismatch, heldSlot=" + inventory.heldItemSlot
-                            + ", predicted=" + describe(SD1) + ", claimed=" + describe(packet.getItemInHand()));
+                    return fail("ITEM_USE: held item mismatch, heldSlot=" + inventory.heldItemSlot + ", predicted=" + describe(SD1) + ", claimed=" + describe(packet.getItemInHand()));
                 }
 
                 float distance = player.position.toVector3f().distanceSquared(position.getX(), position.getY(), position.getZ());
                 if (!MathUtil.isValid(position) || distance > 12 * 12 && position.getX() + position.getY() + position.getZ() != 0) {
-                    return fail("ITEM_USE: invalid block position " + position + ", distanceSq=" + distance
-                            + ", playerPos=" + player.position);
+                    return fail("ITEM_USE: invalid block position " + position + ", distanceSq=" + distance + ", playerPos=" + player.position);
                 }
 
                 // The rest is going to validate by Geyser.
@@ -174,11 +187,21 @@ public final class ItemTransactionValidator {
                 final Block block = boarState.block();
                 switch (packet.getActionType()) {
                     case 0 -> { // TODO: Maybe... move this into a separate class?
-                        if (packet.getItemInHand() == null || !validate(SD1, packet.getItemInHand())) {
-                            return true; // nope, not a mistake, Geyser going to take care of it anyway.
+                        if (packet.getItemInHand() == null) {
+                            return true;
                         }
 
                         if (packet.getClientInteractPrediction() == ItemUseTransaction.PredictedResult.FAILURE) {
+                            // Prevent mega block desync
+                            final BlockDefinition heldBlock = packet.getItemInHand().getBlockDefinition();
+                            final boolean holdsBlock = heldBlock != null && heldBlock.getRuntimeId() != 0 && !player.mappingInfo.airIds().contains(heldBlock.getRuntimeId());
+                            this.shouldDropPacket = holdsBlock;
+
+                            if (this.lastFailureDebugTick != player.tick || !position.equals(this.lastFailureDebugPos)) {
+                                this.lastFailureDebugTick = player.tick;
+                                this.lastFailureDebugPos = position;
+                                placementDebug("skipped clicked=" + position + " face=" + packet.getBlockFace() + " reason=client predicted failure dropped=" + holdsBlock);
+                            }
                             return true; // Player claimed to be failing this action, no need to process it.
                         }
 
@@ -312,16 +335,21 @@ public final class ItemTransactionValidator {
                             return true; // We don't need to compensate for this.
                         }
 
-                        if (boarState.isAir()) {
+                        if (boarState.isAir() && !player.blockPlacements.isUnansweredPlacement(position)) {
                             // Player seems to be able to do this... on Vanilla, and even claimed "yeah the block definition for this is air".
                             // Well an advantage is an advantage... resync.
                             BlockUtil.restoreCorrectBlock(player, newBlockPos);
                             BlockUtil.restoreCorrectBlock(player, packet.getBlockPosition());
 
-                            // GeyserBoar.getLogger().severe("AIR PLACEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE");
-                            player.tickSinceBlockResync = 5;
-                            return fail("ITEM_USE(place): interact against air block at " + position
-                                    + ", face=" + blockFace + ", heldItem=" + describe(SD1) + ", resynced");
+                            placementDebug("denied clicked=" + position + " face=" + blockFace + " reason=clicked block is air, resynced");
+
+                            // At high ping the server can briefly turn a block the client stands on back into air (optimistic block updates for surrounding blocks)
+                            // Just keep the click from reaching the server for now
+                            this.shouldDropPacket = true;
+                            if (Boar.getInstance().getPlatform().developerDebug()) {
+                                sendPopup("§cPLACE_AIR (" + position.getX() + ", " + position.getY() + ", " + position.getZ() + ")");
+                            }
+                            return true;
                         }
 
                         if (item.is(Items.WATER_BUCKET)) {
@@ -362,14 +390,43 @@ public final class ItemTransactionValidator {
 
                             BoarItemStack stack = BoarItemStack.of(player.getSession(), itemRef, 1);
                             inventory.inventoryContainer.set(inventory.heldItemSlot, stack.toItemData(player.getSession()));
-                        } if (item.isBlock()) { // Handle block item after bucket.
+                        }
+
+                        if (item.isBlock()) { // Handle block item after bucket.
                             Block mappedBlock = BlockMappings.get().getItemToBlock().get(item);
-                            if (mappedBlock != null && !mappedBlock.is(Blocks.AIR)) {
+                            boolean known = mappedBlock != null && !mappedBlock.is(Blocks.AIR);
+
+                            // Clicking a replaceable block (tall grass, snow layer...) puts the new block in its spot instead of next to it.
+                            // Placing the same block on itself doesn't count, same as Java. Air is skipped since here it means
+                            // a client block we couldn't model (see isUnansweredPlacement above), not an empty spot.
+                            boolean replacesClicked = !boarState.isAir() && boarState.isReplaceable(player) && !(known && boarState.is(mappedBlock));
+                            Vector3i placePos = replacesClicked ? position : newBlockPos;
+
+                            if (known) {
                                 // System.out.println(player.getSession().getBlockMappings().getBedrockBlock(mappedBlock.defaultBlockState().javaId()));
                                 BoarBlockState state1 = BlockUtil.getPlacementState(player, mappedBlock, packet.getBlockPosition());
-                                player.compensatedWorld.updateBlock(newBlockPos, 0, player.mappingInfo.fromIntermediary().applyAsInt(state1.intermediaryId()));
+                                final int placedRuntimeId = player.mappingInfo.fromIntermediary().applyAsInt(state1.intermediaryId());
+
+                                // Don't place block if position is obstructed
+                                final String blocker = this.findPlacementBlocker(placePos, placedRuntimeId);
+                                if (blocker != null) {
+                                    placementDebug("denied placePos=" + placePos + " reason=" + blocker);
+                                    BlockUtil.restoreCorrectBlock(player, placePos);
+                                    return true;
+                                }
+
+                                placementDebug("attempt clicked=" + position + " face=" + blockFace + " placePos=" + placePos
+                                        + " replacesClicked=" + replacesClicked + " item=" + describe(heldItem.getData())
+                                        + " prediction=" + packet.getClientInteractPrediction() + " playerBox=" + player.boundingBox);
+
+                                player.compensatedWorld.updateBlock(placePos, 0, placedRuntimeId);
+                                player.blockPlacements.onClientPlace(placePos);
+                                placementDebug("placed placePos=" + placePos + " runtimeId=" + placedRuntimeId);
                             } else {
-                                // System.out.println("What? item=" + blockItem.javaIdentifier());
+                                placementDebug("unknown block... not mapped (or inv handling)? item=" + describe(packet.getItemInHand()));
+                                if (Boar.getInstance().getPlatform().developerDebug()) {
+                                    sendPopup("§cUNMAPPED_ITEM_BLOCK");
+                                }
                             }
 
                             if (player.gameType != GameType.CREATIVE) {
@@ -383,6 +440,16 @@ public final class ItemTransactionValidator {
 
                     // This seems to for things that is not related to block interact and only for item interaction.
                     case 1 -> {
+                        // Debug: every click-air while we think the player is using an item, to see if the "done eating" click arrives and why it might not count.
+                        if (player.getFlagTracker().has(EntityFlag.USING_ITEM)) {
+                            final boolean matches = packet.getItemInHand() != null && validate(SD1, packet.getItemInHand());
+                            itemUseDebug("click-air while using: heldMatches=" + matches
+                                    + " finishing=" + (matches && player.getItemUseTracker().isFinishedConsuming(SD1))
+                                    + " elapsed=" + (player.getItemUseTracker().getUseStartTick() < 0 ? "?" : String.valueOf(player.tick - player.getItemUseTracker().getUseStartTick()))
+                                    + " claimed=" + describe(packet.getItemInHand()) + " predicted=" + describe(SD1)
+                                    + " using=" + describe(player.getItemUseTracker().getUsedItem()));
+                        }
+
                         if (packet.getItemInHand() == null || !validate(SD1, packet.getItemInHand())) {
                             // If for some reason we don't have an item here in Boar's inventory we'll inspect the client-authoritative item. Shouldn't cause
                             // too many issues since it would result in a slow-down if anything with no benefits to a cheater.
@@ -390,9 +457,17 @@ public final class ItemTransactionValidator {
                             if (isEmpty(SD1) && !isEmpty(packet.getItemInHand())) {
                                 final BoarItemStack claimed = BoarItemStack.of(player.getSession(), packet.getItemInHand());
                                 if (claimed.item() != null) {
-                                    player.getItemUseTracker().use(packet.getItemInHand(), claimed.item(), false);
+                                    this.handleUseClick(packet.getItemInHand(), claimed.item());
                                 }
                             }
+                            return true;
+                        }
+
+                        // Stop the slowdown since the client restarts it itself if it keeps using
+                        if (player.getItemUseTracker().isFinishedConsuming(SD1)) {
+                            itemUseDebug("finished consuming " + describe(SD1) + " after " + (player.tick - player.getItemUseTracker().getUseStartTick()) + " ticks");
+                            player.getItemUseTracker().release();
+                            player.getItemUseTracker().setDirtyUsing(ItemUseTracker.DirtyUsing.NONE);
                             return true;
                         }
 
@@ -401,8 +476,7 @@ public final class ItemTransactionValidator {
 //                            player.glideBoostTicks = 20; // Latest geyser break this.
                         }
 
-                        player.getItemUseTracker().use(SD1, item.item(), false);
-//                        System.out.println("Dirty using use: " + packet.getItemInHand());
+                        this.handleUseClick(SD1, item.item());
 
                         List<LegacySetItemSlotData> legacySlots = packet.getLegacySlots();
                         if (packet.getActions().size() == 1 && !legacySlots.isEmpty()) {
@@ -480,6 +554,86 @@ public final class ItemTransactionValidator {
         }
 
         return true;
+    }
+
+    // Entities the client lets you place blocks into (dropped items, orbs, projectiles...).
+    private static final Set<String> NON_BLOCKING_ENTITIES = Set.of(
+            "minecraft:item", "minecraft:xp_orb", "minecraft:arrow", "minecraft:snowball", "minecraft:egg",
+            "minecraft:ender_pearl", "minecraft:thrown_trident", "minecraft:splash_potion", "minecraft:lingering_potion",
+            "minecraft:xp_bottle", "minecraft:fishing_hook", "minecraft:fireball", "minecraft:small_fireball",
+            "minecraft:dragon_fireball", "minecraft:wither_skull", "minecraft:wither_skull_dangerous",
+            "minecraft:shulker_bullet", "minecraft:llama_spit", "minecraft:wind_charge_projectile",
+            "minecraft:breeze_wind_charge_projectile", "minecraft:fireworks_rocket", "minecraft:eye_of_ender_signal",
+            "minecraft:lightning_bolt", "minecraft:area_effect_cloud", "minecraft:evocation_fang",
+            "minecraft:leash_knot", "minecraft:painting"
+    );
+
+    // Returns why a block can't go at this spot, or null if it can.
+    private String findPlacementBlocker(final Vector3i placePos, final int runtimeId) {
+        final BoarBlockState current = player.compensatedWorld.getBlockState(placePos, 0);
+        if (!current.isReplaceable(player)) {
+            return "spot not replaceable (" + current.block() + ")";
+        }
+
+        // Blocks with no collision (torches, flowers...) can go inside the player or entities.
+        // The world stores Bedrock IDs, but block states are built from our own IDs, so convert first.
+        final BoarBlockState placed = BoarBlockState.create(player.fromRawBlockId(runtimeId), placePos, 0);
+        final List<Box> boxes = placed.findCollision(player, placePos, Box.EMPTY, false);
+        if (boxes.isEmpty()) {
+            return null;
+        }
+
+        for (final Box box : boxes) {
+            if (box.intersects(player.boundingBox)) {
+                return "intersects player box=" + box;
+            }
+        }
+
+        // Entity positions are lag-compensated, so this is what the client sees.
+        for (final EntityCache entity : player.compensatedWorld.getEntities().values()) {
+            if (entity.getCurrent() == null || NON_BLOCKING_ENTITIES.contains(entity.getDefinition().identifier())) {
+                continue;
+            }
+
+            final Box entityBox = entity.getCurrent().getBoundingBox();
+            if (entityBox.getLengthX() <= 0 || entityBox.getLengthY() <= 0) {
+                continue; // e.g. Geyser's zero-size nametag entities.
+            }
+
+            for (final Box box : boxes) {
+                if (box.intersects(entityBox)) {
+                    return "intersects entity id=" + entity.getRuntimeId() + " type=" + entity.getDefinition().identifier() + " box=" + entityBox;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private void handleUseClick(final ItemData usedItem, final Item item) {
+        if (player.getFlagTracker().has(EntityFlag.USING_ITEM)) {
+            return;
+        }
+        if (player.getItemUseTracker().startFromTransaction(usedItem, item)) {
+            itemUseDebug("started using " + describe(usedItem));
+        }
+    }
+
+    private void itemUseDebug(final String message) {
+        Boar.debug(player.getSession().name() + ": [item-use-debug] tick=" + player.tick + " " + message, Boar.DebugMessage.INFO);
+    }
+
+    private void sendPopup(final String message) {
+        final TextPacket packet = new TextPacket();
+        packet.setType(TextPacket.Type.POPUP);
+        packet.setSourceName("");
+        packet.setMessage(message);
+        packet.setXuid("");
+        player.getConnection().sendPacket(packet);
+    }
+
+    private void placementDebug(final String message) {
+        Boar.debug(player.getSession().name() + ": [placement-debug] tick=" + player.tick + " " + message, Boar.DebugMessage.INFO);
     }
 
     // Turn an item into a short readable string for debug messages.

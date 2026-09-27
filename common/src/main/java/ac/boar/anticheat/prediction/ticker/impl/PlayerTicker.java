@@ -18,9 +18,12 @@ public class PlayerTicker extends LivingTicker {
 
     @Override
     public void applyInput() {
+        final float rawInputLen = player.input.horizontalLength();
+
         super.applyInput();
         boolean sneaking = player.getFlagTracker().has(EntityFlag.SNEAKING) || player.getInputData().contains(PlayerAuthInputData.STOP_SNEAKING);
-        if ((sneaking || player.ticksSinceCrawling > 0 || player.getFlagTracker().has(EntityFlag.GLIDING)) && !player.isInLava() && !player.touchingWater) {
+        final boolean sneakSlowdown = (sneaking || player.ticksSinceCrawling > 0 || player.getFlagTracker().has(EntityFlag.GLIDING)) && !player.isInLava() && !player.touchingWater;
+        if (sneakSlowdown) {
             player.ticksSinceCanSlowdown++;
 
             float sneakingMultiplier = 0.3f;
@@ -48,18 +51,29 @@ public class PlayerTicker extends LivingTicker {
         player.prevUsingItemFlag = usingFlag;
 
         final long sinceChange = player.tick - player.lastItemUseStateChangeTick;
-        boolean applySlowdown = usingFlag && !player.getItemUseTracker().isUsingSpear();
+        final boolean boarUsing = usingFlag && !player.getItemUseTracker().isUsingSpear();
+        final boolean forced = boarUsing && player.getItemUseTracker().isSlowdownConfirmed() && !player.getItemUseTracker().isPastConsumeDuration();
+        boolean applySlowdown = sneakSlowdown ? boarUsing : forced;
         final float inputLen = player.input.horizontalLength();
         final boolean unverifiedUse = usingFlag && !trackerHasItem;
+        final float mx = player.clientMotion.getX(), my = player.clientMotion.getY();
+        final float clientLen = (float) Math.sqrt(mx * mx + my * my);
+        String reason = "state";
         if ((sinceChange < 5 || unverifiedUse) && inputLen > 1.0E-4F) {
-            final float mx = player.clientMotion.getX(), my = player.clientMotion.getY();
-            final float clientLen = (float) Math.sqrt(mx * mx + my * my) * 0.98F;
-            applySlowdown = clientLen < inputLen * 0.5F;
+            applySlowdown = clientLen * 0.98F < inputLen * 0.5F;
+            reason = "client vector (just changed)";
+        } else if (!sneakSlowdown && !forced && rawInputLen > 1.0E-4F) {
+            // The client's move vector already has the item use slowdown in it (raw 1.0 -> 0.1225). For leniency, we cap
+            // the client instead of re-creating its state here. Until the slowdown is forced, use the client's move vector
+            // A slowed vector is always accepted (delayed server metadata can slow the client after it let go), and an unslowed one is fine
+            // while the server hasn't confirmed the use yet
+            applySlowdown = clientLen < rawInputLen * 0.5F;
+            reason = boarUsing ? "client vector (server hasn't confirmed use yet)" : "client vector (slowed by server metadata?)";
         }
 
         if (applySlowdown) {
             player.input = player.input.multiply(0.122499995F);
-            player.getMovementTrace().log("input: item use slowdown, input=" + player.input);
+            player.getMovementTrace().log("input: item use slowdown (" + reason + "), input=" + player.input + " clientVector=" + clientLen + " rawInput=" + rawInputLen);
         }
     }
 

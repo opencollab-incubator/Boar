@@ -14,9 +14,7 @@ public class PostAuthInputPackets implements PacketListener {
         if (event.getPacket() instanceof PlayerAuthInputPacket packet) {
             player.dirtyRiptide = false;
             player.thisTickSpinAttack = false;
-            player.thisTickOnGroundSpinAttack = false;
             player.doingInventoryAction = false;
-            player.nearDripstone = false;
 
             if (player.vehicleData != null && player.getEntity().vehicle() == null && !player.disableMitigations()) {
                 event.setCancelled(true);
@@ -35,7 +33,8 @@ public class PostAuthInputPackets implements PacketListener {
             }
             LegacyAuthInputPackets.correctInputData(player, packet);
 
-            if (player.tickSinceBlockResync > 0) player.tickSinceBlockResync--;
+            player.blockPlacements.tick();
+            player.getFlagTracker().tickFlying();
         }
     }
 }

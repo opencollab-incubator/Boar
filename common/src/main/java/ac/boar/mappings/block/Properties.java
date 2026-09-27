@@ -10,6 +10,7 @@ public final class Properties {
     public static final Property<ChestType> CHEST_TYPE = create("chest_type");
     public static final Property<String> DOOR_HINGE = create("door_hinge");
     public static final Property<Boolean> DRAG = create("drag");
+    public static final Property<String> DRIPSTONE_THICKNESS = create("dripstone_thickness");
     public static final Property<String> HALF = create("half");
     public static final Property<Boolean> HANGING = create("hanging");
     public static final Property<Boolean> HAS_BOOK = create("has_book");
@@ -19,6 +20,7 @@ public final class Properties {
     public static final Property<Boolean> OPEN = create("open");
     public static final Property<Integer> RESPAWN_ANCHOR_CHARGES = create("respawn_anchor_charges");
     public static final Property<String> VAULT_STATE = create("vault_state");
+    public static final Property<Direction> VERTICAL_DIRECTION = create("vertical_direction");
 
     private static <T extends Comparable<T>> Property<T> create(String key) {
         return BlockMappingsInst.property(key);

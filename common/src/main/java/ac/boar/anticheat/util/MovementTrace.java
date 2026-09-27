@@ -92,7 +92,7 @@ public final class MovementTrace {
 
     /** Records the state of the player at the start of the tick. */
     private void snapshot() {
-        log("tick=" + player.tick);
+        log("tick=" + player.tick + " simFrame=" + player.simulationFrame);
         log("client: pos=" + player.unvalidatedPosition + " prevPos=" + player.prevUnvalidatedPosition
                 + " claimedDelta=" + player.unvalidatedTickEnd + " analogMotion=" + player.clientMotion
                 + " yaw=" + player.yaw + " pitch=" + player.pitch);
@@ -103,7 +103,7 @@ public final class MovementTrace {
                         : player.certainVelocity.getType() + ":" + player.certainVelocity.getVelocity()));
         log("state: onGround=" + player.onGround + " hColl=" + player.horizontalCollision
                 + " vColl=" + player.verticalCollision + " touchingWater=" + player.touchingWater
-                + " fluidHeights=" + player.fluidHeight + " soulSand=" + player.soulSandBelow
+                + " fluidHeights=" + player.fluidHeight
                 + " stuckMul=" + player.stuckSpeedMultiplier + " stuckInCollider=" + player.stuckInCollider
                 + " fallDistance=" + player.fallDistance);
         log("input: vec=" + player.input + " data=" + player.getInputData()
@@ -113,8 +113,7 @@ public final class MovementTrace {
         log("effects: " + this.effectsString() + " speedAttr=" + this.speedString());
         log("counters: glideBoost=" + player.glideBoostTicks + " swimAmount=" + player.swimAmount
                 + " sinceCrawl=" + player.ticksSinceCrawling + " sinceCanSlowdown=" + player.ticksSinceCanSlowdown
-                + " autoSpin=" + player.autoSpinAttackTicks + " sinceLoadingScreen=" + player.sinceLoadingScreen
-                + " blockResync=" + player.tickSinceBlockResync);
+                + " autoSpin=" + player.autoSpinAttackTicks + " sinceLoadingScreen=" + player.sinceLoadingScreen);
         log("world: teleporting=" + player.getTeleportUtil().isTeleporting()
                 + " pendingCorrection=" + player.getTeleportUtil().hasPendingCorrection()
                 + " correctionCooldown=" + player.getTeleportUtil().isCorrectionCooldown()

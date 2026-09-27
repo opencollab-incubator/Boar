@@ -19,6 +19,7 @@ import ac.boar.anticheat.prediction.engine.data.Vector;
 import ac.boar.anticheat.prediction.engine.data.VectorType;
 import ac.boar.anticheat.util.geyser.BlockEntityInfo;
 import ac.boar.anticheat.util.geyser.BoarChunk;
+import ac.boar.anticheat.util.math.Vec3;
 import org.cloudburstmc.math.vector.Vector3i;
 import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.protocol.bedrock.data.Ability;
@@ -110,6 +111,15 @@ public final class BoarDefaultAcknowledgments {
     }
 
     private static void handleBlockUpdate(BoarPlayer player, BlockUpdateAck ack) {
+        final Vector3i pos = ack.position();
+        if (Boar.getConfig().debugMode() && player.position.distanceTo(new Vec3(pos.getX() + 0.5F, pos.getY() + 0.5F, pos.getZ() + 0.5F)) <= 4.0F) {
+            final int oldId = player.compensatedWorld.getRawBlockAt(pos.getX(), pos.getY(), pos.getZ(), ack.layer());
+            Boar.debug(player.getSession().name() + ": [placement-debug] tick=" + player.tick + " server block update pos=" + pos
+                    + " layer=" + ack.layer() + " runtimeId " + oldId + " -> " + ack.runtimeId()
+                    + " wasOurPlacement=" + player.blockPlacements.isUnansweredPlacement(pos), Boar.DebugMessage.INFO);
+        }
+
+        player.blockPlacements.onServerUpdateReceived(ack.position(), ack.layer());
         player.compensatedWorld.updateBlock(ack.position(), ack.layer(), ack.runtimeId());
     }
 
@@ -128,9 +138,11 @@ public final class BoarDefaultAcknowledgments {
         if (player.compensatedWorld.getDimension() != ack.dimension()) {
             player.currentLoadingScreen = ack.loadingScreenId();
             player.inLoadingScreen = true;
+            player.loadingScreenStartMs = System.currentTimeMillis();
         }
         player.compensatedWorld.clearChunks();
         player.compensatedWorld.setDimension(ack.dimension());
+        player.blockPlacements.clearPlacements();
         player.getFlagTracker().clear();
         player.getFlagTracker().flying(false);
     }
@@ -181,6 +193,9 @@ public final class BoarDefaultAcknowledgments {
                     + " current=" + player.getFlagTracker().cloneFlags());
         }
         if (ack.flags() != null) {
+            if (ack.flags().contains(EntityFlag.USING_ITEM)) {
+                player.getItemUseTracker().onServerUsingAcked(ack.sentTick());
+            }
             player.getFlagTracker().set(player, ack.flags(), ack.sentTick());
         }
         if (ack.swimming() != null) {
@@ -226,6 +241,9 @@ public final class BoarDefaultAcknowledgments {
             if (data.getName().equals("minecraft:movement")) {
                 player.clientNeedsMovementSpeedAttributeUpdate = false;
             }
+            if (data.getName().equals("minecraft:player.hunger")) {
+                player.hunger = data.getValue();
+            }
 
             final AttributeInstance attribute = player.attributes.get(data.getName());
             if (attribute == null) {
@@ -238,6 +256,13 @@ public final class BoarDefaultAcknowledgments {
 
             for (AttributeModifierData mod : data.getModifiers()) {
                 attribute.addTemporaryModifier(mod);
+            }
+
+            if (Boar.getConfig().debugMode() && data.getName().equals("minecraft:movement")) {
+                // The client drops its sprint boost here too and takes the packet's value (BaseAttributeMap::updateAttribute).
+                Boar.debug(player.getSession().name() + ": [speed-debug] tick=" + player.tick + " speed ack applied value=" + data.getValue()
+                        + " base=" + data.getDefaultValue() + " boarSpeed=" + player.getSpeed()
+                        + " boarSprinting=" + player.getFlagTracker().has(EntityFlag.SPRINTING), Boar.DebugMessage.INFO);
             }
         }
     }

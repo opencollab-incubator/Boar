@@ -3,11 +3,15 @@ package ac.boar.anticheat.util;
 import ac.boar.anticheat.Boar;
 import ac.boar.anticheat.ack.Acknowledgment;
 import ac.boar.anticheat.ack.BoarAcknowledgmentRegistry;
+import ac.boar.anticheat.ack.types.PlayerMetadataAck;
+import ac.boar.anticheat.ack.types.UpdateAttributesAck;
 import ac.boar.anticheat.check.api.Check;
 import ac.boar.anticheat.check.api.impl.PingBasedCheck;
 import ac.boar.anticheat.player.BoarPlayer;
 import lombok.RequiredArgsConstructor;
 import lombok.ToString;
+import org.cloudburstmc.protocol.bedrock.data.AttributeData;
+import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 
 import java.util.*;
 
@@ -29,7 +33,46 @@ public final class LatencyUtil {
     }
 
     public void queueWithAcks(long id, List<Acknowledgment> acks) {
-        add(new Latency(id, System.currentTimeMillis(), System.nanoTime(), true, new ArrayList<>(acks)));
+        final Latency latency = new Latency(id, System.currentTimeMillis(), System.nanoTime(), true, new ArrayList<>(acks));
+        latency.metaSummary = metadataSummary(acks);
+        if (latency.metaSummary != null) {
+            ackDebug("nsl=" + id + " SENT (end of batch) meta=" + latency.metaSummary);
+            this.player.ackDebugUntilTick = this.player.tick + 40;
+        }
+        add(latency);
+    }
+
+    private String metadataSummary(final List<Acknowledgment> acks) {
+        if (!Boar.getConfig().debugMode()) {
+            return null;
+        }
+
+        StringBuilder builder = null;
+        for (final Acknowledgment ack : acks) {
+            if (ack instanceof PlayerMetadataAck meta && meta.flags() != null) {
+                builder = builder == null ? new StringBuilder("[") : builder.append(", ");
+                builder.append("{sentAtTick=").append(meta.sentTick())
+                        .append(" sprint=").append(meta.flags().contains(EntityFlag.SPRINTING))
+                        .append(" using=").append(meta.flags().contains(EntityFlag.USING_ITEM))
+                        .append(" sneak=").append(meta.flags().contains(EntityFlag.SNEAKING)).append('}');
+            } else if (ack instanceof UpdateAttributesAck attributes) {
+                // The speed the client gets in this batch, as we send it (after stripModifiers).
+                for (final AttributeData data : attributes.attributes()) {
+                    if (!data.getName().equals("minecraft:movement")) {
+                        continue;
+                    }
+                    builder = builder == null ? new StringBuilder("[") : builder.append(", ");
+                    builder.append("{speed value=").append(data.getValue())
+                            .append(" base=").append(data.getDefaultValue())
+                            .append(" mods=").append(data.getModifiers().size()).append('}');
+                }
+            }
+        }
+        return builder == null ? null : builder.append(']').toString();
+    }
+
+    private void ackDebug(final String message) {
+        Boar.debug(this.player.getSession().name() + ": [ack-debug] tick=" + this.player.tick + " t=" + (System.nanoTime() / 1_000_000L % 100_000L) + "ms " + message, Boar.DebugMessage.INFO);
     }
 
     private void add(Latency latency) {
@@ -60,6 +103,10 @@ public final class LatencyUtil {
         while (it.hasNext()) {
             final Latency head = it.next();
             it.remove();
+            if (head.metaSummary != null) {
+                ackDebug("nsl=" + head.id + " REPLY rtt=" + (System.currentTimeMillis() - head.ms) + "ms, applying meta=" + head.metaSummary
+                        + (head == match ? "" : " (released by later reply nsl=" + id + ")"));
+            }
             // Snapshot size must be read before dispatch since it nulls the ack list
             if (head.acknowledgments != null && !head.acknowledgments.isEmpty()) {
                 releasedWithAcks++;
@@ -85,6 +132,7 @@ public final class LatencyUtil {
         private final long ns;
         private boolean ours;
         private List<Acknowledgment> acknowledgments;
+        private String metaSummary; // debug only
 
         public Latency(long id, long ms, long ns, boolean ours, List<Acknowledgment> acknowledgments) {
             this.id = id;

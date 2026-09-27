@@ -15,5 +15,12 @@ public interface NetworkSession extends MessageRecipient, Identifiable, Permissi
 
     boolean requiresPingMagnitude();
 
+    // Block random offsets (bamboo, pointed dripstone) are seeded from the block position. Windows does the X multiply in
+    // 64 bits, and Android cuts it to 32 bits, like Java's Mth.getSeed. Only those two are tested in game. Xbox is
+    // assumed to match Windows, and the other platforms are assumed to match Android.
+    default boolean wideRandomOffsetSeed() {
+        return false;
+    }
+
     int protocolVersion();
 }

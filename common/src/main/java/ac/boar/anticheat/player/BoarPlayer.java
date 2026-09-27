@@ -8,6 +8,7 @@ import ac.boar.anticheat.check.api.holder.CheckHolder;
 import ac.boar.anticheat.collision.util.CuboidBlockIterator;
 import ac.boar.anticheat.compensated.CompensatedInventory;
 import ac.boar.anticheat.compensated.cache.entity.EntityCache;
+import ac.boar.anticheat.compensated.world.BlockPlacementTracker;
 import ac.boar.anticheat.compensated.world.CompensatedWorldImpl;
 import ac.boar.anticheat.data.Fluid;
 import ac.boar.anticheat.data.FluidState;
@@ -15,6 +16,7 @@ import ac.boar.anticheat.data.ItemUseTracker;
 import ac.boar.anticheat.data.block.BoarBlockState;
 import ac.boar.anticheat.data.effect.Effect;
 import ac.boar.anticheat.data.enchantment.Enchantment;
+import ac.boar.mappings.block.Blocks;
 import ac.boar.anticheat.data.vanilla.AttributeInstance;
 import ac.boar.anticheat.player.accessor.EntityAccessor;
 import ac.boar.anticheat.player.accessor.InventoryAccessor;
@@ -96,6 +98,7 @@ public final class BoarPlayer extends PlayerData {
 
     // Lag compensation
     public final CompensatedWorldImpl compensatedWorld = new CompensatedWorldImpl(this);
+    public final BlockPlacementTracker blockPlacements = new BlockPlacementTracker();
     public final CompensatedInventory compensatedInventory = new CompensatedInventory(this);
 
     // Validation
@@ -283,12 +286,19 @@ public final class BoarPlayer extends PlayerData {
 
     public float getFrictionInfluencedSpeed(float slipperiness) {
         if (this.onGround) {
-            float speed = this.getSpeed() * (0.21600002F / (slipperiness * slipperiness * slipperiness));
-            if (!CompensatedInventory.getEnchantments(this.compensatedInventory.armorContainer.get(3).getData()).containsKey(Enchantment.SOUL_SPEED) && this.soulSandBelow) {
-                speed *= 0.55F; // not accurate, but well I can just give extra offset if player movement is slower than the predicted one.
+            // GroundTravelTypeSystem::calcMoveRelativeSpeed - soul sand (without Soul Speed) only raises the friction used here, not the friction that slows velocity down at the end of the tick.
+            float friction = slipperiness;
+            if (this.compensatedWorld.getBlockState(this.getBlockPosBelowThatAffectsMyMovement(), 0).is(Blocks.SOUL_SAND) &&
+                    !CompensatedInventory.getEnchantments(this.compensatedInventory.armorContainer.get(3).getData()).containsKey(Enchantment.SOUL_SPEED)) {
+                friction *= 1.225F;
             }
 
-            return speed;
+            float f = friction * 0.91F;
+            if (f == 0.0F) {
+                f = 0.54600006F;
+            }
+            final float ratio = 0.54600006F / f;
+            return ratio * ratio * ratio * this.getSpeed();
         }
 
         return this.getFlagTracker().has(EntityFlag.SPRINTING) ? 0.026F : 0.02F;

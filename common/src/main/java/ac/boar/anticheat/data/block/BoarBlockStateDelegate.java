@@ -35,6 +35,11 @@ public interface BoarBlockStateDelegate {
 
     int getLayer();
 
+    // True if placing a block against this one replaces it (tall grass, snow layer, etc.) instead of going next to it
+    default boolean isReplaceable(BoarPlayer player) {
+        return false;
+    }
+
     // Bedrock shapes that cannot round-trip through a Java block state (thin bars, walls): built
     // straight from the neighbours into local boxes. Returns null when the block has no override and
     // the applyConnectionShape path should be used instead.

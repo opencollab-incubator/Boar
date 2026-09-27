@@ -24,6 +24,20 @@ player-position-acceptance-threshold: 1.0E-4
 # NOTE: This only takes effect for differences below "differ-till-alert", because any larger difference gets a correction.
 player-position-drift-amount: 0.0
 
+# A small difference between the client and server position can grow into a correction when collision logic differs (ex: when running into the
+# edge/corner of a block, if the position difference is high enough it can cause a large difference since the prediction could move on X-axis
+# whilst client moves it's Z-axis)
+# Before Boar sends out a correction, it can run the simulation again from the client's last position, and keeps that second
+# result (and sends no correction) only if all of these are true:
+# - The client's last position was not inside a block.
+# - The second run hit blocks differently than the first run (collision, ground, or step up).
+# - The second run agrees with the collision flags the client sent.
+# - The second run ends at most "player-position-retry-max-offset" blocks from the client position.
+# A cheater can gain at most the start difference (below "differ-till-alert") plus "player-position-retry-max-offset" (only if they're colliding
+# with blocks) but the benefit is that you avoid a correction which could be priority for some servers.
+# To disable the retry, set "player-position-retry-max-offset" to 0
+player-position-retry-max-offset: 0.0
+
 # This is the max reach that Boar going to tolerance before flagging, it does account for lag so no worry :)
 max-tolerance-compensated-reach: 3.005
 
@@ -43,14 +57,6 @@ disabled-checks: []
 # BoarPlayerManager#shouldDisableMitigations to split players into arms (ex: A/B testing corrections) or flip a single
 # player at runtime with BoarPlayer#setDisableMitigations.
 disable-mitigations: false
-
-# Normally Boar will account for lag, that also including block, if on the server side the block below player is Air but if
-# on the client side, it's an actual block, then Boar will account for this. However, with this enable, Boar will forcefully
-# rewind player if player is standing on a ghost block, this for ex: prevent player from abusing high ping to climb up walls in
-# region that doesn't allow block placing (ex: WorldEdit).
-
-# NOTE: This will only take effect if player is STANDING on the block.
-ignore-ghost-block: false
 
 # How long do we wait for player to respond to latency confirmation/acknowledgements till we kicked the player for timed out.
 # This value shouldn't be too low to account for lagging player and shouldn't be too high so cheaters won't be able to stop responding to latency for too long.

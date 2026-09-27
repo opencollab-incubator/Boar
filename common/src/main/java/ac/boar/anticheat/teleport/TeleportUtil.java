@@ -3,15 +3,27 @@ package ac.boar.anticheat.teleport;
 import ac.boar.anticheat.Boar;
 import ac.boar.anticheat.ack.types.MovementCorrectionAck;
 import ac.boar.anticheat.ack.types.TeleportAcceptAck;
+import ac.boar.anticheat.data.vanilla.Attribute;
+import ac.boar.anticheat.data.vanilla.AttributeInstance;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.teleport.data.TeleportData;
+import ac.boar.anticheat.util.block.BlockUtil;
 import ac.boar.anticheat.util.math.Vec3;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.cloudburstmc.math.vector.Vector2f;
+import org.cloudburstmc.math.vector.Vector3i;
+import org.cloudburstmc.protocol.bedrock.data.AttributeData;
 import org.cloudburstmc.protocol.bedrock.data.PredictionType;
+import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 import org.cloudburstmc.protocol.bedrock.packet.CorrectPlayerMovePredictionPacket;
 import org.cloudburstmc.protocol.bedrock.packet.MovePlayerPacket;
+import org.cloudburstmc.protocol.bedrock.packet.SetEntityDataPacket;
+import org.cloudburstmc.protocol.bedrock.packet.UpdateAttributesPacket;
+
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.List;
 
 @RequiredArgsConstructor
 public class TeleportUtil {
@@ -216,7 +228,7 @@ public class TeleportUtil {
         final CorrectPlayerMovePredictionPacket correction = new CorrectPlayerMovePredictionPacket();
         correction.setPosition(player.position.add(0, player.getYOffset() + 0.001f, 0).toVector3f());
         correction.setOnGround(player.onGround);
-        correction.setTick(player.tick);
+        correction.setTick(player.simulationFrame);
         correction.setDelta(player.velocity.toVector3f());
         correction.setVehicleRotation(Vector2f.ZERO);
         correction.setPredictionType(player.vehicleData != null ? PredictionType.VEHICLE : PredictionType.PLAYER);
@@ -224,8 +236,67 @@ public class TeleportUtil {
         this.addPendingCorrection();
         this.correctionCooldown = true;
         this.player.sendLatencyStack(new MovementCorrectionAck());
+        this.syncBlocks();
+        this.syncMetadata();
+        this.syncMovementSpeed();
         this.player.getConnection().sendPacket(correction);
-        //this.player.getSession().sendMessage("Correction sent: sim tick " + correction.getTick());
-        Boar.debug(player.getSession().name() + ": [movement-debug] sent correction tick=" + player.tick + " pos=" + correction.getPosition() + " delta=" + correction.getDelta() + " onGround=" + player.onGround, Boar.DebugMessage.WARNING);
+        if (Boar.getInstance().getPlatform().developerDebug()) {
+            this.player.getSession().sendMessage("correction sent at sim tick " + correction.getTick());
+        }
+        Boar.debug(player.getSession().name() + ": [movement-debug] sent correction tick=" + player.tick + " simFrame=" + player.simulationFrame + " pos=" + correction.getPosition() + " delta=" + correction.getDelta() + " onGround=" + player.onGround
+                + " boarSprinting=" + player.getFlagTracker().has(org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag.SPRINTING)
+                + " clientVector=" + player.clientMotion + " rawInput=" + player.input.horizontalLength(), Boar.DebugMessage.WARNING);
+    }
+
+    private void syncBlocks() {
+        final Vec3 pos = player.position;
+        for (int x = (int) Math.floor(pos.x - 0.05F); x <= (int) Math.ceil(pos.x + 0.05F); x++) {
+            for (int y = (int) Math.floor(pos.y - 0.05F); y <= (int) Math.ceil(pos.y + 0.05F); y++) {
+                for (int z = (int) Math.floor(pos.z - 0.05F); z <= (int) Math.ceil(pos.z + 0.05F); z++) {
+                    BlockUtil.syncBlock(player, Vector3i.from(x, y, z));
+                }
+            }
+        }
+    }
+
+    // Resend the server's last flags for this player, with our sprint state, with the correction's tick.
+    private void syncMetadata() {
+        final EnumMap<EntityFlag, Boolean> lastFlags = player.lastServerFlags;
+        if (lastFlags == null || player.vehicleData != null) {
+            return;
+        }
+
+        final EnumMap<EntityFlag, Boolean> flags = new EnumMap<>(lastFlags);
+        flags.put(EntityFlag.SPRINTING, player.getFlagTracker().has(EntityFlag.SPRINTING));
+
+        final SetEntityDataPacket packet = new SetEntityDataPacket();
+        packet.setRuntimeEntityId(player.runtimeEntityId);
+        packet.getMetadata().putFlags(flags);
+        packet.setTick(player.simulationFrame);
+
+        player.correctionMetadataPacket = packet;
+        this.player.getConnection().sendPacket(packet);
+    }
+
+    private void syncMovementSpeed() {
+        if (player.vehicleData != null) {
+            return;
+        }
+        final AttributeInstance movement = player.attributes.get(Attribute.MOVEMENT.getIdentifier());
+        if (movement == null) {
+            return;
+        }
+
+        final AttributeData last = player.lastMovementAttribute;
+        final float min = last == null ? 0.0F : last.getMinimum();
+        final float max = last == null ? Float.MAX_VALUE : last.getMaximum();
+
+        final UpdateAttributesPacket packet = new UpdateAttributesPacket();
+        packet.setRuntimeEntityId(player.runtimeEntityId);
+        packet.setAttributes(new ArrayList<>(List.of(new AttributeData(Attribute.MOVEMENT.getIdentifier(), min, max, player.getSpeed(), movement.getBaseValue()))));
+        packet.setTick(player.simulationFrame);
+
+        player.correctionAttributesPacket = packet;
+        this.player.getConnection().sendPacket(packet);
     }
 }

@@ -1,6 +1,8 @@
 package ac.boar.anticheat.packets.input;
 
 import ac.boar.anticheat.Boar;
+import org.cloudburstmc.protocol.bedrock.data.PlayerAuthInputData;
+import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 import ac.boar.anticheat.ack.types.DimensionSwitchAck;
 import ac.boar.anticheat.ack.types.RespawnStateAck;
 import ac.boar.anticheat.check.impl.reach.Reach;
@@ -9,7 +11,9 @@ import ac.boar.anticheat.check.impl.timer.Timer;
 import ac.boar.anticheat.packets.input.legacy.LegacyAuthInputPackets;
 import ac.boar.anticheat.packets.input.teleport.TeleportHandler;
 import ac.boar.anticheat.player.BoarPlayer;
+import ac.boar.anticheat.prediction.CollisionRetry;
 import ac.boar.anticheat.prediction.PredictionRunner;
+import ac.boar.anticheat.prediction.PredictionState;
 import ac.boar.anticheat.teleport.data.TeleportData;
 import ac.boar.anticheat.util.Dimension;
 import ac.boar.anticheat.util.DimensionUtil;
@@ -52,7 +56,8 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
             return;
         }
 
-        player.tick = claimedTick;
+        player.tick++;
+        player.simulationFrame = claimedTick;
         player.sinceAuthInput = System.currentTimeMillis();
 
         final Timer timer = (Timer) player.getCheckHolder().get(Timer.class);
@@ -77,6 +82,20 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
 
         LegacyAuthInputPackets.processAuthInput(player, packet, true);
         LegacyAuthInputPackets.updateUnvalidatedPosition(player, packet);
+
+        if (player.tick <= player.ackDebugUntilTick || (Boar.getConfig().debugMode() && player.getFlagTracker().has(EntityFlag.USING_ITEM))) {
+            final var input = packet.getInputData();
+            Boar.debug(player.getSession().name() + ": [ack-debug] tick=" + player.tick + " t=" + (System.nanoTime() / 1_000_000L % 100_000L)
+                    + "ms INPUT clientSprinting=" + input.contains(PlayerAuthInputData.SPRINTING)
+                    + (input.contains(PlayerAuthInputData.START_SPRINTING) ? " START_SPRINTING" : "")
+                    + (input.contains(PlayerAuthInputData.STOP_SPRINTING) ? " STOP_SPRINTING" : "")
+                    + (input.contains(PlayerAuthInputData.START_USING_ITEM) ? " START_USING_ITEM" : "")
+                    + (input.contains(PlayerAuthInputData.PERFORM_ITEM_INTERACTION) && packet.getItemUseTransaction() != null
+                        ? " PERFORM_ITEM_INTERACTION(action=" + packet.getItemUseTransaction().getActionType() + ")" : "")
+                    + " boarSprinting=" + player.getFlagTracker().has(EntityFlag.SPRINTING)
+                    + " boarUsing=" + player.getFlagTracker().has(EntityFlag.USING_ITEM)
+                    + " boarSpeed=" + player.getSpeed(), Boar.DebugMessage.INFO);
+        }
 
         final int chunkX = GenericMath.floor(player.position.x) >> 4;
         final int chunkZ = GenericMath.floor(player.position.z) >> 4;
@@ -129,22 +148,27 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
             // client reports a fixed position with a zero delta
             player.getMovementTrace().log("path: dead, no movement expected");
             processImmobile(player);
+        } else if (player.inLoadingScreen) {
+            // Prevent abuse with clients that decide to never send the end loading screen for whatever reason (???)
+            // The client itself is immobile on a dimension change (LocalPlayer::changeDimension adds ActorIsImmobileFlagComponent)
+            player.getMovementTrace().log("path: loading screen, no movement expected");
+            processImmobile(player);
         } else if (player.insideUnloadedChunk) {
             player.getMovementTrace().log("path: unloaded chunk, no movement expected");
             processImmobile(player);
         } else {
-            if (player.isMovementExempted()
-                    || player.inLoadingScreen
-                    || player.sinceLoadingScreen < 2
-                    || player.tickSinceBlockResync > 0) {
+            if (player.isMovementExempted() || player.sinceLoadingScreen < 2) {
                 player.getMovementTrace().log("path: exempted (movementExempt=" + player.isMovementExempted()
                         + " inLoadingScreen=" + player.inLoadingScreen
-                        + " sinceLoadingScreen=" + player.sinceLoadingScreen
-                        + " blockResync=" + player.tickSinceBlockResync + ")");
+                        + " sinceLoadingScreen=" + player.sinceLoadingScreen + ")");
                 processExempted(player);
             } else {
                 player.getMovementTrace().log("path: prediction");
-                new PredictionRunner(player).run();
+                final PredictionState start = PredictionState.capture(player);
+                final PredictionRunner runner = new PredictionRunner(player);
+                runner.run();
+                CollisionRetry.attempt(player, start);
+                runner.capturePrediction();
             }
         }
 
@@ -164,6 +188,9 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
                 final Dimension dimension = DimensionUtil.dimensionFromId(dimensionId);
 
                 player.pendingDimensionSwitches++;
+                // The client moves to this position (LocalPlayer::changeDimension). Without this, holding still in the
+                // loading screen would keep the old position.
+                player.getTeleportUtil().queue(new TeleportData(new Vec3(packet.getPosition()), false, TeleportData.Source.OTHER));
                 player.queueAcknowledgment(new DimensionSwitchAck(dimension, packet.getLoadingScreenId()));
             }
             case MovePlayerPacket packet when packet.getRuntimeEntityId() == player.runtimeEntityId && packet.getMode() != MovePlayerPacket.Mode.HEAD_ROTATION -> {

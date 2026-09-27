@@ -9,6 +9,19 @@ import org.cloudburstmc.math.vector.Vector3i;
 public class MathUtil {
     public final static float DEGREE_TO_RAD = 0.017453292F;
 
+    // The client's 65536 entry sine table. Index = radians * 10430.378, cut to an int, & 0xFFFF. Cos is index + 16384.
+    private static final float[] BEDROCK_SIN = new float[65536];
+
+    static {
+        for (int i = 0; i < BEDROCK_SIN.length; i++) {
+            BEDROCK_SIN[i] = (float) Math.sin(i * Math.PI * 2.0 / 65536.0);
+        }
+    }
+
+    public static float sin(float index) {
+        return BEDROCK_SIN[(int) index & 0xFFFF];
+    }
+
     public static boolean sameDirection(Vec3 vec3, Vec3 vec32) {
         return sign(vec3.x) == sign(vec32.x) && sign(vec3.y) == sign(vec32.y) && sign(vec3.z) == sign(vec32.z);
     }

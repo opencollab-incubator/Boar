@@ -11,7 +11,9 @@ import ac.boar.api.anticheat.annotations.Experimental;
 @Experimental
 @CheckInfo(name = "Timer")
 public final class Timer extends BaseCheck implements PingBasedCheck {
+
     private static final long AVERAGE_DISTANCE = (long) 5e+7;
+    private static final long MAX_LOADING_SCREEN_SKIP_MS = 10_000L;
 
     private long lastNS, balance;
     private long loseBalance;
@@ -36,7 +38,8 @@ public final class Timer extends BaseCheck implements PingBasedCheck {
     }
 
     public boolean isInvalid() {
-        if (this.lastNS == 0 || player.inLoadingScreen || player.sinceLoadingScreen < 200) {
+        final boolean skipLoadingScreen = player.inLoadingScreen ? System.currentTimeMillis() - player.loadingScreenStartMs < MAX_LOADING_SCREEN_SKIP_MS : player.sinceLoadingScreen < 200;
+        if (this.lastNS == 0 || skipLoadingScreen) {
             this.lastNS = System.nanoTime();
             this.balance = 0;
             return false;

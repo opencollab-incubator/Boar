@@ -1,5 +1,6 @@
 package ac.boar.anticheat.player.data.tracker;
 
+import ac.boar.anticheat.Boar;
 import ac.boar.anticheat.data.ItemUseTracker;
 import ac.boar.anticheat.player.BoarPlayer;
 import lombok.Getter;
@@ -17,8 +18,14 @@ public final class FlagTracker {
         this.flying = this.wasFlying = flying;
     }
     public void setFlying(boolean flying) {
-        this.wasFlying = this.flying;
+        // Keep it until the end of the tick. The server can send abilities twice in a row (CubeTap does on a gamemode
+        // change), and the second one must not wipe the "was flying" from the first.
+        this.wasFlying |= this.flying;
         this.flying = flying;
+    }
+
+    public void tickFlying() {
+        this.wasFlying = this.flying;
     }
 
     public void clear() {
@@ -30,7 +37,9 @@ public final class FlagTracker {
     }
 
     public void set(final BoarPlayer player, final Set<EntityFlag> flags, final long sentTick, boolean server) {
-        boolean sneaking = this.has(EntityFlag.SNEAKING), swimming = this.has(EntityFlag.SWIMMING);
+        boolean sneaking = this.has(EntityFlag.SNEAKING);
+        boolean swimming = this.has(EntityFlag.SWIMMING);
+        boolean sprinting = this.has(EntityFlag.SPRINTING);
         boolean wasUsingFlag = this.has(EntityFlag.USING_ITEM);
 
         this.clear();
@@ -40,6 +49,15 @@ public final class FlagTracker {
         if (server) {
             this.set(EntityFlag.SNEAKING, sneaking);
             this.set(EntityFlag.SWIMMING, swimming);
+
+            // The server's sprint wins for this tick, like on the client. Remember if it stopped a sprint the client started itself: the client will turn it back on silently (see processInputData).
+            if (sprinting && !this.has(EntityFlag.SPRINTING) && player.clientSprintIntent) {
+                player.serverClearedSprint = true;
+                player.serverClearedSprintTick = player.tick;
+                Boar.debug(player.getSession().name() + ": [sprint-debug] tick=" + player.tick + " server metadata stopped the client's sprint, expecting a silent re-sprint", ac.boar.anticheat.Boar.DebugMessage.INFO);
+            } else if (this.has(EntityFlag.SPRINTING)) {
+                player.serverClearedSprint = false;
+            }
         }
 
 //        System.out.println("Metadata using: " + flags.contains(EntityFlag.USING_ITEM));
@@ -83,5 +101,10 @@ public final class FlagTracker {
         flags.addAll(this.flags);
 
         return flags;
+    }
+
+    public void restoreFlags(final Set<EntityFlag> flags) {
+        this.flags.clear();
+        this.flags.addAll(flags);
     }
 }
