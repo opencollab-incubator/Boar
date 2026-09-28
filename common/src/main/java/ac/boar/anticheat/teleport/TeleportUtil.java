@@ -8,6 +8,7 @@ import ac.boar.anticheat.data.vanilla.AttributeInstance;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.teleport.data.TeleportData;
 import ac.boar.anticheat.util.block.BlockUtil;
+import ac.boar.anticheat.util.geyser.BoarChunk;
 import ac.boar.anticheat.util.math.Vec3;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +16,7 @@ import org.cloudburstmc.math.vector.Vector2f;
 import org.cloudburstmc.math.vector.Vector3i;
 import org.cloudburstmc.protocol.bedrock.data.AttributeData;
 import org.cloudburstmc.protocol.bedrock.data.PredictionType;
+import org.cloudburstmc.protocol.bedrock.data.attribute.AttributeModifierData;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 import org.cloudburstmc.protocol.bedrock.packet.CorrectPlayerMovePredictionPacket;
 import org.cloudburstmc.protocol.bedrock.packet.MovePlayerPacket;
@@ -27,6 +29,9 @@ import java.util.List;
 
 @RequiredArgsConstructor
 public class TeleportUtil {
+
+    private static final int MIN_CHUNK_AGE_FOR_BLOCK_SYNC = 200;
+
     private final BoarPlayer player;
 
     @Getter
@@ -250,9 +255,22 @@ public class TeleportUtil {
 
     private void syncBlocks() {
         final Vec3 pos = player.position;
-        for (int x = (int) Math.floor(pos.x - 0.05F); x <= (int) Math.ceil(pos.x + 0.05F); x++) {
+        final int minX = (int) Math.floor(pos.x - 0.05F), maxX = (int) Math.ceil(pos.x + 0.05F);
+        final int minZ = (int) Math.floor(pos.z - 0.05F), maxZ = (int) Math.ceil(pos.z + 0.05F);
+
+        for (int chunkX = minX >> 4; chunkX <= maxX >> 4; chunkX++) {
+            for (int chunkZ = minZ >> 4; chunkZ <= maxZ >> 4; chunkZ++) {
+                final BoarChunk chunk = player.compensatedWorld.getChunk(chunkX, chunkZ);
+                if (chunk == null || player.tick - chunk.loadedTick() < MIN_CHUNK_AGE_FOR_BLOCK_SYNC) {
+                    Boar.debug(player.getSession().name() + ": [movement-debug] skipped block sync because chunk is new chunk=(" + chunkX + ", " + chunkZ + ")"  + " loadedTick=" + (chunk == null ? "none" : chunk.loadedTick()) + " tick=" + player.tick, Boar.DebugMessage.INFO);
+                    return;
+                }
+            }
+        }
+
+        for (int x = minX; x <= maxX; x++) {
             for (int y = (int) Math.floor(pos.y - 0.05F); y <= (int) Math.ceil(pos.y + 0.05F); y++) {
-                for (int z = (int) Math.floor(pos.z - 0.05F); z <= (int) Math.ceil(pos.z + 0.05F); z++) {
+                for (int z = minZ; z <= maxZ; z++) {
                     BlockUtil.syncBlock(player, Vector3i.from(x, y, z));
                 }
             }
@@ -293,7 +311,11 @@ public class TeleportUtil {
 
         final UpdateAttributesPacket packet = new UpdateAttributesPacket();
         packet.setRuntimeEntityId(player.runtimeEntityId);
-        packet.setAttributes(new ArrayList<>(List.of(new AttributeData(Attribute.MOVEMENT.getIdentifier(), min, max, player.getSpeed(), movement.getBaseValue()))));
+        // Send our modifiers too (like the sprint boost). The client drops all of its modifiers on this packet, and it can
+        // only remove a modifier later (e.g. when it stops sprinting) if it has it.
+        final List<AttributeModifierData> modifiers = new ArrayList<>(movement.getModifiers().values());
+        packet.setAttributes(new ArrayList<>(List.of(new AttributeData(Attribute.MOVEMENT.getIdentifier(), min, max, player.getSpeed(),
+                last == null ? min : last.getDefaultMinimum(), last == null ? max : last.getDefaultMaximum(), movement.getBaseValue(), modifiers))));
         packet.setTick(player.simulationFrame);
 
         player.correctionAttributesPacket = packet;

@@ -44,8 +44,11 @@ import java.util.concurrent.atomic.AtomicLong;
 
 @RequiredArgsConstructor
 public class PlayerData {
+
+    // apparently this is exactly what the client uses (SharedModifiers::SPRINTING_BOOST) and it also allows for the client
+    // to predict it's own stop sprinting as well. more server softwares should implement this!
     public final static AttributeModifierData SPRINTING_SPEED_BOOST = new AttributeModifierData("D208FC00-42AA-4AAD-9276-D5446530DE43",
-            "Sprinting speed boost - BOAR",
+            "Sprinting speed boost",
             0.3F, AttributeOperation.MULTIPLY_TOTAL, 2, false);
 
     public final static float JUMP_HEIGHT = 0.42F;

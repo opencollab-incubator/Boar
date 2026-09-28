@@ -9,7 +9,6 @@ import ac.boar.anticheat.ack.types.UpdateAttributesAck;
 import ac.boar.anticheat.compensated.cache.entity.EntityCache;
 import ac.boar.anticheat.data.input.PredictionData;
 import ac.boar.anticheat.player.BoarPlayer;
-import ac.boar.anticheat.player.data.PlayerData;
 import ac.boar.anticheat.util.DimensionUtil;
 import ac.boar.anticheat.util.VanillaOffsetUtil;
 import ac.boar.anticheat.util.math.Vec3;
@@ -207,26 +206,32 @@ public class ServerDataPackets implements PacketListener {
                 return data;
             }
 
+            // Fold only the ADDITION modifiers into the default and forward the rest as is for now (so that servers
+            // can send the vanilla sprint boost modifier)
             float newBase = data.getDefaultValue();
+            final List<AttributeModifierData> kept = new ArrayList<>();
             for (final AttributeModifierData modifier : data.getModifiers()) {
                 if (modifier.getOperation() == AttributeOperation.ADDITION) {
                     newBase += modifier.getAmount();
+                } else {
+                    kept.add(modifier);
                 }
             }
+
+            // Same order as AttributeInstance#computeValue.
             float newValue = newBase;
-            for (final AttributeModifierData modifier : data.getModifiers()) {
+            for (final AttributeModifierData modifier : kept) {
                 if (modifier.getOperation() == AttributeOperation.MULTIPLY_BASE) {
                     newValue += (newBase * modifier.getAmount());
                 }
             }
-            for (final AttributeModifierData modifier : data.getModifiers()) {
-                if (modifier.getOperation() == AttributeOperation.MULTIPLY_TOTAL && !modifier.equals(PlayerData.SPRINTING_SPEED_BOOST)) {
+            for (final AttributeModifierData modifier : kept) {
+                if (modifier.getOperation() == AttributeOperation.MULTIPLY_TOTAL) {
                     newValue *= (1.0F + modifier.getAmount());
                 }
             }
 
-            // System.out.println(data + " -> " + new AttributeData(data.getName(), data.getMinimum(), data.getMaximum(), newValue, newBase));
-            return new AttributeData(data.getName(), data.getMinimum(), data.getMaximum(), newValue, newBase);
+            return new AttributeData(data.getName(), data.getMinimum(), data.getMaximum(), newValue, data.getDefaultMinimum(), data.getDefaultMaximum(), newBase, kept);
         }
         return data;
     }

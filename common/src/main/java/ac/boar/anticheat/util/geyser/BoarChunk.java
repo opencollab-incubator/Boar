@@ -12,10 +12,17 @@ public class BoarChunk {
     private boolean hasAllSections;
     private long lastSectionWarning = 0;
 
-    public BoarChunk(BoarChunkSection[] sections, List<BlockEntityInfo> blockEntities, boolean hasAllSections) {
+    private final long loadedTick;
+
+    public BoarChunk(BoarChunkSection[] sections, List<BlockEntityInfo> blockEntities, boolean hasAllSections, long loadedTick) {
         this.sections = sections;
         this.blockEntities = blockEntities;
         this.hasAllSections = hasAllSections;
+        this.loadedTick = loadedTick;
+    }
+
+    public long loadedTick() {
+        return this.loadedTick;
     }
 
     public BoarChunkSection[] sections() {
