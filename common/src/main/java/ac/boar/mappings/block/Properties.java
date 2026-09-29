@@ -21,6 +21,7 @@ public final class Properties {
     public static final Property<Integer> RESPAWN_ANCHOR_CHARGES = create("respawn_anchor_charges");
     public static final Property<String> VAULT_STATE = create("vault_state");
     public static final Property<Direction> VERTICAL_DIRECTION = create("vertical_direction");
+    public static final Property<Boolean> WATERLOGGED = create("waterlogged");
 
     private static <T extends Comparable<T>> Property<T> create(String key) {
         return BlockMappingsInst.property(key);

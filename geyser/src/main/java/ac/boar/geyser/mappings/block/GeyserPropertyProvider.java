@@ -39,6 +39,7 @@ public class GeyserPropertyProvider implements PropertyProvider {
                     Properties.VERTICAL_DIRECTION,
                     raw -> (T) ac.boar.anticheat.util.math.Direction.VALUES[((Direction) raw).ordinal()]
             );
+            case "waterlogged" -> new GeyserProperty(Properties.WATERLOGGED);
             default -> throw new IllegalArgumentException("Unknown property: " + key);
         };
     }

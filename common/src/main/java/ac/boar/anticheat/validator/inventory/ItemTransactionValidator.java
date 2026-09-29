@@ -9,6 +9,7 @@ import ac.boar.anticheat.data.block.BoarBlockState;
 import ac.boar.anticheat.data.inventory.BoarItemStack;
 import ac.boar.anticheat.data.inventory.ItemCache;
 import ac.boar.anticheat.player.BoarPlayer;
+import ac.boar.anticheat.util.Dimension;
 import ac.boar.anticheat.util.MathUtil;
 import ac.boar.anticheat.util.Reference;
 import ac.boar.anticheat.util.StringUtil;
@@ -353,7 +354,16 @@ public final class ItemTransactionValidator {
                         }
 
                         if (item.is(Items.WATER_BUCKET)) {
-                            player.compensatedWorld.updateBlock(newBlockPos, 0, player.mappingInfo.waterId());
+                            // Water placed in the Nether should be gone right away/never placed down
+                            if (!Dimension.THE_NETHER.equals(player.compensatedWorld.getDimension())) {
+                                // BucketItem::emptyContents - a block that can hold water (e.g - slab, stairs) gets the water in its second layer
+                                // Clicking one that already holds water, or any other block, puts the water next to it instead (see BucketItem::emptyContents)
+                                final boolean fillClicked = canHoldWater(boarState) && !player.compensatedWorld.getBlockState(position, 1).is(Blocks.WATER);
+                                final Vector3i target = fillClicked ? position : newBlockPos;
+                                final BoarBlockState targetState = fillClicked ? boarState : player.compensatedWorld.getBlockState(newBlockPos, 0);
+                                final int layer = !targetState.isAir() && canHoldWater(targetState) ? 1 : 0;
+                                player.compensatedWorld.updateBlock(target, layer, player.mappingInfo.waterId());
+                            }
 
                             BoarItemStack stack = BoarItemStack.of(player.getSession(), Items.BUCKET, 1);
                             inventory.inventoryContainer.set(inventory.heldItemSlot, stack.toItemData(player.getSession()));
@@ -368,15 +378,15 @@ public final class ItemTransactionValidator {
                             BoarItemStack stack = BoarItemStack.of(player.getSession(), Items.BUCKET, 1);
                             inventory.inventoryContainer.set(inventory.heldItemSlot, stack.toItemData(player.getSession()));
                         } else if (item.is(Items.BUCKET)) {
-                            // int javaId = -1, layer = 0;
+                            final BoarBlockState secondLayer = player.compensatedWorld.getBlockState(position, 1);
                             Reference<Item> itemRef = null;
                             int layer = 0;
-                            if (boarState.is(Blocks.WATER)) {
+                            if (boarState.is(Blocks.WATER) && isSource(boarState)) {
                                 itemRef = Items.WATER_BUCKET;
-                            } else if (player.compensatedWorld.getBlockState(position, 1).is(Blocks.WATER)) {
+                            } else if (secondLayer.is(Blocks.WATER) && isSource(secondLayer)) {
                                 layer = 1;
                                 itemRef = Items.WATER_BUCKET;
-                            } else if (boarState.is(Blocks.LAVA)) {
+                            } else if (boarState.is(Blocks.LAVA) && isSource(boarState)) {
                                 itemRef = Items.LAVA_BUCKET;
                             } else if (boarState.is(Blocks.POWDER_SNOW)) {
                                 itemRef = Items.POWDER_SNOW_BUCKET;
@@ -386,8 +396,7 @@ public final class ItemTransactionValidator {
                                 return true;
                             }
 
-                            player.compensatedWorld.updateBlock(newBlockPos, layer, player.mappingInfo.airId());
-
+                            player.compensatedWorld.updateBlock(position, layer, player.mappingInfo.airId());
                             BoarItemStack stack = BoarItemStack.of(player.getSession(), itemRef, 1);
                             inventory.inventoryContainer.set(inventory.heldItemSlot, stack.toItemData(player.getSession()));
                         }
@@ -630,6 +639,15 @@ public final class ItemTransactionValidator {
         packet.setMessage(message);
         packet.setXuid("");
         player.getConnection().sendPacket(packet);
+    }
+
+    private static boolean canHoldWater(final BoarBlockState state) {
+        return getOrNull(state, Properties.WATERLOGGED) != null;
+    }
+
+    private static boolean isSource(final BoarBlockState state) {
+        final Integer level = getOrNull(state, Properties.LEVEL);
+        return level == null || level == 0;
     }
 
     private void placementDebug(final String message) {
