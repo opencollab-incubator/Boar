@@ -37,7 +37,6 @@ public final class FlagTracker {
     }
 
     public void set(final BoarPlayer player, final Set<EntityFlag> flags, final long sentTick, boolean server) {
-        boolean sneaking = this.has(EntityFlag.SNEAKING);
         boolean swimming = this.has(EntityFlag.SWIMMING);
         boolean sprinting = this.has(EntityFlag.SPRINTING);
         boolean wasUsingFlag = this.has(EntityFlag.USING_ITEM);
@@ -45,9 +44,8 @@ public final class FlagTracker {
         this.clear();
         this.flags.addAll(flags);
 
-        // Don't use the server state for these specific flags since it'll cause desync and we want to handle it on PlayerAuthInput
+        // Don't use the server state for swimming since it'll cause desync and we want to handle it on PlayerAuthInput
         if (server) {
-            this.set(EntityFlag.SNEAKING, sneaking);
             this.set(EntityFlag.SWIMMING, swimming);
 
             // The server's sprint wins for this tick, like on the client. Remember if it stopped a sprint the client started itself: the client will turn it back on silently (see processInputData).

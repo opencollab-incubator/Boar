@@ -2,7 +2,6 @@ package ac.boar.anticheat.packets.input.legacy;
 
 import ac.boar.anticheat.check.api.Check;
 import ac.boar.anticheat.check.api.impl.OffsetHandlerCheck;
-import ac.boar.anticheat.collision.Collider;
 import ac.boar.anticheat.compensated.cache.container.ContainerCache;
 import ac.boar.anticheat.Boar;
 import ac.boar.anticheat.data.ItemUseTracker;
@@ -14,7 +13,6 @@ import ac.boar.anticheat.util.MathUtil;
 import ac.boar.anticheat.util.math.Vec3;
 import ac.boar.mappings.item.Items;
 import org.cloudburstmc.protocol.bedrock.data.Ability;
-import org.cloudburstmc.protocol.bedrock.data.InputMode;
 import org.cloudburstmc.protocol.bedrock.data.GameType;
 import org.cloudburstmc.protocol.bedrock.data.PlayerAuthInputData;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
@@ -222,15 +220,6 @@ public class LegacyAuthInputPackets {
             player.ticksSinceCrawling = 0;
         }
 
-        // We rely on the SNEAK_CURRENT_RAW flag for the sneaking state since it is more reliable. However, we still need to account for cases where
-        // the player may not be holding the sneak bind but still cannot un-sneak (e.g. - under a slab).
-        final boolean useRawSneakState = player.inputMode.equals(InputMode.MOUSE); // SNEAK_CURRENT_RAW only seems to be applied on KBM (keyboard/mouse) - is this intentional or client bug?
-        if (useRawSneakState) {
-            final boolean wasSneaking = player.getFlagTracker().has(EntityFlag.SNEAKING);
-            final boolean forcedSneak = wasSneaking && !Collider.canStandUp(player);
-            player.getFlagTracker().set(EntityFlag.SNEAKING, player.getInputData().contains(PlayerAuthInputData.SNEAK_CURRENT_RAW) || forcedSneak);
-        }
-
         final Iterator<PlayerAuthInputData> iterator = player.getInputData().iterator();
         while (iterator.hasNext()) {
             final PlayerAuthInputData input = iterator.next();
@@ -267,21 +256,8 @@ public class LegacyAuthInputPackets {
                 case START_SWIMMING -> player.getFlagTracker().set(EntityFlag.SWIMMING, true);
                 case STOP_SWIMMING -> player.getFlagTracker().set(EntityFlag.SWIMMING, false);
 
-                // Prevent the server from constantly trying to update these states which would cause a massive desync loop
-                case START_SNEAKING ->  {
-                    if (!useRawSneakState) {
-                        player.getFlagTracker().set(EntityFlag.SNEAKING, true);
-                    } else if (!player.getInputData().contains(PlayerAuthInputData.SNEAK_CURRENT_RAW) && !player.disableMitigations()) {
-                        iterator.remove();
-                    }
-                }
-                case STOP_SNEAKING -> {
-                    if (!useRawSneakState) {
-                        player.getFlagTracker().set(EntityFlag.SNEAKING, false);
-                    } else if (player.getInputData().contains(PlayerAuthInputData.SNEAK_CURRENT_RAW) && !player.disableMitigations()) {
-                        iterator.remove();
-                    }
-                }
+                case START_SNEAKING -> player.getFlagTracker().set(EntityFlag.SNEAKING, true);
+                case STOP_SNEAKING -> player.getFlagTracker().set(EntityFlag.SNEAKING, false);
 
                 case START_FLYING -> player.getFlagTracker().setFlying(player.abilities.contains(Ability.MAY_FLY) || player.abilities.contains(Ability.FLYING));
                 case STOP_FLYING -> player.getFlagTracker().setFlying(false);
