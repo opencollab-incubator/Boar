@@ -277,7 +277,8 @@ public class TeleportUtil {
         }
     }
 
-    // Resend the server's last flags for this player, with our sprint state, with the correction's tick.
+    // Resend the server's last flags for this player, with our sprint, sneak and item use state, with the correction's tick.
+    // The client replays with these, so they must match what we predicted with.
     private void syncMetadata() {
         final EnumMap<EntityFlag, Boolean> lastFlags = player.lastServerFlags;
         if (lastFlags == null || player.vehicleData != null) {
@@ -286,6 +287,8 @@ public class TeleportUtil {
 
         final EnumMap<EntityFlag, Boolean> flags = new EnumMap<>(lastFlags);
         flags.put(EntityFlag.SPRINTING, player.getFlagTracker().has(EntityFlag.SPRINTING));
+        flags.put(EntityFlag.SNEAKING, player.getFlagTracker().has(EntityFlag.SNEAKING));
+        flags.put(EntityFlag.USING_ITEM, player.getFlagTracker().has(EntityFlag.USING_ITEM));
 
         final SetEntityDataPacket packet = new SetEntityDataPacket();
         packet.setRuntimeEntityId(player.runtimeEntityId);
