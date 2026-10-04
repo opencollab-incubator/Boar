@@ -53,7 +53,7 @@ public class PlayerTicker extends LivingTicker {
         final long sinceChange = player.tick - player.lastItemUseStateChangeTick;
         final boolean boarUsing = usingFlag && !player.getItemUseTracker().isUsingSpear();
         final boolean forced = boarUsing && player.getItemUseTracker().isSlowdownConfirmed() && !player.getItemUseTracker().isPastConsumeDuration();
-        boolean applySlowdown = sneakSlowdown ? boarUsing : forced;
+        boolean applySlowdown = forced;
         final float inputLen = player.input.horizontalLength();
         final boolean unverifiedUse = usingFlag && !trackerHasItem;
         final float mx = player.clientMotion.getX(), my = player.clientMotion.getY();
@@ -62,12 +62,12 @@ public class PlayerTicker extends LivingTicker {
         if ((sinceChange < 5 || unverifiedUse) && inputLen > 1.0E-4F) {
             applySlowdown = clientLen * 0.98F < inputLen * 0.5F;
             reason = "client vector (just changed)";
-        } else if (!sneakSlowdown && !forced && rawInputLen > 1.0E-4F) {
+        } else if (!forced && inputLen > 1.0E-4F) {
             // The client's move vector already has the item use slowdown in it (raw 1.0 -> 0.1225). For leniency, we cap
             // the client instead of re-creating its state here. Until the slowdown is forced, use the client's move vector
             // A slowed vector is always accepted (delayed server metadata can slow the client after it let go), and an unslowed one is fine
             // while the server hasn't confirmed the use yet
-            applySlowdown = clientLen < rawInputLen * 0.5F;
+            applySlowdown = clientLen * 0.98F < inputLen * 0.5F;
             reason = boarUsing ? "client vector (server hasn't confirmed use yet)" : "client vector (slowed by server metadata?)";
         }
 

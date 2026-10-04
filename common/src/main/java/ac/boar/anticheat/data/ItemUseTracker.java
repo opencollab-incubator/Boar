@@ -1,8 +1,6 @@
 package ac.boar.anticheat.data;
 
 import ac.boar.anticheat.Boar;
-import ac.boar.anticheat.compensated.CompensatedInventory;
-import ac.boar.anticheat.data.enchantment.Enchantment;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.util.StringUtil;
 import ac.boar.mappings.item.Item;
@@ -38,14 +36,6 @@ public class ItemUseTracker {
     // "using" metadata. Some clients only slow down once that arrives, so we only force the slowdown after it.
     private long transactionStartTick = -1;
     private boolean serverConfirmed;
-    // A riptide trident only starts in water or rain (TridentItem::use), and surprisingly the stuff to determine "raining"
-    // is more complicated than I expected (Weather::isPrecipitatingAt checks if the dimension has weather, the biome position at
-    // where the player is at can rain, the rain level is greater than 0.2, and that the player's Y position is greater than or equal to
-    // LevelChunk::getTopRainBlockPos(x, z). Then, you also need Biome::getTemperature to be above 0.15. FOWTSIANGTDI
-    // We can just hack around this by waiting for the server's confirmation for now.
-    private boolean riptideNeedsServerConfirm;
-    // If the server never confirms (some platform may not send it), force the slowdown after this many ticks anyway.
-    private static final int CONFIRM_FALLBACK_TICKS = 20;
 
     public enum DirtyUsing {
         METADATA, INVENTORY_TRANSACTION, NONE
@@ -104,7 +94,6 @@ public class ItemUseTracker {
         this.wasUsing = false;
         this.transactionStartTick = -1;
         this.serverConfirmed = false;
-        this.riptideNeedsServerConfirm = false;
 
         this.useFromTransaction = false;
         this.player.lastItemUseStateChangeTick = this.player.tick;
@@ -140,8 +129,6 @@ public class ItemUseTracker {
 
         this.transactionStartTick = this.player.tick;
         this.serverConfirmed = false;
-        this.riptideNeedsServerConfirm = item.is(Items.TRIDENT) && !this.player.touchingWater
-                && CompensatedInventory.getEnchantments(usedItem).containsKey(Enchantment.RIPTIDE);
         this.use(usedItem, item, false);
         this.dirtyUsing = DirtyUsing.NONE;
         this.player.getFlagTracker().set(EntityFlag.USING_ITEM, true);
@@ -155,7 +142,7 @@ public class ItemUseTracker {
     }
 
     public boolean isSlowdownConfirmed() {
-        return this.serverConfirmed || (!this.riptideNeedsServerConfirm && this.useStartTick >= 0 && this.player.tick - this.useStartTick >= CONFIRM_FALLBACK_TICKS);
+        return this.serverConfirmed;
     }
 
     public boolean canBeUsed(final ItemData usedItem, Item item) {
