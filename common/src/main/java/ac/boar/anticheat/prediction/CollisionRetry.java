@@ -4,6 +4,7 @@ import ac.boar.anticheat.Boar;
 import ac.boar.anticheat.check.impl.prediction.Prediction;
 import ac.boar.anticheat.config.Config;
 import ac.boar.anticheat.player.BoarPlayer;
+import ac.boar.anticheat.prediction.engine.data.VectorType;
 import ac.boar.anticheat.util.math.Box;
 import ac.boar.anticheat.util.math.Vec3;
 import org.cloudburstmc.protocol.bedrock.data.PlayerAuthInputData;
@@ -35,7 +36,7 @@ public final class CollisionRetry {
     public static void attempt(final BoarPlayer player, final PredictionState start) {
         final Config config = Boar.getConfig();
         final float maxOffset = config.retryMaxOffset();
-        if (maxOffset <= 0 || player.disableMitigations() || player.getFlagTracker().has(EntityFlag.GLIDING)) {
+        if (!config.retryEnabled() || maxOffset <= 0 || player.disableMitigations() || player.getFlagTracker().has(EntityFlag.GLIDING)) {
             return;
         }
 
@@ -49,10 +50,29 @@ public final class CollisionRetry {
             return;
         }
 
+        if (player.bestPossibility.getType() == VectorType.VELOCITY) {
+            log(player, "skipped reason=knockback tick=" + player.tick);
+            chat(player, "§eretry skipped at sim tick " + player.simulationFrame + ": knockback tick");
+            return;
+        }
+
+        final int cooldown = config.retryCooldownTicks();
+        if (cooldown > 0 && player.lastCollisionRetryTick != Long.MIN_VALUE && player.tick - player.lastCollisionRetryTick < cooldown) {
+            log(player, "skipped reason=cooldown tick=" + player.tick + " lastKept=" + player.lastCollisionRetryTick);
+            chat(player, "§eretry skipped at sim tick " + player.simulationFrame + ": cooldown (" + (player.tick - player.lastCollisionRetryTick) + "/" + cooldown + " ticks)");
+            return;
+        }
+
         final String name = player.getSession().name();
         final Vec3 clientStart = player.prevUnvalidatedPosition;
         final float startOffset = clientStart.distanceTo(start.position());
         if (startOffset < MIN_START_OFFSET) {
+            return;
+        }
+        final float maxStartOffset = config.retryMaxStartOffset();
+        if (startOffset > maxStartOffset) {
+            log(player, "skipped reason=start-too-far tick=" + player.tick + " startOffset=" + startOffset + " clientStart=" + clientStart);
+            chat(player, "§cretry capped at sim tick " + player.simulationFrame + ": start " + startOffset + " away (max " + maxStartOffset + ")");
             return;
         }
 
@@ -97,8 +117,9 @@ public final class CollisionRetry {
                 + " claimed=(h=" + claimedHorizontal + ",v=" + claimedVertical + ")";
         if (reason == null) {
             player.getMovementTrace().log("retry: kept the second run, pos=" + player.position);
+            player.lastCollisionRetryTick = player.tick;
             Boar.debug(name + ": [movement-debug] collision retry passed " + info + " pos=" + player.position, Boar.DebugMessage.INFO);
-            chat(player, "§aretry passed at sim tick " + player.simulationFrame + " (miss " + retryOffset + ", was " + firstOffset + ")");
+            chat(player, "§aretry passed at sim tick " + player.simulationFrame + " (miss " + retryOffset + ", was " + firstOffset + ", start " + startOffset + " away)");
             return;
         }
 

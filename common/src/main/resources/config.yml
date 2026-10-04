@@ -33,10 +33,21 @@ player-position-drift-amount: 0.0
 # - The second run hit blocks differently than the first run (collision, ground, or step up).
 # - The second run agrees with the collision flags the client sent.
 # - The second run ends at most "player-position-retry-max-offset" blocks from the client position.
-# A cheater can gain at most the start difference (below "differ-till-alert") plus "player-position-retry-max-offset" (only if they're colliding
+# - The client's last position is at most "player-position-retry-max-start-offset" blocks from Boar's.
+# - No retry was kept in the last "player-position-retry-cooldown-ticks" ticks, and this isn't a knockback tick.
+# A cheater can gain at most the start difference plus "player-position-retry-max-offset" each time a retry is kept (only if they're colliding
 # with blocks) but the benefit is that you avoid a correction which could be priority for some servers.
-# To disable the retry, set "player-position-retry-max-offset" to 0
+# To disable the retry, set "player-position-retry-enabled" to false or "player-position-retry-max-offset" to 0
+player-position-retry-enabled: true
 player-position-retry-max-offset: 0.0
+
+# The client's last position is never checked, so without this cap a client could claim any start and have one normal-looking
+# tick from there accepted (ignore a correction, then get retried to wherever it is). 0.6 is above every legit retry seen so far.
+player-position-retry-max-start-offset: 0.6
+
+# How many ticks after a kept retry before another one can be kept. Legit retries are rare, so this limits how often a cheater
+# can gain the start difference. 0 means no cooldown.
+player-position-retry-cooldown-ticks: 20
 
 # This is the max reach that Boar going to tolerance before flagging, it does account for lag so no worry :)
 max-tolerance-compensated-reach: 3.005

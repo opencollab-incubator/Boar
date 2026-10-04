@@ -108,6 +108,8 @@ public class PlayerData {
     // sprint back on by itself if it still can (SprintTriggerSystem::doIntentTick), without sending START_SPRINTING
     public boolean serverClearedSprint;
     public long serverClearedSprintTick;
+    // Tick of the last kept collision retry, for its cooldown.
+    public long lastCollisionRetryTick = Long.MIN_VALUE;
     public float sneakingEyeHeightReduction = 0.35F;
 
     public int glideBoostTicks;

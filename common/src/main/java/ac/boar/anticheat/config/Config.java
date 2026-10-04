@@ -25,9 +25,18 @@ public final class Config {
     @JsonProperty("player-position-drift-amount")
     @JsonSetter(nulls = Nulls.SKIP)
     private float positionDriftAmount = 0.0F;
+    @JsonProperty("player-position-retry-enabled")
+    @JsonSetter(nulls = Nulls.SKIP)
+    private boolean retryEnabled = true;
     @JsonProperty("player-position-retry-max-offset")
     @JsonSetter(nulls = Nulls.SKIP)
     private float retryMaxOffset = 0.0F;
+    @JsonProperty("player-position-retry-max-start-offset")
+    @JsonSetter(nulls = Nulls.SKIP)
+    private float retryMaxStartOffset = 0.6F;
+    @JsonProperty("player-position-retry-cooldown-ticks")
+    @JsonSetter(nulls = Nulls.SKIP)
+    private int retryCooldownTicks = 20;
     @JsonProperty("max-tolerance-compensated-reach")
     @JsonSetter(nulls = Nulls.SKIP)
     private float toleranceReach = 2.91F;
@@ -73,8 +82,20 @@ public final class Config {
         return Math.max(0.0F, positionDriftAmount);
     }
 
+    public boolean retryEnabled() {
+        return retryEnabled;
+    }
+
     public float retryMaxOffset() {
         return Math.max(0.0F, retryMaxOffset);
+    }
+
+    public float retryMaxStartOffset() {
+        return Math.max(0.0F, retryMaxStartOffset);
+    }
+
+    public int retryCooldownTicks() {
+        return Math.max(0, retryCooldownTicks);
     }
 
     public float toleranceReach() {
