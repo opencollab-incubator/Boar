@@ -328,6 +328,16 @@ public final class ItemTransactionValidator {
                                 player.compensatedWorld.updateBlock(position, 0,
                                         player.mappingInfo.fromIntermediary().applyAsInt(boarState.with(Properties.OPEN, !open).intermediaryId()));
                                 result = InteractionResult.SUCCESS;
+
+                                if (BlockMappings.get().getDoorBlocks().contains(block)) {
+                                    final Vector3i bottomPos = BlockUtil.getDoorBottom(player, position, boarState);
+                                    final BoarBlockState bottom = player.compensatedWorld.getBlockState(bottomPos, 0);
+                                    if (!bottomPos.equals(position) && bottom.is(block)) {
+                                        final boolean bottomOpen = !bottom.get(Properties.OPEN);
+                                        player.compensatedWorld.updateBlock(bottomPos, 0, player.mappingInfo.fromIntermediary().applyAsInt(bottom.with(Properties.OPEN, bottomOpen).intermediaryId()));
+                                        placementDebug("door top clicked=" + position + " -> bottom " + bottomPos + " open=" + bottomOpen);
+                                    }
+                                }
                             }
 
                             if (result != InteractionResult.TRY_WITH_EMPTY_HAND) {
