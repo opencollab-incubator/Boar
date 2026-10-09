@@ -45,7 +45,7 @@ public class ItemUseTracker {
         if (this.item == null) {
             return false;
         }
-        return this.item.is(Items.WOODEN_SPEAR) || this.item.is(Items.STONE_SPEAR)
+        return this.item.is(Items.WOODEN_SPEAR) || this.item.is(Items.STONE_SPEAR) || this.item.is(Items.COPPER_SPEAR)
                 || this.item.is(Items.IRON_SPEAR) || this.item.is(Items.GOLDEN_SPEAR) || this.item.is(Items.DIAMOND_SPEAR) || this.item.is(Items.NETHERITE_SPEAR);
     }
 

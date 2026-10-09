@@ -9,6 +9,7 @@ public final class Items {
     public static final Reference<Item> BONE_MEAL = create("bone_meal");
     public static final Reference<Item> BOW = create("bow");
     public static final Reference<Item> BUCKET = create("bucket");
+    public static final Reference<Item> COPPER_SPEAR = create("copper_spear");
     public static final Reference<Item> CROSSBOW = create("crossbow");
     public static final Reference<Item> DIAMOND_SPEAR = create("diamond_spear");
     public static final Reference<Item> ELYTRA = create("elytra");
