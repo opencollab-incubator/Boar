@@ -178,7 +178,13 @@ public final class ItemTransactionValidator {
                 }
 
                 float distance = player.position.toVector3f().distanceSquared(position.getX(), position.getY(), position.getZ());
-                if (!MathUtil.isValid(position) || distance > 12 * 12 && position.getX() + position.getY() + position.getZ() != 0) {
+                boolean isValidPos = MathUtil.isValid(position);
+                if (!isValidPos || distance > 12 * 12 && position.getX() + position.getY() + position.getZ() != 0) {
+                    if (isValidPos) {
+                        BlockUtil.restoreCorrectBlock(player, BlockUtil.getBlockPosition(position, packet.getBlockFace()));
+                        BlockUtil.restoreCorrectBlock(player, position);
+                        placementDebug("denied clicked=" + position + " face=" + packet.getBlockFace() + " reason=too far from " + player.position + ", resynced");
+                    }
                     return fail("ITEM_USE: invalid block position " + position + ", distanceSq=" + distance + ", playerPos=" + player.position);
                 }
 
