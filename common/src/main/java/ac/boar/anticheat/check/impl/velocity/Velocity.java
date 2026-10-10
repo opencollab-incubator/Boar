@@ -72,6 +72,10 @@ public final class Velocity extends BaseCheck implements OffsetHandlerCheck {
     }
 
     private void checkHorizontal(Vec3 took, Vec3 predicted) {
+        if (player.horizontalCollision) {
+            return;
+        }
+
         // check for either X or Z axis, whichever fails first (if none, decrease buffer)
         boolean checkedX = true, checkedZ = true;
         if (Math.abs(predicted.x) >= 0.003) {
