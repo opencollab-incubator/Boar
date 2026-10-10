@@ -230,6 +230,10 @@ public final class BoarDefaultAcknowledgments {
         if (ack.bedPosition() != null) {
             player.bedPosition = ack.bedPosition().equals(Vector3i.ZERO) ? null : ack.bedPosition();
         }
+
+        if (ack.flags() != null && !ack.flags().contains(EntityFlag.SLEEPING)) {
+            player.bedPosition = null;
+        }
     }
 
     private static void handleUpdateAttributes(BoarPlayer player, UpdateAttributesAck ack) {
