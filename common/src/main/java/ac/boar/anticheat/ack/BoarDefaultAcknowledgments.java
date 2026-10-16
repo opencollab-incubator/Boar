@@ -13,13 +13,21 @@ import ac.boar.anticheat.data.inventory.SlotSnapshot;
 import ac.boar.anticheat.data.vanilla.AttributeInstance;
 import ac.boar.anticheat.data.vanilla.StatusEffect;
 import ac.boar.anticheat.player.BoarPlayer;
+import ac.boar.anticheat.player.data.BoatTakeoverTransition;
 import ac.boar.anticheat.player.data.VehicleData;
+import ac.boar.anticheat.player.data.VehicleType;
+import ac.boar.anticheat.prediction.vehicle.FollowerHistory;
+import ac.boar.anticheat.prediction.vehicle.VehicleTicker;
+import ac.boar.anticheat.teleport.data.TeleportData;
 import ac.boar.anticheat.validator.inventory.click.ItemRequestProcessor;
 import ac.boar.anticheat.prediction.engine.data.Vector;
 import ac.boar.anticheat.prediction.engine.data.VectorType;
+import ac.boar.anticheat.util.LatencyUtil;
+import ac.boar.anticheat.util.MathUtil;
 import ac.boar.anticheat.util.geyser.BlockEntityInfo;
 import ac.boar.anticheat.util.geyser.BoarChunk;
 import ac.boar.anticheat.util.math.Vec3;
+import ac.boar.mappings.entity.EntityTypes;
 import org.cloudburstmc.math.vector.Vector3i;
 import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.protocol.bedrock.data.Ability;
@@ -51,6 +59,38 @@ public final class BoarDefaultAcknowledgments {
     private BoarDefaultAcknowledgments() {
     }
 
+    private static void authorizeHorseDeath(final BoarPlayer player, final EntityCache entity, final String source) {
+        final VehicleData vehicle = player.vehicleData;
+        if (vehicle == null || !vehicle.isHorseDeathExitMount(player, entity)) {
+            return;
+        }
+        if (!vehicle.canEndHorseDeath(player, entity)) {
+            vehicle.logHorseDeath(player, "decline source=" + source + " reason=ride-authority seen=" + vehicle.horseDeathInputSeen
+                    + " predicted=" + vehicle.inputClaimsClientPrediction + " decided=" + vehicle.horseDeathDecided);
+            return;
+        }
+        vehicle.horseDeathAuthorized = true;
+        vehicle.logHorseDeath(player, "authorize source=" + source);
+    }
+
+    private static void authorizeFollowerDeath(final BoarPlayer player, final EntityCache entity, final String source) {
+        final VehicleData vehicle = player.vehicleData;
+        if (vehicle == null || !vehicle.isFollowerDeathExitMount(player, entity)) {
+            return;
+        }
+        if (vehicle.followerDeathDecided) {
+            vehicle.logFollowerDeath(player, "decline source=" + source + " reason=decided");
+            return;
+        }
+        if (vehicle.followerDeathDeadline == Long.MIN_VALUE) {
+            vehicle.followerDeathDeadline = player.tick + VehicleData.FOLLOWER_DEATH_EXIT_INPUTS;
+            vehicle.followerDeathPosition = entity.getAcknowledgedPositionTarget();
+            vehicle.freezeFollowerDeathClaim(player, entity, true);
+        }
+        vehicle.followerDeathAuthorized = true;
+        vehicle.logFollowerDeath(player, "authorize source=" + source);
+    }
+
     public static void registerAll(BoarAcknowledgmentRegistry registry) {
         registry.register(ChunkRadiusUpdateAck.class, BoarDefaultAcknowledgments::handleChunkRadiusUpdate);
         registry.register(ChunkLoadAck.class, BoarDefaultAcknowledgments::handleChunkLoad);
@@ -64,6 +104,11 @@ public final class BoarDefaultAcknowledgments {
         registry.register(EntityRemoveAck.class, BoarDefaultAcknowledgments::handleEntityRemove);
         registry.register(EntityInterpolateAck.class, BoarDefaultAcknowledgments::handleEntityInterpolate);
         registry.register(EntityMetadataAck.class, BoarDefaultAcknowledgments::handleEntityMetadata);
+        registry.register(EntityDeathAck.class, (player, ack) -> {
+            authorizeHorseDeath(player, ack.entity(), "event-3");
+            authorizeFollowerDeath(player, ack.entity(), "event-3");
+        });
+        registry.register(EntityAttributesAck.class, BoarDefaultAcknowledgments::handleEntityAttributes);
 
         registry.register(GameTypeAck.class, BoarDefaultAcknowledgments::handleGameType);
         registry.register(UpdateAbilitiesAck.class, BoarDefaultAcknowledgments::handleUpdateAbilities);
@@ -86,6 +131,12 @@ public final class BoarDefaultAcknowledgments {
 
         registry.register(VehicleClearAck.class, BoarDefaultAcknowledgments::handleVehicleClear);
         registry.register(VehicleSetAck.class, BoarDefaultAcknowledgments::handleVehicleSet);
+        registry.register(StaticSeatAck.class, (player, ack) -> player.staticSeatTracker.acknowledge(player, ack));
+        registry.register(SeatOffsetAck.class, (player, ack) -> player.seatOffset = ack.seatOffset());
+        registry.register(FollowerMoveAck.class, BoarDefaultAcknowledgments::handleFollowerMove);
+        registry.register(PassengerLinkAck.class, BoarDefaultAcknowledgments::handlePassengerLink);
+        registry.register(FollowerMotionAck.class, BoarDefaultAcknowledgments::handleFollowerMotion);
+        registry.register(VehicleMotionAck.class, BoarDefaultAcknowledgments::handleVehicleMotion);
 
         registry.register(TeleportAcceptAck.class, BoarDefaultAcknowledgments::handleTeleportAccept);
         registry.register(RespawnStateAck.class, BoarDefaultAcknowledgments::handleRespawnState);
@@ -100,14 +151,14 @@ public final class BoarDefaultAcknowledgments {
         if (ack.dimension() != player.compensatedWorld.getDimension()) {
             return;
         }
-        player.compensatedWorld.put(ack.chunkX(), ack.chunkZ(), ack.sections());
+        player.compensatedWorld.put(ack.chunkX(), ack.chunkZ(), ack.sections(), ack.knownSections());
     }
 
     private static void handleSubChunkLoad(BoarPlayer player, SubChunkLoadAck ack) {
         if (ack.dimension() != player.compensatedWorld.getDimension()) {
             return;
         }
-        player.compensatedWorld.updateSection(ack.chunkX(), ack.chunkZ(), ack.sectionY(), ack.section());
+        player.compensatedWorld.updateSection(ack.chunkX(), ack.chunkZ(), ack.sectionY(), ack.section(), ack.known());
     }
 
     private static void handleBlockUpdate(BoarPlayer player, BlockUpdateAck ack) {
@@ -134,6 +185,9 @@ public final class BoarDefaultAcknowledgments {
     }
 
     private static void handleDimensionSwitch(BoarPlayer player, DimensionSwitchAck ack) {
+        if (player.vehicleData != null) {
+            player.vehicleData.invalidateMatchedClaim(player.tick + 1);
+        }
         player.pendingDimensionSwitches = Math.max(0, player.pendingDimensionSwitches - 1);
         if (player.compensatedWorld.getDimension() != ack.dimension()) {
             player.currentLoadingScreen = ack.loadingScreenId();
@@ -148,28 +202,184 @@ public final class BoarDefaultAcknowledgments {
     }
 
     private static void handleEntityAdd(BoarPlayer player, AddEntityAck ack) {
-        player.compensatedWorld.promoteEntity(ack.runtimeEntityId());
+        // ack.entity() is never null: ServerEntityPackets.handleEntityAdd returns before it sends this ack when addToCache gives null.
+        ack.entity().getHorseImmobility().acceptSpawn();
+        player.compensatedWorld.promoteEntity(ack.entity());
+        attachLateVehicle(player, ack.entity());
+    }
+
+    // A ride can start before Boar has its vehicle. VehiclePackets only sends the link ack for an actor it tracks, so the actor is missing
+    // at that ack only when its removal was acked first. handleVehicleSet then makes a ride with no vehicle (type OTHER, no driver).
+    // When a new actor with the same runtime and unique IDs arrives, fill in the vehicle, type and driver, and restart the vehicle
+    // simulation like a new mount.
+    // The only caller (handleEntityAdd) passes the non-null actor that promoteEntity just made visible under its own runtime ID.
+    private static void attachLateVehicle(final BoarPlayer player, final EntityCache entity) {
+        final VehicleData ride = player.vehicleData;
+        if (ride == null || ride.mountedEntity != null || entity.getRuntimeId() != ride.vehicleRuntimeId || entity.getUniqueId() != ride.vehicleUniqueId) {
+            return;
+        }
+        ride.mountedEntity = entity;
+        ride.lastKnownEntity = entity;
+        ride.type = entity.getVehicleType();
+        ride.driver = entity.isControlledBy(player.uniqueEntityId);
+        ride.needsVehicleRestart = true;
+        ride.boatTakeover = BoatTakeoverTransition.arm(player, ride, entity);
+        final String line = "ride: vehicle arrived after the mount, attached type=" + ride.type + " driver=" + ride.driver
+                + " runtime=" + entity.getRuntimeId();
+        player.getMovementTrace().log(line);
+        Boar.debug(player.getSession().name() + ": [movement-debug] " + line, Boar.DebugMessage.INFO);
     }
 
     private static void handleEntityRemove(BoarPlayer player, EntityRemoveAck ack) {
-        if (player.vehicleData != null && player.vehicleData.vehicleRuntimeId == ack.uniqueEntityId()) {
-            player.vehicleData = null;
+        final VehicleData vehicle = player.vehicleData;
+        if (ack.entity() != null && vehicle != null && vehicle.vehicleUniqueId == ack.uniqueEntityId()
+                && player.compensatedWorld.getEntity(vehicle.vehicleRuntimeId) == ack.entity()) {
+            player.horseJumpInput.invalidate();
+            // A removal ends the ride like a link removal, so apply the dismount teleport the same way as in handleVehicleClear.
+            endRide(player, vehicle, ack.lastTeleport());
         }
-        player.compensatedWorld.removeEntity(ack.uniqueEntityId());
+        player.compensatedWorld.removeEntity(ack.uniqueEntityId(), ack.entity());
+    }
+
+    // Ends the ride and applies its dismount teleport, if there is one. Without it, the position stays in the seat's coordinates.
+    // Callers reset the jump input first. Each caller has its own rule for that.
+    private static void endRide(final BoarPlayer player, final VehicleData vehicle, final TeleportData lastTeleport) {
+        player.vehicleData = null;
+        // While riding, player.velocity was the controlled vehicle's velocity. The rider has its own frozen velocity.
+        player.velocity = Vec3.ZERO.clone();
+
+        // A teleport accepted while riding only counts if it is the one the server sent right before the dismount.
+        final TeleportData accepted = player.getTeleportUtil().takeAcceptedTeleport();
+        final TeleportData candidate = accepted != null ? accepted : vehicle.parkedTeleport;
+        if (candidate != null && candidate == lastTeleport) {
+            player.getTeleportUtil().apply(candidate);
+        }
+    }
+
+    // An ordinary move (not a teleport or forced move) of this boat while the player is its first passenger.
+    // Also true after an earlier ack in the same list ended that ride (afterRideClearedInList, set by LatencyUtil for the boat at the list start).
+    private static boolean ordinaryMoveOfPlayerBoat(final BoarPlayer player, final VehicleData vehicle, final EntityCache entity,
+            final boolean ordinaryActorMove, final EntityCache boat, final boolean afterRideClearedInList) {
+        return ordinaryActorMove && boat == entity && (afterRideClearedInList || VehicleData.isFirstPassengerOfBoat(player, vehicle, entity));
     }
 
     private static void handleEntityInterpolate(BoarPlayer player, EntityInterpolateAck ack) {
-        final EntityCache entity = player.compensatedWorld.getEntity(ack.runtimeEntityId());
-        if (entity != null) {
-            entity.interpolate(ack.posX(), ack.posY(), ack.posZ(), ack.lerp());
+        final EntityCache entity = player.compensatedWorld.getEntity(ack.entity().getRuntimeId());
+        if (entity != null && (ack.boat() == null || ack.boat() == entity)) {
+            final VehicleData vehicle = player.vehicleData;
+            if (ack.teleport() && vehicle != null && vehicle.mountedEntity == entity) {
+                vehicle.boatTakeover = null;
+            }
+            final boolean playerBoatMove = ordinaryMoveOfPlayerBoat(player, vehicle, entity, ack.ordinaryActorMove(), ack.boat(), ack.afterRideClearedInList());
+            boolean lerp = ack.lerp();
+            Float posX = ack.posX(), posY = ack.posY(), posZ = ack.posZ();
+            if (ack.fromMoveActorPacket()) {
+                // Fill in axes the packet left out, using the last acknowledged position. Do this even if an old lerp target survived a snap.
+                final Vec3 destination = entity.getAcknowledgedPositionTarget();
+                if (posX != null) {
+                    destination.x = posX;
+                }
+                if (posY != null) {
+                    destination.y = posY;
+                }
+                if (posZ != null) {
+                    destination.z = posZ;
+                }
+                posX = destination.x;
+                posY = destination.y;
+                posZ = destination.z;
+                // Standard non-player actors have a predicted movement component, so they skip the client's snap fallback.
+                final boolean playerActor = entity.getType() != null && entity.getType().is(EntityTypes.PLAYER);
+                lerp = !playerActor || ack.lerp() && !(ack.teleport() && entity.getCurrent().getPos().squaredDistanceTo(destination) >= .25F);
+                // Not handled yet: player differences that depend on chunks. For now, ack.lerp keeps the choice made when the packet was sent.
+            }
+            // The client keeps the last server packet to decode deltas (changes from the last position).
+            // But it ignores ordinary moves while it controls the boat itself.
+            entity.interpolate(posX, posY, posZ, lerp, !playerBoatMove);
+            if (vehicle != null && vehicle.followerDeathAuthorized && entity == vehicle.mountedEntity && vehicle.followerDeathPosition != null
+                    && vehicle.followerDeathPosition.distanceTo(entity.getAcknowledgedPositionTarget()) != 0) {
+                // Keep this set, even if another position packet moves the actor back to the death position in the same batch.
+                vehicle.followerDeathPositionChanged = true;
+            }
+            // These fields keep the server rotation the client acknowledged. The rotation of the driven actor lives in VehicleData.
             entity.applyRotation(ack.pitch(), ack.yaw(), ack.headYaw());
+            if (ack.fromMoveActorPacket() && ack.horse() == entity && vehicle != null && vehicle.matchesForcedHorseEntity(entity)) {
+                if (ack.forceCompletion()) {
+                    vehicle.horseForcedCompletionSeen = true;
+                    vehicle.horseForcedMove = null;
+                    player.getMovementTrace().log("horse forced move: declined force-completion for this ride");
+                } else if (ack.forceMoveLocal() && !ack.teleport()) {
+                    vehicle.horseForcedMove = null;
+                    player.getMovementTrace().log("horse forced move: declined non-teleport local move");
+                } else if (ack.teleport()) {
+                    if (vehicle.horseForcedCompletionSeen || vehicle.ticks <= 0 || !VehicleTicker.clientSimulates(player, vehicle)
+                            || !entity.hasFirstPlayerPassenger(player.uniqueEntityId)) {
+                        vehicle.horseForcedMove = null;
+                        player.getMovementTrace().log("horse forced move: declined control, mount phase or completion");
+                    } else {
+                        vehicle.horseForcedMove = new VehicleData.HorseForcedMove(entity.getAcknowledgedPositionTarget().clone(), entity.getYaw(),
+                                ack.onGround());
+                    }
+                }
+            }
+            if (!playerBoatMove && ack.boat() == entity && lerp && entity.isLocallySimulatedBoat()) {
+                // A direct replacement sets position and rotation together.
+                // This old boat path does not copy the client's force-completion queued-target branch.
+                entity.setPendingServerAngles(new EntityCache.ServerAngles(entity.getPitch(), entity.getYaw(), entity.getHeadYaw()));
+            }
+            // The server's ground flag for the ack's own horse, still cached under its runtime ID. A teleport or force move sets it directly.
+            if (ack.fromMoveActorPacket() && ack.horse() == entity) {
+                entity.getHorseGround().serverMove(ack.onGround(), ack.teleport() || ack.forceMoveLocal());
+            }
         }
     }
 
     private static void handleEntityMetadata(BoarPlayer player, EntityMetadataAck ack) {
         final EntityCache cache = player.compensatedWorld.getEntity(ack.runtimeEntityId());
         if (cache != null) {
+            final var flags = ack.metadata().getFlags();
+            final VehicleData vehicle = player.vehicleData;
+            // After a local landing, only an incoming flag word that contains Standing can set it again.
+            if (vehicle != null && vehicle.type == VehicleType.HORSE && vehicle.matchesMountedEntity(cache) && flags != null
+                    && flags.containsKey(EntityFlag.STANDING)) {
+                vehicle.horseStanding = flags.get(EntityFlag.STANDING);
+            }
             cache.setMetadata(ack.metadata());
+            cache.getHorseGround().controlTransition();
+            updateDriver(player, cache);
+        }
+    }
+
+    private static void handleEntityAttributes(BoarPlayer player, EntityAttributesAck ack) {
+        final EntityCache cache = player.compensatedWorld.getEntity(ack.entity().getRuntimeId());
+        // ack.entity() is never null: ServerDataPackets only builds this ack for a tracked entity. So this also rejects a null cache.
+        if (cache != ack.entity()) {
+            return;
+        }
+        cache.setAttributes(ack.attributes());
+        for (final AttributeData attribute : ack.attributes()) {
+            if (!"minecraft:health".equals(attribute.getName())) {
+                continue;
+            }
+            final VehicleData vehicle = player.vehicleData;
+            if (attribute.getValue() <= 0) {
+                authorizeHorseDeath(player, cache, "health");
+                authorizeFollowerDeath(player, cache, "health");
+                continue;
+            }
+            if (attribute.getValue() > 0 && vehicle != null && vehicle.isHorseDeathExitMount(player, cache) && vehicle.horseDeathAuthorized) {
+                vehicle.horseDeathAuthorized = false;
+                vehicle.logHorseDeath(player, "decline reason=revived decided=" + vehicle.horseDeathDecided);
+            }
+            // Match by actor only, like the authorization we cancel. The saddle state at this ack must not keep an old authorization alive.
+            if (attribute.getValue() > 0 && vehicle != null && vehicle.followerDeathAuthorized && cache == vehicle.mountedEntity) {
+                vehicle.followerDeathAuthorized = false;
+                vehicle.followerDeathDeadline = Long.MIN_VALUE;
+                vehicle.followerDeathPosition = null;
+                vehicle.followerDeathPositionChanged = false;
+                vehicle.invalidateMatchedClaim(player.tick);
+                vehicle.logFollowerDeath(player, "decline reason=revived");
+            }
         }
     }
 
@@ -206,7 +416,7 @@ public final class BoarDefaultAcknowledgments {
         }
 
         if (ack.width() != null) {
-            player.dimensions = EntityDimensions.fixed(ack.width(), player.dimensions.height()).withEyeHeight(player.dimensions.eyeHeight());
+            player.setDimensions(EntityDimensions.fixed(ack.width(), player.dimensions.height()).withEyeHeight(player.dimensions.eyeHeight()));
             player.setBoundingBox(player.position);
         }
 
@@ -219,12 +429,12 @@ public final class BoarDefaultAcknowledgments {
             } else if (Math.abs(ack.height() - 1.5F) <= 1.0E-3) {
                 eyeHeight = 1.27F;
             }
-            player.dimensions = EntityDimensions.fixed(player.dimensions.width(), ack.height()).withEyeHeight(eyeHeight);
+            player.setDimensions(EntityDimensions.fixed(player.dimensions.width(), ack.height()).withEyeHeight(eyeHeight));
             player.setBoundingBox(player.position);
         }
 
         if (ack.scale() != null) {
-            player.dimensions = player.dimensions.hardScaled(ack.scale());
+            player.setDimensions(player.dimensions.hardScaled(ack.scale()));
         }
 
         if (ack.bedPosition() != null) {
@@ -468,6 +678,19 @@ public final class BoarDefaultAcknowledgments {
     }
 
     private static void handleMobEffect(BoarPlayer player, MobEffectAck ack) {
+        if (ack.horse() != null) {
+            // The ACK holds the exact horse that was sent. A new entity may have reused its runtime ID, so compare the cached actor by identity.
+            // The effect is always jump boost: PlayerEffectPackets only makes a horse effect ack for it.
+            if (player.compensatedWorld.getEntity(ack.horse().getRuntimeId()) == ack.horse()) {
+                if (ack.event() == MobEffectPacket.Event.ADD || ack.event() == MobEffectPacket.Event.MODIFY) {
+                    ack.horse().getHorseJumpEffect().update(ack.amplifier(), ack.duration(),
+                            ack.sentInputEpoch() == player.acceptedInputEpoch ? ack.sentInput() : -1, player.acceptedInputCount);
+                } else if (ack.event() == MobEffectPacket.Event.REMOVE) {
+                    ack.horse().getHorseJumpEffect().remove();
+                }
+            }
+            return;
+        }
         if (ack.event() == MobEffectPacket.Event.ADD || ack.event() == MobEffectPacket.Event.MODIFY) {
             if (ack.effect().equals(Effect.SPEED) || ack.effect().equals(Effect.SLOWNESS)) {
                 player.clientNeedsMovementSpeedAttributeUpdate = true;
@@ -480,13 +703,188 @@ public final class BoarDefaultAcknowledgments {
         }
     }
 
+    private static void handlePassengerLink(BoarPlayer player, PassengerLinkAck ack) {
+        final EntityCache cache = player.compensatedWorld.getEntity(ack.vehicleRuntimeId());
+        if (cache == null) {
+            return;
+        }
+
+        if (ack.remove()) {
+            cache.removePassenger(ack.riderUniqueId());
+        } else {
+            final boolean newRider = cache.addPassenger(ack.riderUniqueId(), ack.riderIsPlayer());
+            if (newRider && cache.getVehicleType() == VehicleType.BOAT && Float.isFinite(ack.angularVelocity())) {
+                cache.setBoatAngularVelocity(ack.angularVelocity());
+                // The client also gives the boat it drives this angular velocity when another rider gets on.
+                // In-game testing showed the driver's next turn step was this tick's torque on a zero angular velocity, not the old turn speed.
+                // Only tested for a rider getting on.
+                final VehicleData ride = player.vehicleData;
+                if (ride != null && ride.vehicleRuntimeId == cache.getRuntimeId() && ride.driver && ride.type == VehicleType.BOAT
+                        && ack.riderUniqueId() != player.uniqueEntityId) {
+                    ride.yawVelocity = ack.angularVelocity();
+                }
+            }
+        }
+
+        cache.getHorseGround().controlTransition();
+        // A back seat rider moves to the front when the rider in front leaves, without a new link.
+        updateDriver(player, cache);
+    }
+
+    private static void updateDriver(BoarPlayer player, EntityCache cache) {
+        final VehicleData vehicle = player.vehicleData;
+        if (vehicle == null || vehicle.vehicleRuntimeId != cache.getRuntimeId()) {
+            return;
+        }
+
+        final boolean driver = cache.isControlledBy(player.uniqueEntityId);
+        if (driver != vehicle.driver) {
+            // If the player left on their own, the client already reset the rider state, and the link removal only confirms it.
+            // Only a seat change we did not expect clears the saved jump input.
+            if (!vehicle.pendingLeave || driver) {
+                player.horseJumpInput.invalidate();
+            }
+            vehicle.invalidateHorseJump();
+            vehicle.driver = driver;
+            vehicle.boatTakeover = BoatTakeoverTransition.arm(player, vehicle, cache);
+            vehicle.invalidateHorseStand();
+            final boolean boatDriver = driver && vehicle.type == VehicleType.BOAT;
+            vehicle.awaitingBoatFormatInput = boatDriver;
+            if (boatDriver) {
+                // Use ACK order, not input ticks, to tell the old passenger teleport from one accepted after the player became driver.
+                // An input may not have parked it yet.
+                final TeleportData accepted = player.getTeleportUtil().takeAcceptedTeleport();
+                if (accepted != null) {
+                    vehicle.parkedTeleport = accepted;
+                }
+                vehicle.preDriverSwitchTeleport = vehicle.parkedTeleport;
+            }
+            vehicle.armDriverSwitchTick(vehicle.awaitingBoatFormatInput);
+            vehicle.boatActorState = null;
+            vehicle.riderCoordinates = false;
+            // The client switches between steering the vehicle and following it: start the other way like a mount.
+            vehicle.ticks = 0;
+            vehicle.stillTicks = 0;
+            // The tick counter starts again, so state that is kept across ticks of the old way must go too.
+            vehicle.horseJumping = false;
+            vehicle.serverMotionActive = false;
+        }
+    }
+
+    // A server move of a vehicle the server drives. It feeds FollowerHistory (the best guess) and FollowerEnvelope (the set limit).
+    // The history stamp is estimatedHandleNs, our guess of when the client handled the packet: max(list sent, last input),
+    // moved later toward the reply in replies-alone mode (see LatencyUtil).
+    // acknowledgmentReplyNs (when the latency reply reached us) only goes to FollowerEnvelope, as the upper bound of the stamp.
+    private static void handleFollowerMove(BoarPlayer player, FollowerMoveAck ack) {
+        final EntityCache cache = player.compensatedWorld.getEntity(ack.entity().getRuntimeId());
+        if (cache == null || ack.boat() != null && ack.boat() != cache) {
+            return;
+        }
+
+        final VehicleData vehicle = player.vehicleData;
+        if (ordinaryMoveOfPlayerBoat(player, vehicle, cache, ack.ordinaryActorMove(), ack.boat(), ack.afterRideClearedInList())) {
+            return;
+        }
+
+        cache.setActorOnGround(ack.onGround());
+
+        final LatencyUtil latency = player.getLatencyUtil();
+        final long now = latency.estimatedHandleNs();
+        if (cache.getFollowerHistory() == null) {
+            cache.setFollowerHistory(new FollowerHistory(now, ack.x(), ack.y(), ack.z(), ack.pitch(), ack.yaw(), player.followerArrivalClock));
+        }
+        if (ack.addedActor()) {
+            cache.setActorPitch(ack.pitch());
+            cache.setActorYaw(ack.yaw());
+            cache.setActorHeadYaw(ack.headYaw());
+        }
+        // The client's "predicted" bit stays set until its first tick without control. Moves in that gap use the ordinary lerp.
+        if (cache.getVehicleType() == VehicleType.BOAT && cache.getFollowerHistory().isLocallyPredicted()) {
+            cache.setPendingServerAngles(new EntityCache.ServerAngles(ack.pitch(), ack.yaw(), ack.headYaw()));
+            return;
+        }
+        cache.getFollowerHistory().addMove(now, latency.estimatedEarlyHandleNs(), latency.acknowledgmentGroup(), ack.sentNs(), latency.acknowledgmentReplyNs(),
+                ack.x(), ack.y(), ack.z(), ack.pitch(), ack.yaw(), ack.onGround(), ack.addedActor());
+    }
+
+    private static void handleFollowerMotion(BoarPlayer player, FollowerMotionAck ack) {
+        final EntityCache cache = player.compensatedWorld.getEntity(ack.entity().getRuntimeId());
+        // ack.entity() is never null (ServerEntityPackets only builds this ack for a non-null entity), so this also rejects a null cache.
+        if (cache != ack.entity() || cache.getFollowerHistory() == null || cache.getFollowerHistory().isLocallyPredicted()) {
+            return;
+        }
+
+        final LatencyUtil latency = player.getLatencyUtil();
+        final long now = latency.estimatedHandleNs();
+        cache.getFollowerHistory().addMotion(now, latency.estimatedEarlyHandleNs(), latency.acknowledgmentGroup(), ack.sentNs(), latency.acknowledgmentReplyNs(),
+                ack.onGround());
+    }
+
+    private static void handleVehicleMotion(BoarPlayer player, VehicleMotionAck ack) {
+        if (player.compensatedWorld.getEntity(ack.entity().getRuntimeId()) == ack.entity()) {
+            ack.entity().setAcknowledgedMotion(ack.motion().clone());
+            ack.entity().setAcknowledgedMotionTick(player.tick);
+            if (ack.entity().getVehicleType() == VehicleType.BOAT && MathUtil.finite(ack.motion())) {
+                ack.entity().setBoatVelocity(ack.motion().clone());
+            }
+        }
+    }
+
     private static void handleVehicleClear(BoarPlayer player, VehicleClearAck ack) {
-        player.vehicleData = null;
+        final VehicleData vehicle = player.vehicleData;
+        // We already ended this ride when the client left with the dismount teleport.
+        if (vehicle == null) {
+            return;
+        }
+        vehicle.invalidateJumpInputUnlessLeaving(player);
+        endRide(player, vehicle, ack.lastTeleport());
     }
 
     private static void handleVehicleSet(BoarPlayer player, VehicleSetAck ack) {
-        player.vehicleData = new VehicleData();
-        player.vehicleData.vehicleRuntimeId = ack.vehicleRuntimeId();
+        final EntityCache cache = player.compensatedWorld.getEntity(ack.vehicleRuntimeId());
+        // This acknowledged link replaces the older static seat (staticSeat). Clear it even if the vehicle is not in the cache.
+        // Otherwise the static seat stays active while this link starts a ride for a player who was not seated.
+        player.staticSeat = null;
+        final VehicleData current = player.vehicleData;
+        // A repeat link to the same actor does not restart the ride. A change in passenger order updates control elsewhere.
+        if (current != null && current.vehicleRuntimeId == ack.vehicleRuntimeId() && current.vehicleUniqueId == ack.vehicleUniqueId() && cache != null
+                && current.mountedEntity == cache) {
+            // The server sent this link after it got our leave request, so it refused the leave.
+            // A link sent before the request says nothing about the leave.
+            if (current.pendingLeave && ack.sentNs() - current.pendingLeaveNs > 0) {
+                current.pendingLeave = false;
+                cache.getHorseGround().remount();
+                Boar.debug(player.getSession().name() + ": [movement-debug] ride: leave refused, the server linked the same vehicle again runtime="
+                        + ack.vehicleRuntimeId(), Boar.DebugMessage.INFO);
+            }
+            return;
+        }
+
+        if (current != null) {
+            player.horseJumpInput.invalidate();
+        }
+        if (cache != null) {
+            // After a local exit (AuthInputPackets.localExitStart) a refusal link starts a new ride here, like the client's own new mount.
+            cache.getHorseGround().remount();
+        }
+        final VehicleData data = new VehicleData();
+        data.vehicleRuntimeId = ack.vehicleRuntimeId();
+        data.vehicleUniqueId = ack.vehicleUniqueId();
+        data.mountedEntity = cache;
+        data.mountTick = ack.sentTick();
+
+        if (cache != null) {
+            data.type = cache.getVehicleType();
+            data.driver = cache.isControlledBy(player.uniqueEntityId);
+            data.lastKnownEntity = cache;
+        } else {
+            // The vehicle's removal was acked before this link. Filled in if an actor with the same IDs arrives (attachLateVehicle).
+            Boar.debug(player.getSession().name() + ": [movement-debug] ride: mounted after the vehicle's removal was acked, runtime="
+                    + ack.vehicleRuntimeId(), Boar.DebugMessage.INFO);
+        }
+
+        player.vehicleData = data;
+        data.boatTakeover = BoatTakeoverTransition.arm(player, data, cache);
     }
 
     private static void handleTeleportAccept(BoarPlayer player, TeleportAcceptAck ack) {
@@ -494,6 +892,10 @@ public final class BoarDefaultAcknowledgments {
     }
 
     private static void handleRespawnState(BoarPlayer player, RespawnStateAck ack) {
+        if (player.vehicleData != null) {
+            player.vehicleData.invalidateMatchedClaim(player.tick + 1);
+            player.vehicleData.boatTakeover = null;
+        }
         // SERVER_SEARCHING is sent on death. SERVER_READY is sent once the client asked to respawn.
         player.dead = ack.state() == RespawnPacket.State.SERVER_SEARCHING;
     }

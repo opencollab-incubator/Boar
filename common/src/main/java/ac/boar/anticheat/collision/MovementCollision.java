@@ -15,10 +15,13 @@ public final class MovementCollision {
     public record StandingBlock(BoarBlockState state, Vector3i position) {
     }
 
+    // A move with a squared length above this (longer than 16 blocks) is cut to length 16 (clampMovement).
+    public static final float MAX_MOVE_LENGTH_SQUARED = 256.0F;
+
     // MoveCollisionSystem::fetchCollisionShapes
     public static Vec3 clampMovement(final Vec3 movement) {
         final float squared = movement.lengthSquared();
-        if (squared > 256.0F) {
+        if (squared > MAX_MOVE_LENGTH_SQUARED) {
             final float length = (float) Math.sqrt(squared);
             return movement.divide(length).multiply(16.0F);
         }

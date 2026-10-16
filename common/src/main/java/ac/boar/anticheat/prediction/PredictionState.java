@@ -1,5 +1,6 @@
 package ac.boar.anticheat.prediction;
 
+import ac.boar.anticheat.collision.DepenetrationState;
 import ac.boar.anticheat.data.Fluid;
 import ac.boar.anticheat.data.block.BoarBlockState;
 import ac.boar.anticheat.data.input.PredictionData;
@@ -27,7 +28,7 @@ public final class PredictionState {
     private final Vec3 beforeCollision, afterCollision;
 
     private final boolean onGround, horizontalCollision, verticalCollision;
-    private final boolean stuckInCollider, penetratedLastFrame;
+    private final DepenetrationState depenetrationState;
     private final Vec3 stuckSpeedMultiplier;
 
     private final boolean touchingWater, headInWater;
@@ -66,8 +67,7 @@ public final class PredictionState {
         this.onGround = player.onGround;
         this.horizontalCollision = player.horizontalCollision;
         this.verticalCollision = player.verticalCollision;
-        this.stuckInCollider = player.stuckInCollider;
-        this.penetratedLastFrame = player.penetratedLastFrame;
+        this.depenetrationState = player.depenetrationState.copy();
         this.stuckSpeedMultiplier = player.stuckSpeedMultiplier.clone();
 
         this.touchingWater = player.touchingWater;
@@ -119,8 +119,7 @@ public final class PredictionState {
         player.onGround = this.onGround;
         player.horizontalCollision = this.horizontalCollision;
         player.verticalCollision = this.verticalCollision;
-        player.stuckInCollider = this.stuckInCollider;
-        player.penetratedLastFrame = this.penetratedLastFrame;
+        player.depenetrationState.restore(this.depenetrationState);
         player.stuckSpeedMultiplier = this.stuckSpeedMultiplier.clone();
 
         player.touchingWater = this.touchingWater;

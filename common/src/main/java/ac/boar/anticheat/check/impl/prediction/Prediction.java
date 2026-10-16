@@ -38,8 +38,9 @@ public class Prediction extends BaseCheck implements OffsetHandlerCheck {
         final float positionUlp = player.getPositionUlp();
         final float acceptanceThreshold = player.getPosAcceptanceThreshold() + positionUlp;
         final float alertThreshold = Boar.getConfig().alertThreshold() + positionUlp;
+        final boolean staticSeatMismatch = this.player.staticSeat != null && this.player.staticSeat.mismatchedThisTick(this.player);
 
-        if (posDiff < acceptanceThreshold) {
+        if (!staticSeatMismatch && posDiff < acceptanceThreshold) {
             player.position = player.unvalidatedPosition.clone();
             player.nativeOriginY = player.unvalidatedNativeOriginY;
             return;
@@ -48,7 +49,7 @@ public class Prediction extends BaseCheck implements OffsetHandlerCheck {
         if (posDiff > 1e-6) {
             Boar.debug(player.getSession().name() + ": [movement-debug] prediction posDiff tick=" + player.tick + " posDiff=" + posDiff + " acceptance/max=" + acceptanceThreshold + " alert=" + alertThreshold + " type=" + player.bestPossibility.getType() + " predictedPos=" + player.position + " actualPos=" + player.unvalidatedPosition + " predictedDelta=" + player.velocity + " actualDelta=" + player.unvalidatedTickEnd, Boar.DebugMessage.WARNING);
         }
-        if (posDiff < alertThreshold) {
+        if (!staticSeatMismatch && posDiff < alertThreshold) {
             // The difference is above the acceptance threshold but below the alert threshold.
             if (!player.disableMitigations()) {
                 this.driftTowardsClient();

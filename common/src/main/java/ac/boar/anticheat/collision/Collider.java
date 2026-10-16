@@ -51,40 +51,52 @@ public class Collider {
         return value >= 0.0F ? Math.max(value - 0.05F, 0.0F) : Math.min(value + 0.05F, 0.0F);
     }
 
-    public static Vec3 collide(final BoarPlayer player, Vec3 movement) {
-        return collide(player, movement, player.stuckInCollider, null);
+    // The player's move: the player box, auto-step at PlayerData.STEP_HEIGHT, and the client step test (clientAcceptsAutoStep).
+    public static MoveResult collideMove(final BoarPlayer player, final Vec3 requestedMovement, final DepenetrationState state,
+                                         final boolean pushTowardsClosestSpaceFlag) {
+        return collideBox(player, player.boundingBox, requestedMovement, PlayerData.STEP_HEIGHT, player.onGround, state, pushTowardsClosestSpaceFlag, true);
     }
 
-    public static Vec3 collide(final BoarPlayer player, final Vec3 movement, final boolean oneWay, final Vec3 penetration) {
-        return collideMove(player, movement, oneWay, penetration).clippedMovement();
+    // Moves any box without a DepenetrationState: no push-out limit and no state change (unlimitedContext).
+    // Auto-step runs when stepHeight is above zero. Used for the horse (HorseTicker).
+    public static MoveResult collideBox(final BoarPlayer player, final Box box, final Vec3 requestedMovement, final float stepHeight, final boolean onGround) {
+        return collideBox(player, box, requestedMovement, stepHeight, onGround, null, false, false);
     }
 
-    public static MoveResult collideMove(final BoarPlayer player, final Vec3 requestedMovement, final boolean oneWay, final Vec3 penetration) {
+    // Moves an actor box with its own DepenetrationState, like collideMove: the push-out limit comes from that state and from nearby actors,
+    // and the move updates the state. No auto-step. Used for the boat (BoatTicker).
+    public static MoveResult collideActorBox(final BoarPlayer player, final Box box, final Vec3 requestedMovement, final DepenetrationState state,
+                                             final boolean pushTowardsClosestSpaceFlag) {
+        return collideBox(player, box, requestedMovement, 0, false, state, pushTowardsClosestSpaceFlag, false);
+    }
+
+    // state: the mover's DepenetrationState, or null for no push-out limit.
+    // clientStepTest: an auto-step is also kept only when clientAcceptsAutoStep passes. Only the player's move (collideMove) uses it.
+    private static MoveResult collideBox(final BoarPlayer player, final Box box, final Vec3 requestedMovement, final float stepHeight, final boolean onGround,
+                                         final DepenetrationState state, final boolean pushTowardsClosestSpaceFlag, final boolean clientStepTest) {
+        final CollisionContext context = state == null ? unlimitedContext() : movementContext(player, box, state);
         final Vec3 movement = MovementCollision.clampMovement(requestedMovement);
-        final Box boundingBox = player.boundingBox.clone();
-        final Box volume = MovementCollision.collectionVolume(boundingBox, movement, PlayerData.STEP_HEIGHT);
+        final Box volume = MovementCollision.collectionVolume(box, movement, stepHeight);
         final List<CollisionRecord> records = player.compensatedWorld.collectMovementColliders(volume);
         final List<Box> colliders = records.stream().map(CollisionRecord::shape).toList();
 
-        MovementResult collisionResult = collideWithAxes(boundingBox, movement, colliders, oneWay, penetration);
-        Vec3 collisionVelocity = collisionResult.velocity();
-
-        boolean collisionX = movement.x != collisionVelocity.x;
-        boolean collisionY = movement.y != collisionVelocity.y;
-        boolean collisionZ = movement.z != collisionVelocity.z;
-        boolean onGround = player.onGround || collisionY && movement.y < 0.0F;
-
-        if (onGround && (collisionX || collisionZ)) {
-            MovementResult stepResult = calculateAutoStep(boundingBox, movement, colliders, oneWay);
+        MovementResult result = collideWithAxes(box, movement, colliders, context);
+        if (state != null) {
+            state.completeMove(context.penetrationSum, pushTowardsClosestSpaceFlag);
+        }
+        final Vec3 velocity = result.velocity();
+        final boolean collisionHorizontal = movement.x != velocity.x || movement.z != velocity.z;
+        final boolean grounded = onGround || movement.y != velocity.y && movement.y < 0.0F;
+        if (stepHeight > 0 && grounded && collisionHorizontal) {
+            final MovementResult stepResult = calculateAutoStep(box, movement, colliders, context.allowed, stepHeight);
             if (player.compensatedWorld.noCollision(stepResult.boundingBox())
-                    && collisionVelocity.horizontalLengthSquared() < stepResult.velocity().horizontalLengthSquared()
-                    && clientAcceptsAutoStep(player, collisionVelocity, stepResult.velocity())) {
-                collisionVelocity = stepResult.velocity();
-                collisionResult = stepResult;
+                    && velocity.horizontalLengthSquared() < stepResult.velocity().horizontalLengthSquared()
+                    && (!clientStepTest || clientAcceptsAutoStep(player, velocity, stepResult.velocity()))) {
+                result = stepResult;
             }
         }
 
-        return new MoveResult(movement, collisionVelocity, collisionResult.boundingBox(), records);
+        return new MoveResult(movement, result.velocity(), result.boundingBox(), records);
     }
 
     private static boolean clientAcceptsAutoStep(final BoarPlayer player, final Vec3 collisionVelocity, final Vec3 stepVelocity) {
@@ -94,26 +106,27 @@ public class Collider {
         return (correctionThreshold > 0.0F && collisionDistance > correctionThreshold) || stepDistance <= collisionDistance;
     }
 
-    private static MovementResult collideWithAxes(final Box originalBox, final Vec3 movement, final List<Box> colliders,
-                                                  final boolean oneWay, final Vec3 penetration) {
+    private static MovementResult collideWithAxes(final Box originalBox, final Vec3 movement, final List<Box> colliders, final CollisionContext context) {
         Vec3 yVelocity = new Vec3(0, movement.y, 0);
         Vec3 xVelocity = new Vec3(movement.x, 0, 0);
         Vec3 zVelocity = new Vec3(0, 0, movement.z);
         Box boundingBox = originalBox;
 
-        yVelocity = clipAgainstColliders(colliders, boundingBox, yVelocity, oneWay, penetration);
+        yVelocity = clipAgainstColliders(colliders, boundingBox, yVelocity, context);
         boundingBox = boundingBox.offset(yVelocity);
 
-        xVelocity = clipAgainstColliders(colliders, boundingBox, xVelocity, oneWay, penetration);
+        xVelocity = clipAgainstColliders(colliders, boundingBox, xVelocity, context);
         boundingBox = boundingBox.offset(xVelocity);
 
-        zVelocity = clipAgainstColliders(colliders, boundingBox, zVelocity, oneWay, penetration);
+        zVelocity = clipAgainstColliders(colliders, boundingBox, zVelocity, context);
         boundingBox = boundingBox.offset(zVelocity);
 
         return new MovementResult(boundingBox, yVelocity.add(xVelocity).add(zVelocity));
     }
 
-    private static MovementResult calculateAutoStep(final Box originalBox, final Vec3 movement, final List<Box> colliders, final boolean oneWay) {
+    private static MovementResult calculateAutoStep(final Box originalBox, final Vec3 movement, final List<Box> colliders, final Vec3 allowed,
+                                                    final float stepHeight) {
+        final CollisionContext context = new CollisionContext(allowed);
         // yes, this is vanilla. refer to AutoStepSystem::doAutoStepSystemImpl
         List<Box> stepColliders = new ArrayList<>(colliders.size());
         for (Box collider : colliders) {
@@ -122,42 +135,58 @@ public class Collider {
             }
         }
 
-        Vec3 upVelocity = new Vec3(0, PlayerData.STEP_HEIGHT, 0);
+        Vec3 upVelocity = new Vec3(0, stepHeight, 0);
         Vec3 xVelocity = new Vec3(movement.x, 0, 0);
         Vec3 zVelocity = new Vec3(0, 0, movement.z);
         Box boundingBox = originalBox;
 
-        upVelocity = clipAgainstColliders(stepColliders, boundingBox, upVelocity, oneWay, null);
+        upVelocity = clipAgainstColliders(stepColliders, boundingBox, upVelocity, context);
         boundingBox = boundingBox.offset(upVelocity);
 
-        xVelocity = clipAgainstColliders(stepColliders, boundingBox, xVelocity, oneWay, null);
+        xVelocity = clipAgainstColliders(stepColliders, boundingBox, xVelocity, context);
         boundingBox = boundingBox.offset(xVelocity);
 
-        zVelocity = clipAgainstColliders(stepColliders, boundingBox, zVelocity, oneWay, null);
+        zVelocity = clipAgainstColliders(stepColliders, boundingBox, zVelocity, context);
         boundingBox = boundingBox.offset(zVelocity);
 
-        Vec3 downVelocity = clipAgainstColliders(stepColliders, boundingBox, upVelocity.multiply(-1.0F), oneWay, null);
+        Vec3 downVelocity = clipAgainstColliders(stepColliders, boundingBox, new Vec3(0, -((upVelocity.y + xVelocity.y) + zVelocity.y), 0), context);
         boundingBox = boundingBox.offset(downVelocity);
 
         Vec3 stepVelocity = upVelocity.add(xVelocity).add(zVelocity).add(downVelocity);
         return new MovementResult(boundingBox, stepVelocity);
     }
 
-    private static Vec3 clipAgainstColliders(final List<Box> colliders, final Box moving, Vec3 velocity,
-                                             final boolean oneWay, final Vec3 penetration) {
+    private static Vec3 clipAgainstColliders(final List<Box> colliders, final Box moving, Vec3 velocity, final CollisionContext context) {
         for (int index = colliders.size() - 1; index >= 0; index--) {
-            velocity = clipCollide(colliders.get(index), moving, velocity, oneWay, penetration);
+            velocity = clipCollide(colliders.get(index), moving, velocity, context);
         }
         return velocity;
     }
 
-    static Vec3 clipCollide(final Box stationary, final Box moving, final Vec3 velocity,
-                            final boolean oneWay, final Vec3 penetration) {
-        ClipCollideResult result = doClipCollide(stationary, moving, velocity);
-        if (penetration != null && component(penetration, result.depenetratingAxis) < result.penetration) {
-            setComponent(penetration, result.depenetratingAxis, result.penetration);
+    private static Vec3 clipCollide(final Box stationary, final Box moving, final Vec3 velocity, final CollisionContext context) {
+        final ClipCollideResult result = doClipCollide(stationary, moving, velocity);
+        context.penetrationSum += result.penetration;
+        return result.penetration <= component(context.allowed, result.depenetratingAxis) ? result.depenetratingVelocity : result.clippedVelocity;
+    }
+
+    private static CollisionContext movementContext(final BoarPlayer player, final Box box, final DepenetrationState state) {
+        final Vec3 nearby = player.compensatedWorld.nearbyDepenetrationMagnitude(box);
+        return new CollisionContext(state.maxPushOut(nearby));
+    }
+
+    // For callers without a DepenetrationState: the public collideBox (HorseTicker's ground probe and horse move).
+    // No push-out limit: a box inside a block is always pushed out. No depenetration state changes.
+    private static CollisionContext unlimitedContext() {
+        final float allowance = Float.POSITIVE_INFINITY;
+        return new CollisionContext(new Vec3(allowance, allowance, allowance));
+    }
+
+    private static final class CollisionContext {
+        private final Vec3 allowed;
+        private float penetrationSum;
+        private CollisionContext(final Vec3 allowed) {
+            this.allowed = allowed.clone();
         }
-        return oneWay ? result.clippedVelocity : result.depenetratingVelocity;
     }
 
     // AABB::clipCollide

@@ -5,6 +5,7 @@ import ac.boar.anticheat.compensated.cache.entity.EntityCache;
 import ac.boar.anticheat.data.EntityDimensions;
 import ac.boar.anticheat.data.block.BoarBlockState;
 import ac.boar.anticheat.player.BoarPlayer;
+import ac.boar.anticheat.player.data.VehicleType;
 import ac.boar.anticheat.util.Dimension;
 import ac.boar.anticheat.util.MathUtil;
 import ac.boar.anticheat.util.geyser.BlockEntityInfo;
@@ -30,6 +31,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 @RequiredArgsConstructor
 @Setter
@@ -51,14 +53,18 @@ public class CompensatedWorld {
     private final Long2ObjectMap<EntityCache> pendingEntities = new Long2ObjectOpenHashMap<>();
     private final Map<Long, Long> uniqueIdToRuntimeId = new HashMap<>();
 
-    public void removeEntity(final long uniqueId) {
-        final Long key = this.uniqueIdToRuntimeId.remove(uniqueId);
-        if (key == null) {
+    // The ack removes only the spawn it was made for. A later spawn may reuse the same unique or runtime id before this reply arrives.
+    public void removeEntity(final long uniqueId, final EntityCache entity) {
+        if (entity == null) {
             return;
         }
-
-        this.entities.remove((long) key);
-        this.pendingEntities.remove((long) key);
+        final long runtimeId = entity.getRuntimeId();
+        this.entities.remove(runtimeId, entity);
+        this.pendingEntities.remove(runtimeId, entity);
+        final EntityCache latest = this.getTrackedEntity(runtimeId);
+        if (latest == null || latest.getUniqueId() != uniqueId) {
+            this.uniqueIdToRuntimeId.remove(uniqueId, runtimeId);
+        }
     }
 
     public EntityCache getEntity(long id) {
@@ -77,22 +83,27 @@ public class CompensatedWorld {
      * exist on the client.
      */
     public EntityCache getTrackedEntity(long id) {
-        final EntityCache entity = this.entities.get(id);
-        return entity != null ? entity : this.pendingEntities.get(id);
+        final EntityCache entity = this.pendingEntities.get(id);
+        return entity != null ? entity : this.entities.get(id);
     }
 
     public Optional<EntityCache> fetchTrackedEntity(long id) {
         return Optional.ofNullable(this.getTrackedEntity(id));
     }
 
+    // getTrackedEntity by unique ID. Null when the unique ID has no runtime ID or that runtime ID has no entity.
+    public EntityCache getTrackedEntityByUniqueId(long uniqueId) {
+        final Long runtimeId = this.uniqueIdToRuntimeId.get(uniqueId);
+        return runtimeId == null ? null : this.getTrackedEntity(runtimeId);
+    }
+
     /**
      * Make a pending entity visible. Called when the client acknowledges the spawn packet.
      */
-    public void promoteEntity(final long runtimeId) {
-        final EntityCache entity = this.pendingEntities.remove(runtimeId);
-        if (entity != null) {
-            this.entities.put(runtimeId, entity);
-        }
+    public void promoteEntity(final EntityCache entity) {
+        // Keep a newer pending spawn as it is. This ack only shows its own spawn.
+        this.pendingEntities.remove(entity.getRuntimeId(), entity);
+        this.entities.put(entity.getRuntimeId(), entity);
     }
 
     public EntityCache addToCache(final BoarPlayer player, final long runtimeId, final long uniqueId) {
@@ -101,9 +112,10 @@ public class CompensatedWorld {
             return null;
         }
 
-        boolean affectedByOffset = definition.type().is(EntityTypes.PLAYER) || definition.identifier().equalsIgnoreCase("minecraft:boat") || definition.identifier().equalsIgnoreCase("minecraft:chest_boat");
+        boolean affectedByOffset = definition.type().is(EntityTypes.PLAYER) || VehicleType.isBoat(definition.identifier());
 
         final EntityCache cache = new EntityCache(player, definition.type(), definition, runtimeId);
+        cache.setUniqueId(uniqueId);
         cache.setAffectedByOffset(affectedByOffset);
         // Default back to default bounding box if there ain't anything.
         cache.setDimensions(EntityDimensions.fixed(definition.width(), definition.height()));
@@ -191,15 +203,15 @@ public class CompensatedWorld {
         return distanceSquared < threshold * threshold;
     }
 
-    public void put(int x, int z, BoarChunkSection[] chunks) {
+    public void put(int x, int z, BoarChunkSection[] chunks, boolean[] knownSections) {
         long chunkPosition = MathUtil.chunkPositionToLong(x, z);
         final BoarChunkSection[] sections = Arrays.copyOf(chunks, chunks.length);
-        this.chunks.put(chunkPosition, new BoarChunk(sections, new ArrayList<>(), true, this.player.tick));
+        this.chunks.put(chunkPosition, new BoarChunk(sections, new ArrayList<>(), true, this.player.tick, knownSections));
         this.updateChunkExemption(chunkPosition, x, z);
         this.applyPendingBlockUpdates(chunkPosition, sections);
     }
 
-    public void updateSection(int chunkX, int chunkZ, int sectionY, BoarChunkSection section) {
+    public void updateSection(int chunkX, int chunkZ, int sectionY, BoarChunkSection section, boolean known) {
         final int sectionCount = this.dimension.height() >> 4;
         if (sectionY < 0 || sectionY >= sectionCount) {
             return;
@@ -209,11 +221,11 @@ public class CompensatedWorld {
         BoarChunk chunk = this.getChunk(chunkX, chunkZ);
         if (chunk == null) {
             final BoarChunkSection[] sections = new BoarChunkSection[sectionCount];
-            sections[sectionY] = section;
             chunk = new BoarChunk(sections, new ArrayList<>(), sectionCount == 1, this.player.tick);
+            chunk.setSection(section, sectionY, known);
             this.chunks.put(chunkPosition, chunk);
         } else {
-            chunk.setSection(section, sectionY);
+            chunk.setSection(section, sectionY, known);
         }
 
         this.updateChunkExemption(chunkPosition, chunkX, chunkZ);
@@ -346,6 +358,41 @@ public class CompensatedWorld {
 
     public BoarBlockState getBlockState(int x, int y, int z, int layer) {
         return BoarBlockState.create(getBlockAt(x, y, z, layer), Vector3i.from(x, y, z), layer);
+    }
+
+    /**
+     * Strict read. Returns empty unless we know where each block slot came from.
+     * A decoded section that sent only layer 0 has air in layer 1.
+     */
+    public OptionalInt getKnownRawBlockAt(int x, int y, int z, int layer) {
+        if (this.dimension == null || y < getMinY() || layer < 0 || layer > 1) {
+            return OptionalInt.empty();
+        }
+        final BoarChunk column = this.getChunk(x >> 4, z >> 4);
+        final int index = (y - getMinY()) >> 4;
+        if (column == null || !column.isSectionKnown(index)) {
+            return OptionalInt.empty();
+        }
+        try {
+            final BoarChunkSection section = column.getSection(index);
+            if (layer == 1 && section.hasOnlyLayerZeroStorage()) {
+                return OptionalInt.of(this.player.mappingInfo.airId());
+            }
+            final int id = section.getFullBlock(x & 15, y & 15, z & 15, layer);
+            return id == Integer.MIN_VALUE ? OptionalInt.empty() : OptionalInt.of(id);
+        } catch (Exception e) {
+            return OptionalInt.empty();
+        }
+    }
+
+    // Like getKnownRawBlockAt, but also empty when the block mapping does not know the ID (BlockMappingInfo.isKnownRawId).
+    // It records no read for KnownBlockReads.
+    public OptionalInt getKnownMappedRawBlockAt(int x, int y, int z, int layer) {
+        final OptionalInt raw = this.getKnownRawBlockAt(x, y, z, layer);
+        if (raw.isEmpty() || !this.player.mappingInfo.isKnownRawId(raw.getAsInt())) {
+            return OptionalInt.empty();
+        }
+        return raw;
     }
 
     public int getRawBlockAt(int x, int y, int z, int layer) {

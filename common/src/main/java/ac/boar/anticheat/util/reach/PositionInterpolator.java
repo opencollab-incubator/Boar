@@ -19,13 +19,8 @@ public class PositionInterpolator implements Cloneable {
         this.lerpDuration = 3;
     }
 
+    // lerpDuration is always 3 (constructor), so a new target always gets steps.
     public void refreshPositionAndAngles(Vec3 pow) {
-        if (this.lerpDuration == 0) {
-            this.entity.setPos(pow);
-            this.clear();
-            return;
-        }
-
         this.targetPos = pow;
         this.step = lerpDuration;
     }
@@ -40,17 +35,27 @@ public class PositionInterpolator implements Cloneable {
             return;
         }
 
-        if (this.step > 0 && this.targetPos != null) {
-            float x = this.entity.getPos().getX() + (this.targetPos.getX() - this.entity.getPos().getX()) / this.step;
-            float y = this.entity.getPos().getY() + (this.targetPos.getY() - this.entity.getPos().getY()) / this.step;
-            float z = this.entity.getPos().getZ() + (this.targetPos.getZ() - this.entity.getPos().getZ()) / this.step;
-            this.entity.setPos(new Vec3(x, y, z));
+        // step > 0 here, so targetPos is set: only refreshPositionAndAngles (with a non-null position) makes step positive, and clear() resets both.
+        this.entity.setPos(step(this.entity.getPos(), this.targetPos, this.step));
 
-            --this.step;
-        }
+        --this.step;
     }
 
-    private void clear() {
+    // One interpolation step from `from` toward `target`, with `steps` steps left (steps > 0). The last step lands on the target.
+    // The native client multiplies by a float reciprocal (1 / steps), then adds. It does not divide delta by steps.
+    // Also used for the teleport interpolation (TeleportHandler.processTeleport).
+    public static Vec3 step(final Vec3 from, final Vec3 target, final int steps) {
+        if (steps == 1) {
+            return target.clone();
+        }
+        final float reciprocal = 1.0F / steps;
+        final float x = from.getX() + (target.getX() - from.getX()) * reciprocal;
+        final float y = from.getY() + (target.getY() - from.getY()) * reciprocal;
+        final float z = from.getZ() + (target.getZ() - from.getZ()) * reciprocal;
+        return new Vec3(x, y, z);
+    }
+
+    public void clear() {
         this.step = 0;
         this.targetPos = null;
     }

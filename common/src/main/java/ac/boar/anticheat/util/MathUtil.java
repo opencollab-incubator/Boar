@@ -14,12 +14,35 @@ public class MathUtil {
 
     static {
         for (int i = 0; i < BEDROCK_SIN.length; i++) {
-            BEDROCK_SIN[i] = (float) Math.sin(i * Math.PI * 2.0 / 65536.0);
+            BEDROCK_SIN[i] = (float) Math.sin((float) i / 10430.378F);
         }
     }
 
     public static float sin(float index) {
         return BEDROCK_SIN[(int) index & 0xFFFF];
+    }
+
+    // Where a seat sits, relative to its vehicle: the seat offset turned by the vehicle yaw. Y is the offset's Y, unturned.
+    // Same math as the client's _tickExitVehicle: sincosf(yaw * -pi/180). Keep each float product and sum separate, so the rounding matches.
+    public static Vector3f seatShift(final float yaw, final Vector3f offset) {
+        final float angle = yaw * -DEGREE_TO_RAD;
+        final float sin = (float) Math.sin(angle);
+        final float cos = (float) Math.cos(angle);
+        return Vector3f.from(offset.getX() * cos + offset.getZ() * sin, offset.getY(), offset.getZ() * cos - offset.getX() * sin);
+    }
+
+    // The seat position: the actor position plus seatShift.
+    public static Vec3 seatPosition(final Vec3 actor, final float yaw, final Vector3f offset) {
+        final Vector3f shift = seatShift(yaw, offset);
+        return new Vec3(actor.x + shift.getX(), actor.y + shift.getY(), actor.z + shift.getZ());
+    }
+
+    public static boolean finite(final Vec3 value) {
+        return value != null && Float.isFinite(value.x) && Float.isFinite(value.y) && Float.isFinite(value.z);
+    }
+
+    public static boolean finite(final Vector3f value) {
+        return value != null && Float.isFinite(value.getX()) && Float.isFinite(value.getY()) && Float.isFinite(value.getZ());
     }
 
     public static boolean sameDirection(Vec3 vec3, Vec3 vec32) {
@@ -51,6 +74,16 @@ public class MathUtil {
             g += 360.0f;
         }
         return g;
+    }
+
+    // The client's yaw wrap to [-180, 180). It rounds differently from wrapDegrees: it adds 180 before the modulo.
+    // Keep this float order. Horse turning and the follower angle steps depend on it.
+    public static float wrapYaw(final float angle) {
+        float value = (angle + 180.0F) % 360.0F;
+        if (value < 0) {
+            value += 360.0F;
+        }
+        return value - 180.0F;
     }
 
     public static boolean equal(float d, float e) {

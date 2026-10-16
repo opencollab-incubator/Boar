@@ -62,6 +62,7 @@ public class ServerChunkPackets implements PacketListener {
 
                 final Dimension dimension = DimensionUtil.dimensionFromId(packet.getDimension());
                 final BoarChunkSection[] sections = new BoarChunkSection[dimension.height() >> 4];
+                final boolean[] knownSections = new boolean[sections.length];
                 final int airId = player.mappingInfo.airId();
                 final ChunkSectionCache cache = Boar.getInstance().getChunkCache();
 
@@ -76,10 +77,13 @@ public class ServerChunkPackets implements PacketListener {
                         if (sectionY < 0 || sectionY >= sections.length) {
                             continue;
                         }
+                        knownSections[sectionY] = false;
+                        sections[sectionY] = null;
                         final int index = i;
                         final ByteBuf slice = buf.slice(start, end - start);
                         sections[sectionY] = cache.getOrDecode(slice, airId,
                                 () -> ChunkDecoder.readSubChunk(slice, airId, index, dimension.minY()).section());
+                        knownSections[sectionY] = sections[sectionY] != null;
                     }
 
                     // Ignore the rest, I only need the chunk data.
@@ -98,7 +102,7 @@ public class ServerChunkPackets implements PacketListener {
                     }
                 }
 
-                final ChunkLoadAck ack = new ChunkLoadAck(packet.getChunkX(), packet.getChunkZ(), dimension, sections);
+                final ChunkLoadAck ack = new ChunkLoadAck(packet.getChunkX(), packet.getChunkZ(), dimension, sections, knownSections);
                 if (player.pendingDimensionSwitches > 0) {
                     player.queueAcknowledgment(ack);
                 } else {
@@ -150,12 +154,13 @@ public class ServerChunkPackets implements PacketListener {
                         }
                     }
 
+                    final boolean known = result == SubChunkRequestResult.SUCCESS_ALL_AIR || section != null;
                     // decoding error or server didn't send?? anyway we just set to air here so that it isn't considered to be "missing"
                     if (section == null) {
                         section = Boar.getInstance().getChunkCache().allAirSection(airId);
                     }
 
-                    final SubChunkLoadAck ack = new SubChunkLoadAck(chunkX, chunkZ, sectionY, dimension, section);
+                    final SubChunkLoadAck ack = new SubChunkLoadAck(chunkX, chunkZ, sectionY, dimension, section, known);
                     if (player.pendingDimensionSwitches > 0) {
                         player.queueAcknowledgment(ack);
                     } else {
@@ -198,8 +203,12 @@ public class ServerChunkPackets implements PacketListener {
         final Dimension dimension = DimensionUtil.dimensionFromId(packet.getDimension());
         final int sectionCount = dimension.height() >> 4;
         final BoarChunkSection air = Boar.getInstance().getChunkCache().allAirSection(player.mappingInfo.airId());
+        // The client never requests these sections. It fills each one with air when the chunk arrives
+        // (LevelChunk::setClientNeedsToRequestSubchunks 0x10a09daac), and later block updates land in them block by block,
+        // from UpdateBlockPacket and UpdateSubChunkBlocksPacket alike (UpdateSubChunkBlocksPacket handler lambda 0x10311a46c).
+        // So they are known air, the same as a sub-chunk the server answered with "all air".
         for (int sectionY = limit; sectionY < sectionCount; sectionY++) {
-            final SubChunkLoadAck ack = new SubChunkLoadAck(packet.getChunkX(), packet.getChunkZ(), sectionY, dimension, air);
+            final SubChunkLoadAck ack = new SubChunkLoadAck(packet.getChunkX(), packet.getChunkZ(), sectionY, dimension, air, true);
             if (player.pendingDimensionSwitches > 0) {
                 player.queueAcknowledgment(ack);
             } else {

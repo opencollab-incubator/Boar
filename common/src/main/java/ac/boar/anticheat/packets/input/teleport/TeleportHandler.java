@@ -7,6 +7,7 @@ import ac.boar.anticheat.prediction.ticker.base.EntityTicker;
 import ac.boar.anticheat.prediction.ticker.impl.PlayerTicker;
 import ac.boar.anticheat.teleport.TeleportUtil;
 import ac.boar.anticheat.teleport.data.TeleportData;
+import ac.boar.anticheat.util.reach.PositionInterpolator;
 import ac.boar.anticheat.util.math.Vec3;
 import org.cloudburstmc.protocol.bedrock.data.PlayerAuthInputData;
 
@@ -15,6 +16,7 @@ public class TeleportHandler {
         final TeleportUtil teleports = player.getTeleportUtil();
         final TeleportData data = teleports.takeAcceptedTeleport();
         if (data != null) {
+            player.staticSeat = null;
             teleports.markCorrected();
             player.getMovementTrace().log("teleport: accepted source=" + data.getSource()
                     + " target=" + data.getPosition() + " onGround=" + data.isOnGround());
@@ -25,7 +27,7 @@ public class TeleportHandler {
             // MovementInterpolatorSystemImpl::_tickSystem clears velocity before each interpolation step
             final Vec3 target = teleports.getInterpolationTarget();
             final Vec3 origin = new Vec3(player.position.x, player.nativeOriginY, player.position.z);
-            final Vec3 next = steps == 1 ? target.clone() : origin.add(target.subtract(origin).multiply(1.0F / steps));
+            final Vec3 next = PositionInterpolator.step(origin, target, steps);
             teleports.setPacketPosition(next);
             player.velocity = Vec3.ZERO.clone();
             player.certainVelocity = null;
@@ -51,10 +53,7 @@ public class TeleportHandler {
     }
 
     protected void processImmobile(BoarPlayer player) {
-        player.velocity = Vec3.ZERO.clone();
-        player.certainVelocity = null;
-        player.predictionResult = new PredictionData(Vec3.ZERO, Vec3.ZERO, Vec3.ZERO);
-        player.bestPossibility = Vector.NONE;
+        player.clearMovementForImmobileInput();
     }
 
     protected void processExempted(BoarPlayer player) {

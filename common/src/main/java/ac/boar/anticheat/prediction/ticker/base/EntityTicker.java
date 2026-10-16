@@ -3,6 +3,7 @@ package ac.boar.anticheat.prediction.ticker.base;
 import ac.boar.anticheat.Boar;
 import ac.boar.anticheat.collision.Collider;
 import ac.boar.anticheat.collision.MovementCollision;
+import ac.boar.anticheat.collision.OneWayCollision;
 import ac.boar.anticheat.prediction.engine.data.BounceGravityCorrection;
 import ac.boar.anticheat.data.Fluid;
 import ac.boar.anticheat.data.FluidState;
@@ -22,7 +23,6 @@ import org.cloudburstmc.math.GenericMath;
 import org.cloudburstmc.math.vector.Vector3i;
 import org.cloudburstmc.protocol.bedrock.codec.v975.Bedrock_v975;
 import org.cloudburstmc.protocol.bedrock.data.Ability;
-import org.cloudburstmc.protocol.bedrock.data.PlayerAuthInputData;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 
 @RequiredArgsConstructor
@@ -106,8 +106,8 @@ public class EntityTicker {
 
         // LiquidPhysicsSystem::_liquidBlockFetch
         final List<FluidFlowEntry> entries = new ArrayList<>();
-        final FluidContact lava = this.gatherFluid(Fluid.LAVA, entries);
-        final FluidContact water = this.gatherFluid(Fluid.WATER, lava.found() ? null : entries);
+        final FluidContact lava = this.gatherFluid(this.player.boundingBox, Fluid.LAVA, entries, true);
+        final FluidContact water = this.gatherFluid(this.player.boundingBox, Fluid.WATER, lava.found() ? null : entries, true);
         player.touchingWater = water.found();
         player.fluidHeight.put(Fluid.LAVA, lava.height());
         player.fluidHeight.put(Fluid.WATER, water.height());
@@ -117,7 +117,8 @@ public class EntityTicker {
 
     // Returns false when the push is skipped since the fluid state is not updated in that case
     public boolean applyWaterPushAfterTeleport() {
-        if (player.vehicleData != null || player.isRegionUnloaded() || this.gatherFluid(Fluid.LAVA, null).found()) {
+        if (this.player.vehicleData != null || this.player.isRegionUnloaded()
+                || this.gatherFluid(this.player.boundingBox, Fluid.LAVA, null, true).found()) {
             return false;
         }
         this.updateWaterState();
@@ -131,15 +132,15 @@ public class EntityTicker {
         return selected.getFluidState(0);
     }
 
-    private FluidContact gatherFluid(final Fluid tag, final List<FluidFlowEntry> entries) {
+    private FluidContact gatherFluid(final Box bounds, final Fluid tag, final List<FluidFlowEntry> entries, final boolean trace) {
         // LiquidPhysicsSystem::_liquidBlockFetch
-        final Box box = tag == Fluid.LAVA ? contractForFluidScan(player.boundingBox, 0.1F, 0.4F, 0.1F) : contractForFluidScan(player.boundingBox, 0.001F, 0.401F, 0.001F);
+        final Box box = tag == Fluid.LAVA ? contractForFluidScan(bounds, 0.1F, 0.4F, 0.1F) : contractForFluidScan(bounds, 0.001F, 0.401F, 0.001F);
         final int minX = GenericMath.floor(box.minX), endX = GenericMath.floor(box.maxX + 1.0F);
         final int minY = GenericMath.floor(box.minY), endY = GenericMath.floor(box.maxY + 1.0F);
         final int minZ = GenericMath.floor(box.minZ), endZ = GenericMath.floor(box.maxZ + 1.0F);
         boolean found = false;
         float height = Float.MIN_VALUE;
-        final StringBuilder hits = Boar.getConfig().debugMode() ? new StringBuilder() : null;
+        final StringBuilder hits = trace && Boar.getConfig().debugMode() ? new StringBuilder() : null;
 
         for (int y = minY; y < endY; y++) {
             for (int z = minZ; z < endZ; z++) {
@@ -180,10 +181,43 @@ public class EntityTicker {
         return new FluidContact(found, found ? height : 0);
     }
 
+    /**
+     * The client's WasInWaterFlag for a vehicle box (LiquidPhysicsSystem::_liquidBlockFetch 0x104aa22d8 -> doInWaterSensing 0x104a53828).
+     * Same contact scan as updateWaterState. The flag is set only when the lava scan finds nothing, so a box touching lava is never "in water".
+     * Used for a steered horse (HorseTicker). Read-only: no player fluid state change, no push.
+     */
+    public boolean touchesWater(final Box bounds) {
+        if (this.player.isRegionUnloaded() || gatherFluid(bounds, Fluid.LAVA, null, false).found()) {
+            return false;
+        }
+        return gatherFluid(bounds, Fluid.WATER, null, false).found();
+    }
+
     private void applyFluidPush(final List<FluidFlowEntry> entries) {
-        final Fluid selected = player.selectedFluid;
+        final Vec3 push = this.fluidPush(this.player.selectedFluid, entries, true);
+        if (push.lengthSquared() > 0) {
+            this.player.velocity = this.player.velocity.add(push);
+        }
+    }
+
+    /**
+     * The flow push that LiquidPhysicsSystem::_liquidBlockFetch (0x104aa22d8) gives a box, or zero. Read-only.
+     * Used for a driven boat (BoatTicker.simulate) and a steered horse (HorseTicker).
+     * The client pushes them with the same code and speed as a player, at the start of their tick.
+     */
+    public Vec3 fluidPushFor(final Box bounds) {
+        if (this.player.isRegionUnloaded()) {
+            return new Vec3(0, 0, 0);
+        }
+        final List<FluidFlowEntry> entries = new ArrayList<>();
+        final FluidContact lava = this.gatherFluid(bounds, Fluid.LAVA, entries, false);
+        final FluidContact water = this.gatherFluid(bounds, Fluid.WATER, lava.found() ? null : entries, false);
+        return this.fluidPush(lava.found() ? Fluid.LAVA : water.found() ? Fluid.WATER : Fluid.EMPTY, entries, false);
+    }
+
+    private Vec3 fluidPush(final Fluid selected, final List<FluidFlowEntry> entries, final boolean trace) {
         if (selected == Fluid.EMPTY) {
-            return;
+            return new Vec3(0, 0, 0);
         }
         boolean insideFlowing = false;
         for (FluidFlowEntry entry : entries) {
@@ -214,12 +248,14 @@ public class EntityTicker {
             if (flowSum.length() > 0.0F) {
                 final float speed = selected == Fluid.LAVA ? 0.0035F : 0.014F;
                 push = FluidState.normalizeFlow(flowSum).multiply(speed);
-                player.velocity = player.velocity.add(push);
             }
         }
-        player.getMovementTrace().log("liquid push: selected=" + selected + " entries=" + entries.size()
-                + " flowNeeded=" + (insideFlowing || sideFlowing) + " insideFlowing=" + insideFlowing
-                + " sideFlowing=" + sideFlowing + " flowSum=" + flowSum + " push=" + push);
+        if (trace) {
+            this.player.getMovementTrace().log("liquid push: selected=" + selected + " entries=" + entries.size()
+                    + " flowNeeded=" + (insideFlowing || sideFlowing) + " insideFlowing=" + insideFlowing
+                    + " sideFlowing=" + sideFlowing + " flowSum=" + flowSum + " push=" + push);
+        }
+        return push;
     }
 
     // LiquidPhysicsSystem::_liquidBlockFetch
@@ -254,6 +290,7 @@ public class EntityTicker {
 
             player.compensatedWorld.getBlockState(i, j, k, 0).entityInside(player, mutable);
         }}}
+        OneWayCollision.collectInsideActor(this.player, this.player.depenetrationState, this.player.boundingBox);
     }
 
     public final BounceGravityCorrection doSelfMove(Vec3 vec3) {
@@ -273,24 +310,19 @@ public class EntityTicker {
 
         Vec3 oldVec3 = vec3.clone();
         boolean wasOnGround = player.onGround;
-        Vec3 penetration = Vec3.ZERO.clone();
         final Collider.MoveResult moveResult = Collider.collideMove(
                 player,
                 Collider.maybeBackOffFromEdge(player, vec3),
-                player.stuckInCollider,
-                penetration
+                this.player.depenetrationState,
+                this.player.getFlagTracker().has(EntityFlag.PUSH_TOWARDS_CLOSEST_SPACE)
         );
         vec3 = moveResult.requestedMovement();
         final Vec3 vec32 = moveResult.clippedMovement();
-        boolean hasPenetration = exceedsReconstructionNoise(penetration.x, player.position.x)
-                || exceedsReconstructionNoise(penetration.y, player.position.y)
-                || exceedsReconstructionNoise(penetration.z, player.position.z);
-        player.stuckInCollider = player.penetratedLastFrame && hasPenetration;
-        player.penetratedLastFrame = hasPenetration;
         player.setPos(player.position.add(vec32));
 
         player.getMovementTrace().log("move: input=" + oldVec3 + " afterEdgeBackoff=" + vec3
-                + " afterCollide=" + vec32 + " penetration=" + penetration + " newPos=" + player.position);
+                + " afterCollide=" + vec32 + " penetrationSum=" + this.player.depenetrationState.lastPenetrationSum()
+                + " depenetrationFlags=" + this.player.depenetrationState.flags() + " newPos=" + this.player.position);
 
         boolean collidedX = Math.abs(vec3.x - vec32.x) >= COLLISION_EPSILON;
         boolean collidedZ = Math.abs(vec3.z - vec32.z) >= COLLISION_EPSILON;
@@ -335,10 +367,6 @@ public class EntityTicker {
                 + " z=" + collidedZ + ") vColl=" + player.verticalCollision + " onGround=" + player.onGround
                 + " bounceCorrection=" + bounceCorrection + " vel=" + player.velocity);
         return bounceCorrection;
-    }
-
-    private static boolean exceedsReconstructionNoise(float penetration, float coordinate) {
-        return penetration >= Math.max(1.0E-4F, 4.0F * Math.ulp(coordinate));
     }
 
     // ComputeBlockRestitutionSystem::tick

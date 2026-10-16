@@ -38,6 +38,7 @@ public final class Blocks {
     public static final Reference<Block> LAVA = create("lava");
     public static final Reference<Block> LECTERN = create("lectern");
     public static final Reference<Block> LEVER = create("lever");
+    public static final Reference<Block> LILY_PAD = create("lily_pad");
     public static final Reference<Block> NOTE_BLOCK = create("note_block");
     public static final Reference<Block> PACKED_ICE = create("packed_ice");
     public static final Reference<Block> POINTED_DRIPSTONE = create("pointed_dripstone");
@@ -49,6 +50,7 @@ public final class Blocks {
     public static final Reference<Block> SEA_PICKLE = create("sea_pickle");
     public static final Reference<Block> SEA_LANTERN = create("sea_lantern");
     public static final Reference<Block> SLIME_BLOCK = create("slime_block");
+    public static final Reference<Block> SNOW = create("snow");
     public static final Reference<Block> SOUL_SAND = create("soul_sand");
     public static final Reference<Block> SWEET_BERRY_BUSH = create("sweet_berry_bush");
     public static final Reference<Block> TNT = create("tnt");

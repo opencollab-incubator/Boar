@@ -128,11 +128,11 @@ public final class CollisionRetry {
         chat(player, "§cretry failed at sim tick " + player.simulationFrame + ": " + reason + " (miss " + retryOffset + ")");
     }
 
-    private static float offset(final BoarPlayer player) {
+    // Also used by BoatTopRetry.
+    static float offset(final BoarPlayer player) {
         final UncertainRunner uncertainRunner = new UncertainRunner(player);
         float offset = player.position.distanceTo(player.unvalidatedPosition);
-        offset -= uncertainRunner.extraOffset(offset);
-        return offset;
+        return offset - uncertainRunner.extraOffset(offset);
     }
 
     private static void chat(final BoarPlayer player, final String message) {

@@ -64,6 +64,10 @@ public final class BoarChunkSection {
         return new BoarChunkSection(copy, this.airId);
     }
 
+    public boolean hasOnlyLayerZeroStorage() {
+        return this.storage.length == 1 && this.storage[0] != null;
+    }
+
     public int getFullBlock(int x, int y, int z, int layer) {
         if (layer < 0 || layer >= this.storage.length) {
             return Integer.MIN_VALUE;

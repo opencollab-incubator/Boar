@@ -1,6 +1,7 @@
 package ac.boar.anticheat.player.data;
 
 import ac.boar.anticheat.Boar;
+import ac.boar.anticheat.collision.DepenetrationState;
 import ac.boar.anticheat.compensated.CompensatedInventory;
 import ac.boar.anticheat.data.vanilla.Attribute;
 import ac.boar.anticheat.data.EntityDimensions;
@@ -201,7 +202,7 @@ public class PlayerData {
     public boolean touchingWater;
     public Fluid selectedFluid = Fluid.EMPTY;
     public boolean horizontalCollision, verticalCollision;
-    public boolean stuckInCollider, penetratedLastFrame;
+    public final DepenetrationState depenetrationState = new DepenetrationState(new Vec3(.01F, .01F, .01F));
 
     public final Map<Fluid, Float> fluidHeight = new HashMap<>();
     public float getFluidHeight(Fluid tagKey) {
@@ -212,6 +213,8 @@ public class PlayerData {
     public boolean scaffoldDescend;
 
     public VehicleData vehicleData = null;
+    public final StaticSeatTracker staticSeatTracker = new StaticSeatTracker();
+    public StaticSeatData staticSeat;
 
     public Vector3i bedPosition = null;
 
@@ -222,6 +225,19 @@ public class PlayerData {
 
     public final float getPositionUlp() {
         return Math.max(Math.max(Math.ulp(this.position.x), Math.ulp(this.position.z)), Math.max(Math.ulp(this.unvalidatedPosition.x), Math.ulp(this.unvalidatedPosition.z)));
+    }
+
+    // An offset below this is accepted: the acceptance threshold plus one float step at the position (getPositionUlp).
+    public final float getPosAcceptanceLimit() {
+        return this.getPosAcceptanceThreshold() + this.getPositionUlp();
+    }
+
+    // For an input where the player cannot move: no velocity, no certain velocity, a zero prediction result and no chosen possibility.
+    public final void clearMovementForImmobileInput() {
+        this.velocity = Vec3.ZERO.clone();
+        this.certainVelocity = null;
+        this.predictionResult = new PredictionData(Vec3.ZERO, Vec3.ZERO, Vec3.ZERO);
+        this.bestPossibility = Vector.NONE;
     }
 
     public final void setSprinting(boolean sprinting) {
@@ -275,6 +291,13 @@ public class PlayerData {
         this.setBoundingBox(vec3);
 
         this.inBlockState = null;
+    }
+
+    public void setDimensions(final EntityDimensions dimensions) {
+        if (this.dimensions.width() != dimensions.width() || this.dimensions.height() != dimensions.height()) {
+            this.depenetrationState.onSizeChanged();
+        }
+        this.dimensions = dimensions;
     }
 
     public final void setBoundingBox(Vec3 vec3) {

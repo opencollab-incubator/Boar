@@ -6,6 +6,7 @@ import ac.boar.anticheat.ack.types.TeleportAcceptAck;
 import ac.boar.anticheat.data.vanilla.Attribute;
 import ac.boar.anticheat.data.vanilla.AttributeInstance;
 import ac.boar.anticheat.player.BoarPlayer;
+import ac.boar.anticheat.player.data.VehicleType;
 import ac.boar.anticheat.teleport.data.TeleportData;
 import ac.boar.anticheat.util.block.BlockUtil;
 import ac.boar.anticheat.util.geyser.BoarChunk;
@@ -51,6 +52,8 @@ public class TeleportUtil {
     @Getter
     private int pendingTeleports;
     private long generation;
+    private TeleportData lastQueuedTeleport;
+    private long lastQueuedTick = -1;
     @Getter
     private Vec3 interpolationTarget;
     @Getter
@@ -75,9 +78,16 @@ public class TeleportUtil {
     }
 
     public void queue(TeleportData data) {
+        this.lastQueuedTeleport = data;
+        this.lastQueuedTick = this.player.tick;
         this.pendingTeleports++;
         this.pendingTeleportPosition = data.getPosition().clone();
         player.sendLatencyStack(new TeleportAcceptAck(data, this.generation));
+    }
+
+    // The last teleport sent at or after the given tick, null if none.
+    public TeleportData getLastTeleportSince(final long tick) {
+        return this.lastQueuedTick >= tick ? this.lastQueuedTeleport : null;
     }
 
     public void accept(TeleportData data, long generation) {
@@ -87,6 +97,20 @@ public class TeleportUtil {
         if (this.pendingTeleports > 0) {
             this.pendingTeleports--;
         }
+
+        // While riding, our position is the vehicle position. So only save the teleport. It is applied later if it is the dismount teleport.
+        if (this.player.vehicleData != null) {
+            this.player.vehicleData.invalidateMatchedClaim(this.player.tick + 1);
+            this.acceptedTeleport = data;
+            return;
+        }
+
+        this.apply(data);
+    }
+
+    public void apply(TeleportData data) {
+        // No ride here, so no matched claim to clear. accept calls this only when there is no ride.
+        // The other callers end the ride (player.vehicleData = null) first: the LEFT path in AuthInputPackets and BoarDefaultAcknowledgments.endRide.
         this.acceptedTeleport = data;
         player.onGround = data.isOnGround();
         if (data.getSource() == TeleportData.Source.MOVE_PLAYER_NORMAL) {
@@ -133,7 +157,7 @@ public class TeleportUtil {
     }
 
     public void setPacketPosition(Vec3 position) {
-        player.setPos(position.down(player.getYOffset()));
+        this.player.setPos(position.down(this.player.getPlayerYOffset()));
         player.nativeOriginY = position.y;
         player.insideUnloadedChunk = !player.compensatedWorld.isChunkLoadedAt(position.x, position.z);
     }
@@ -154,8 +178,8 @@ public class TeleportUtil {
         this.interpolationTicks = 0;
     }
 
-    public void clearTeleports() {
-        // Ignore acknowledgments that arrive after a reset or vehicle change.
+    private void clearTeleports() {
+        // Ignore acknowledgments that arrive after a reset.
         this.generation++;
         this.acceptedTeleport = null;
         this.skipTravel = false;
@@ -231,24 +255,55 @@ public class TeleportUtil {
         }
 
         final CorrectPlayerMovePredictionPacket correction = new CorrectPlayerMovePredictionPacket();
-        correction.setPosition(player.position.add(0, player.getYOffset() + 0.001f, 0).toVector3f());
-        correction.setOnGround(player.onGround);
+        final boolean vehicleCorrection = this.player.vehicleData != null && this.player.vehicleData.clientSimulatesRide;
+        final var boatActor = vehicleCorrection && this.player.vehicleData.awaitingBoatFormatInput ? this.player.vehicleData.boatActorState : null;
+        final Vec3 position = boatActor != null ? boatActor.position() : this.player.position;
+        final float yOffset = vehicleCorrection ? this.player.getYOffset() : this.player.getYOffset() + 0.001f;
+        correction.setPosition(position.add(0, yOffset, 0).toVector3f());
+        correction.setOnGround(vehicleCorrection ? this.player.vehicleData.onGround : this.player.onGround);
         correction.setTick(player.simulationFrame);
-        correction.setDelta(player.velocity.toVector3f());
-        correction.setVehicleRotation(Vector2f.ZERO);
-        correction.setPredictionType(player.vehicleData != null ? PredictionType.VEHICLE : PredictionType.PLAYER);
+        correction.setDelta((boatActor != null ? boatActor.velocity() : this.player.velocity).toVector3f());
+        // A vehicle correction only works for a vehicle the client simulates. Other riders get a player correction: the client ignores a vehicle one.
+        // The client puts the vehicle at this rotation, so ZERO would turn the boat.
+        // The angular velocity is the boat's yaw velocity. Without it, the client keeps its own.
+        if (!vehicleCorrection) {
+            correction.setVehicleRotation(Vector2f.ZERO);
+        } else if (boatActor != null) {
+            correction.setVehicleRotation(Vector2f.from(boatActor.pitch(), boatActor.yaw()));
+            correction.setVehicleAngularVelocity(boatActor.angularVelocity());
+        } else {
+            correction.setVehicleRotation(Vector2f.from(this.player.vehicleData.pitch, this.player.vehicleData.yaw));
+            correction.setVehicleAngularVelocity(this.player.vehicleData.yawVelocity);
+        }
+        correction.setPredictionType(vehicleCorrection ? PredictionType.VEHICLE : PredictionType.PLAYER);
 
         this.addPendingCorrection();
+        if (this.player.vehicleData != null) {
+            this.player.vehicleData.boatTakeover = null;
+        }
         this.correctionCooldown = true;
         this.player.sendLatencyStack(new MovementCorrectionAck());
         this.syncBlocks();
         this.syncMetadata();
         this.syncMovementSpeed();
+        if (this.player.vehicleData != null && this.player.vehicleData.type == VehicleType.HORSE) {
+            this.player.vehicleData.invalidateHorseJump();
+            this.player.vehicleData.invalidateHorseStand();
+            var horse = this.player.compensatedWorld.getEntity(this.player.vehicleData.vehicleRuntimeId);
+            if (horse != null) {
+                horse.getHorseGround().markUnknown();
+            }
+            if (!vehicleCorrection) {
+                this.player.horseJumpInput.invalidate();
+            }
+        }
         this.player.getConnection().sendPacket(correction);
         if (Boar.getInstance().getPlatform().developerDebug()) {
             this.player.getSession().sendMessage("correction sent at sim tick " + correction.getTick());
         }
-        Boar.debug(player.getSession().name() + ": [movement-debug] sent correction tick=" + player.tick + " simFrame=" + player.simulationFrame + " pos=" + correction.getPosition() + " delta=" + correction.getDelta() + " onGround=" + player.onGround
+        Boar.debug(this.player.getSession().name() + ": [movement-debug] sent correction tick=" + this.player.tick + " simFrame=" + this.player.simulationFrame
+                + " pos=" + correction.getPosition() + " delta=" + correction.getDelta()
+                + " onGround=" + correction.isOnGround()
                 + " boarSprinting=" + player.getFlagTracker().has(org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag.SPRINTING)
                 + " clientVector=" + player.clientMotion + " rawInput=" + player.input.horizontalLength(), Boar.DebugMessage.WARNING);
     }

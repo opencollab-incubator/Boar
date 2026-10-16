@@ -43,6 +43,9 @@ public final class Config {
     @JsonProperty("differ-till-alert")
     @JsonSetter(nulls = Nulls.SKIP)
     private float alertThreshold = 0.0F;
+    @JsonProperty("static-seat-identifiers")
+    @JsonSetter(nulls = Nulls.SKIP)
+    private List<String> staticSeatIdentifiers = new ArrayList<>();
     @JsonProperty("disabled-checks")
     @JsonSetter(nulls = Nulls.SKIP)
     private List<String> disabledChecks = new ArrayList<>();
@@ -104,6 +107,10 @@ public final class Config {
 
     public float alertThreshold() {
         return alertThreshold;
+    }
+
+    public List<String> staticSeatIdentifiers() {
+        return this.staticSeatIdentifiers;
     }
 
     public List<String> disabledChecks() {

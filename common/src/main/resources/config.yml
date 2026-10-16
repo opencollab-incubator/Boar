@@ -52,10 +52,13 @@ player-position-retry-cooldown-ticks: 20
 # This is the max reach that Boar going to tolerance before flagging, it does account for lag so no worry :)
 max-tolerance-compensated-reach: 3.005
 
-# How many discrepancies between the Client and Server Player position needed to be before the anticheat send alert message
-# NOTE: This is NOT tolerance of discrepancies (that's player-position-acceptance-threshold), this will still do silent
-# correction unless you change player-position-acceptance-threshold.
-# This configuration exists so that some falses or other stuff won't keep spamming the chat/logs.
+# How far the client position can be from Boar's prediction before Boar sends a correction and flags the player.
+# NOTE: This IS a tolerance. A difference above player-position-acceptance-threshold but below this value gets no correction.
+# Boar keeps its own predicted position, sends it to the server, and only moves X/Z toward the client by player-position-drift-amount.
+# So the client can be up to this far from Boar without a rubberband.
+# A difference at or above this value gets a correction.
+# Exception: a player held on a static seat (see static-seat-identifiers) whose client is not at the seat gets a correction
+# at any difference, even below player-position-acceptance-threshold.
 differ-till-alert: 0.0
 
 # Checks that you want Boar to disable.
@@ -80,3 +83,9 @@ max-balance-advantage: 8500
 
 # Should debug mode be enabled or not?
 debug-mode: false
+
+# Server-made actors that never move. The seat is placed from the actor origin, and the client's default exit is used.
+# Entries are actor identifiers, as sent when the actor is added, ex: ["namespace:seat"].
+# An actor that has an entity definition on this platform is never treated as a static seat.
+# Do not add other custom actors here. They need their own seat and movement model first.
+static-seat-identifiers: []

@@ -38,7 +38,7 @@ public final class Velocity extends BaseCheck implements OffsetHandlerCheck {
                 && !player.insideUnloadedChunk
                 && player.pendingDimensionSwitches == 0
                 && !player.thisTickSpinAttack && !player.dirtyRiptide
-                && !player.penetratedLastFrame && !player.stuckInCollider
+                && !player.depenetrationState.penetratedLastMove()
                 && !teleports.isTeleporting() && !teleports.correctedWithin(2)
                 && !teleports.hasPendingCorrection() && !teleports.isCorrectionCooldown();
     }

@@ -134,6 +134,7 @@ public class LivingTicker extends EntityTicker {
 
         Box oldBox = player.boundingBox.clone();
 
+        this.player.depenetrationState.removeSeparatedOneWayBoxes(oldBox);
         this.travelRidden();
         this.applyEffectsFromBlocks();
 

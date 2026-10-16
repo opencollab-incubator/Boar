@@ -22,7 +22,10 @@ import ac.boar.anticheat.player.accessor.EntityAccessor;
 import ac.boar.anticheat.player.accessor.InventoryAccessor;
 import ac.boar.anticheat.player.accessor.WorldAccessor;
 import ac.boar.anticheat.player.data.BlockMappingInfo;
+import ac.boar.anticheat.player.data.HorseJumpInput;
 import ac.boar.anticheat.player.data.PlayerData;
+import ac.boar.anticheat.player.data.VehicleType;
+import ac.boar.anticheat.prediction.vehicle.FollowerHistory;
 import ac.boar.anticheat.teleport.TeleportUtil;
 import ac.boar.anticheat.util.LatencyUtil;
 import ac.boar.anticheat.util.MathUtil;
@@ -38,6 +41,7 @@ import ac.boar.mappings.block.BlockMappings;
 import ac.boar.mappings.entity.Entity;
 import ac.boar.mappings.entity.EntityDefinition;
 import ac.boar.mappings.entity.EntityDefinitions;
+import ac.boar.mappings.entity.EntityTypes;
 import ac.boar.protocol.PacketInjector;
 import io.netty.util.ReferenceCountUtil;
 import lombok.Getter;
@@ -45,6 +49,7 @@ import lombok.Setter;
 import lombok.SneakyThrows;
 import org.cloudburstmc.math.GenericMath;
 import org.cloudburstmc.math.TrigMath;
+import org.cloudburstmc.math.vector.Vector3f;
 import org.cloudburstmc.math.vector.Vector3i;
 import ac.boar.protocol.BoarConnection;
 import org.cloudburstmc.protocol.bedrock.data.Ability;
@@ -52,6 +57,7 @@ import org.cloudburstmc.protocol.bedrock.data.PlayerAuthInputData;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 import org.cloudburstmc.protocol.bedrock.packet.BedrockPacket;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -71,7 +77,30 @@ public final class BoarPlayer extends PlayerData {
     @Getter
     private final InventoryAccessor inventoryAccessor;
 
-    public long runtimeEntityId;
+    public long runtimeEntityId, uniqueEntityId;
+    public long acceptedInputCount, acceptedInputEpoch;
+    // Kept here, not in VehicleData. VehicleData is replaced on each ride, so swapping between boats cannot skip the takeover grant cooldown.
+    public long lastAcceptedBoatTakeoverInput = Long.MIN_VALUE;
+    public final HorseJumpInput horseJumpInput = new HorseJumpInput();
+    // Players from the player list, by uuid, with their unique entity id. Used before their entity is spawned.
+    public final Map<UUID, Long> listedPlayers = new HashMap<>();
+
+    // Players count differently than mobs in the passenger order of a vehicle.
+    public boolean isPlayerEntity(final long uniqueId) {
+        if (uniqueId == this.uniqueEntityId || this.listedPlayers.containsValue(uniqueId)) {
+            return true;
+        }
+
+        final EntityCache cache = this.compensatedWorld.getTrackedEntityByUniqueId(uniqueId);
+        return cache != null && cache.getType().is(EntityTypes.PLAYER);
+    }
+
+    // When the current input arrived (in nanoseconds). We use it as the client tick time.
+    public long inputArrivalNs;
+    public final FollowerHistory.ArrivalClock followerArrivalClock = new FollowerHistory.ArrivalClock();
+    private static final float FOLLOWER_TICK_DISTANCE_SQUARED = 8.0F * 8.0F;
+    // From our SEAT_OFFSET metadata: where we sit relative to the vehicle we ride.
+    public Vector3f seatOffset = Vector3f.ZERO;
 
     @Getter
     private final TeleportUtil teleportUtil = new TeleportUtil(this);
@@ -238,6 +267,7 @@ public final class BoarPlayer extends PlayerData {
 
     // Prediction related method
     public void tick() {
+        this.followerArrivalClock.observe(this.inputArrivalNs, this.tick);
         this.getActiveEffects().entrySet().removeIf(filter -> {
             filter.getValue().tick();
             return filter.getValue().getDuration() == 0;
@@ -245,8 +275,19 @@ public final class BoarPlayer extends PlayerData {
 
         try {
             for (final EntityCache cache : this.compensatedWorld.getEntities().values()) {
+                cache.getHorseJumpEffect().tick();
+                final boolean localBoat = cache.isLocallySimulatedBoat();
+                cache.setControlledBoatStep(null);
+                cache.setFollowerTickStart(cache.getCurrent() == null ? null : cache.actorPose(cache.getCurrent().getPos()));
                 if (cache.getCurrent() != null) {
-                    cache.getCurrent().tick();
+                    if (localBoat && (this.vehicleData.ticks == 0 || this.vehicleData.needsVehicleRestart)) {
+                        cache.prepareBoatControlTick();
+                    }
+                    final int interpolationSteps = cache.tickCurrent();
+                    if (localBoat && interpolationSteps > 0) {
+                        cache.setControlledBoatStep(new EntityCache.ControlledBoatStep(this.tick, cache.getCurrent().getPos().clone(),
+                                cache.getCurrent().getBoundingBox(), cache.getActorPitch(), cache.getActorYaw()));
+                    }
                 }
             }
         } catch (Exception e) {
@@ -254,6 +295,83 @@ public final class BoarPlayer extends PlayerData {
         }
 
         this.getItemUseTracker().preTick();
+    }
+
+    // AuthInput handles a trusted dismount first, then this runs. Normal entity interpolation (smooth movement) still runs earlier.
+    public void tickFollowerHistories() {
+        try {
+            for (final EntityCache cache : this.compensatedWorld.getEntities().values()) {
+                // Tick all boats, nearby other vehicles, and the vehicle we ride.
+                // A vehicle we used to control also needs its control-end entry after a far dismount.
+                // Other far histories resync when they come close.
+                final FollowerHistory history = cache.getFollowerHistory();
+                final boolean riding = this.vehicleData != null && this.vehicleData.vehicleRuntimeId == cache.getRuntimeId();
+                // Whether we control this boat is decided after AuthInput's trusted dismount.
+                if (cache.isLocallySimulatedBoat() && cache.getCurrent() != null) {
+                    if (this.vehicleData.useDriverSwitchTick(this.tick)) {
+                        this.tickDriverSwitch(cache);
+                        continue;
+                    }
+                    if (this.vehicleData.ticks == 0 || this.vehicleData.needsVehicleRestart) {
+                        cache.captureBoatControlStartPose(history);
+                    }
+                    cache.resetToLocalControl(history);
+                    continue;
+                }
+                // Near means near the shown pose OR the newest server move. The shown pose alone is not enough: it only moves while the history ticks.
+                // After a teleport into range it stays at the old place, the history never ticks, and the first tick (the mount) resyncs with a box
+                // over the whole teleport path. In-game testing showed this for horse mounts soon after a long teleport.
+                if (history != null && (riding || history.isLocallyPredicted() || cache.getVehicleType() == VehicleType.BOAT
+                        || history.distanceSquared(this.position.x, this.position.y, this.position.z) <= FOLLOWER_TICK_DISTANCE_SQUARED
+                        || history.latestMoveDistanceSquared(this.position.x, this.position.y, this.position.z) <= FOLLOWER_TICK_DISTANCE_SQUARED)) {
+                    this.tickRemoteFollowerHistory(cache, history, false);
+                }
+            }
+        } catch (Exception e) {
+            Boar.getInstance().getPlatform().logger().error(getSession().name() + ": follower history tick threw", e);
+        }
+    }
+
+    public void tickDriverSwitch(final EntityCache cache) {
+        final FollowerHistory history = cache.getFollowerHistory();
+        if (history != null) {
+            this.tickRemoteFollowerHistory(cache, history, true);
+        } else {
+            cache.beginDriverSwitchTick(null);
+        }
+        cache.finishDriverSwitchTick(history);
+    }
+
+    private void tickRemoteFollowerHistory(final EntityCache cache, final FollowerHistory history, final boolean duringDriverSwitch) {
+        if (cache.getVehicleType() == VehicleType.BOAT && cache.getCurrent() != null) {
+            if (history.isLocallyPredicted()) {
+                if (duringDriverSwitch) {
+                    cache.beginDriverSwitchTick(history);
+                }
+                final FollowerHistory.ActorPose actor = cache.actorPose(cache.getCurrent().getPos());
+                // The fallback keeps using the existing interpolator. Its forced-completion queue is not modeled yet.
+                final var interpolator = cache.getCurrent().getInterpolator();
+                final Vec3 target = interpolator.getTargetPos();
+                final var angles = cache.getPendingServerAngles();
+                final FollowerHistory.ActorPose pendingTarget = target == null ? null : new FollowerHistory.ActorPose(
+                        target.x, target.y + cache.getYOffset(), target.z,
+                        angles == null ? actor.pitch() : angles.pitch(),
+                        angles == null ? actor.yaw() : angles.yaw(),
+                        angles == null ? actor.headYaw() : angles.headYaw(),
+                        actor.onGround());
+                history.resumeRemoteTick(this.inputArrivalNs, this.getLatencyUtil().nowLowerBoundNs(), this.tick, cache.getFollowerTickStart(), actor,
+                        pendingTarget, interpolator.getStep());
+                return;
+            }
+        }
+        if (history.hasTicked() && !history.tickedLast(this.tick)) {
+            history.resync(this.inputArrivalNs, this.getLatencyUtil().nowLowerBoundNs());
+        }
+        // A resync can change the history's target and steps left (remaining). It runs before this normal step.
+        if (duringDriverSwitch) {
+            cache.beginDriverSwitchTick(history);
+        }
+        history.tick(this.inputArrivalNs, this.getLatencyUtil().nowLowerBoundNs(), this.tick);
     }
 
     public void postTick() {
@@ -269,18 +387,18 @@ public final class BoarPlayer extends PlayerData {
 
     public float getYOffset() {
         if (this.vehicleData != null) {
-            final EntityCache cache = this.compensatedWorld.getEntity(this.vehicleData.vehicleRuntimeId);
-            if (cache != null) {
-                final String identifier = cache.getDefinition().identifier();
-
-                if (identifier.equals("minecraft:boat") || identifier.equals("minecraft:chest_boat")) {
-                    return EntityDefinitions.BIRCH_BOAT.find().map(EntityDefinition::offset).orElse(0.0f); // It's all the same anyway, I just like birch :)
-                }
+            if (this.vehicleData.type == VehicleType.BOAT) {
+                return VehicleType.BOAT_OFFSET;
             }
 
             return 0;
         }
 
+        return this.getPlayerYOffset();
+    }
+
+    // MovePlayer, Respawn and ChangeDimension positions for ourselves use this Y offset, even while riding.
+    public float getPlayerYOffset() {
         return EntityDefinitions.PLAYER.find().map(EntityDefinition::offset).orElse(0.0f);
     }
 

@@ -7,7 +7,9 @@ import ac.boar.anticheat.Boar;
 import ac.boar.anticheat.data.ItemUseTracker;
 import ac.boar.anticheat.data.inventory.BoarItemStack;
 import ac.boar.anticheat.player.BoarPlayer;
+import ac.boar.anticheat.player.data.VehicleType;
 import ac.boar.anticheat.prediction.UncertainRunner;
+import ac.boar.anticheat.prediction.vehicle.VehicleTicker;
 import ac.boar.anticheat.util.InputUtil;
 import ac.boar.anticheat.util.MathUtil;
 import ac.boar.anticheat.util.math.Vec3;
@@ -40,6 +42,19 @@ public class LegacyAuthInputPackets {
     public static void doPostPrediction(final BoarPlayer player, final PlayerAuthInputPacket packet) {
         player.postTick();
 
+        final boolean driverSwitchRider = player.vehicleData != null && player.vehicleData.isDriverSwitchRiderTick(player.tick);
+        if (VehicleTicker.serverDriven(player, player.vehicleData) || driverSwitchRider) {
+            // The server places the rider. Do not correct the rider's client view. Do not use that view as the position or velocity after the ride.
+            player.getTeleportUtil().updateLastKnownValid(player.position.up(player.getYOffset()));
+            player.getMovementTrace().log(driverSwitchRider ? "post: boat driver switch rider, kept acknowledged seat"
+                    : "post: server-driven rider, kept acknowledged seat");
+            if (!player.getTeleportUtil().hasPendingCorrection() && player.getTeleportUtil().isCorrectionCooldown()) {
+                player.getTeleportUtil().setCorrectionCooldown(false);
+            }
+            correctInputData(player, packet);
+            return;
+        }
+
         if (player.insideUnloadedChunk) {
             correctInputData(player, packet);
             return;
@@ -52,9 +67,12 @@ public class LegacyAuthInputPackets {
         // Properly calculated offset by comparing position instead of poorly calculated velocity that get calculated using (pos - prevPos) to account for floating point errors.
         float offset = player.position.distanceTo(player.unvalidatedPosition);
         final float rawOffset = offset;
-        float extraOffset = uncertainRunner.extraOffset(offset);
+        final boolean heldStaticSeat = player.staticSeat != null && player.staticSeat.heldThisTick(player);
+        float extraOffset = heldStaticSeat ? 0 : uncertainRunner.extraOffset(offset);
         offset -= extraOffset;
-        uncertainRunner.uncertainPushTowardsTheClosetSpace();
+        if (!heldStaticSeat) {
+            uncertainRunner.uncertainPushTowardsTheClosetSpace();
+        }
 
         player.getMovementTrace().log("offset: raw=" + rawOffset + " extra=" + extraOffset
                 + " final=" + offset
@@ -67,27 +85,54 @@ public class LegacyAuthInputPackets {
             }
         }
 
+        // Keep the predicted movement during a pending correction or its cooldown tick.
+        // The horse block and the accept code below share this test. Nothing between them changes the teleport state, the offset or the positions.
+        final boolean hasPendingCorrection = player.getTeleportUtil().hasPendingCorrection();
+        final boolean inCorrectionCooldown = player.getTeleportUtil().isCorrectionCooldown();
+        final boolean canAcceptClient = !hasPendingCorrection && !inCorrectionCooldown;
+        final boolean acceptPosition = canAcceptClient && offset < player.getPosAcceptanceThreshold() + player.getPositionUlp();
+
+        final var vehicle = player.vehicleData;
+        if (vehicle != null && vehicle.type == VehicleType.HORSE) {
+            vehicle.finishSlidingClear(acceptPosition && vehicle.matchesMountedEntity(player.compensatedWorld.getEntity(vehicle.vehicleRuntimeId)));
+            vehicle.acceptMatchedClaim(player, packet, rawOffset, acceptPosition);
+        }
+
         if (player.disableMitigations()) {
             player.velocity = player.unvalidatedTickEnd.clone();
             player.lastTickFinalVelocity = player.unvalidatedTickEnd.clone();
             player.setPos(player.unvalidatedPosition.clone(), false);
             player.nativeOriginY = player.unvalidatedNativeOriginY;
         } else {
-            // Keep the predicted movement during a pending correction or its cooldown tick.
-            final boolean hasPendingCorrection = player.getTeleportUtil().hasPendingCorrection();
-            final boolean inCorrectionCooldown = player.getTeleportUtil().isCorrectionCooldown();
-            final boolean canAcceptClient = !hasPendingCorrection && !inCorrectionCooldown;
+            final boolean acceptVelocity = canAcceptClient
+                    && player.velocity.distanceTo(player.unvalidatedTickEnd) - extraOffset < player.getPosAcceptanceThreshold();
 
             // Have to do this due to loss precision, especially elytra!
-            if (canAcceptClient && player.velocity.distanceTo(player.unvalidatedTickEnd) - extraOffset < player.getPosAcceptanceThreshold()) {
+            if (acceptVelocity) {
                 player.getMovementTrace().log("post: accepted client velocity " + player.unvalidatedTickEnd);
                 player.velocity = player.unvalidatedTickEnd.clone();
             }
 
-            if (canAcceptClient && offset < player.getPosAcceptanceThreshold() + player.getPositionUlp()) {
+            if (acceptPosition) {
                 player.getMovementTrace().log("post: accepted client position " + player.unvalidatedPosition);
                 player.setPos(player.unvalidatedPosition.clone(), false);
                 player.nativeOriginY = player.unvalidatedNativeOriginY;
+            }
+
+            // A zero threshold never accepts velocity, even an exact one, so finishing the repair needs an exact match.
+            // An accepted velocity is a copy of the client's, so it matches.
+            // Compare each component. Do not test for a zero distance: squaring a tiny difference can underflow (round down) to zero.
+            final boolean repairVelocityMatches = player.velocity.x == player.unvalidatedTickEnd.x && player.velocity.y == player.unvalidatedTickEnd.y
+                    && player.velocity.z == player.unvalidatedTickEnd.z;
+
+            if (vehicle != null && vehicle.awaitingBoatFormatInput && vehicle.driver && vehicle.inputClaimsClientPrediction
+                    && vehicle.predictedVehicleUniqueId == vehicle.vehicleUniqueId && !vehicle.invalidVehicleInput && acceptPosition
+                    && repairVelocityMatches) {
+                // End the repair only after we accept the boat-format result. The input flag arriving is not enough.
+                vehicle.awaitingBoatFormatInput = false;
+                vehicle.riderCoordinates = false;
+                vehicle.boatActorState = null;
+                player.getMovementTrace().log("boat: accepted vehicle-format state, boat-format input arrived");
             }
 
             if (!canAcceptClient) {
@@ -100,6 +145,9 @@ public class LegacyAuthInputPackets {
             }
         }
 
+        if (heldStaticSeat && !player.disableMitigations()) {
+            player.staticSeat.hold(player);
+        }
         correctInputData(player, packet);
     }
 

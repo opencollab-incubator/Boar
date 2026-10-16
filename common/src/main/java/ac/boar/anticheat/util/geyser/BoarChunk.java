@@ -7,6 +7,8 @@ public class BoarChunk {
     private static final long SECTION_WARNING_COOLDOWN = 3000;
 
     private final BoarChunkSection[] sections;
+    // True for a section whose blocks we know: decoded from a payload, or known to be all air.
+    private final boolean[] knownSections;
     private final List<BlockEntityInfo> blockEntities;
 
     private boolean hasAllSections;
@@ -15,10 +17,19 @@ public class BoarChunk {
     private final long loadedTick;
 
     public BoarChunk(BoarChunkSection[] sections, List<BlockEntityInfo> blockEntities, boolean hasAllSections, long loadedTick) {
-        this.sections = sections;
+        this(sections, blockEntities, hasAllSections, loadedTick, new boolean[sections.length]);
+    }
+
+    public BoarChunk(BoarChunkSection[] sections, List<BlockEntityInfo> blockEntities, boolean hasAllSections, long loadedTick, boolean[] knownSections) {
+        if (knownSections.length != sections.length) {
+            throw new IllegalArgumentException("Section length mismatch");
+        }
+
+        this.loadedTick = loadedTick;
         this.blockEntities = blockEntities;
         this.hasAllSections = hasAllSections;
-        this.loadedTick = loadedTick;
+        this.sections = sections;
+        this.knownSections = knownSections.clone();
     }
 
     public long loadedTick() {
@@ -50,12 +61,17 @@ public class BoarChunk {
         return this.sections[index];
     }
 
-    public void setSection(BoarChunkSection newSection, int index) {
+    public boolean isSectionKnown(int index) {
+        return index >= 0 && index < this.sections.length && this.sections[index] != null && this.knownSections[index];
+    }
+
+    public void setSection(BoarChunkSection newSection, int index, boolean known) {
         if (newSection == null) {
             throw new IllegalArgumentException("newSection cannot be null");
         }
 
         this.sections[index] = newSection;
+        this.knownSections[index] = known;
         this.lastSectionWarning = 0;
 
         if (!this.hasAllSections) {

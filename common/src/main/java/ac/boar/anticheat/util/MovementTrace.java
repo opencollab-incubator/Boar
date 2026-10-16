@@ -104,7 +104,7 @@ public final class MovementTrace {
         log("state: onGround=" + player.onGround + " hColl=" + player.horizontalCollision
                 + " vColl=" + player.verticalCollision + " touchingWater=" + player.touchingWater
                 + " fluidHeights=" + player.fluidHeight
-                + " stuckMul=" + player.stuckSpeedMultiplier + " stuckInCollider=" + player.stuckInCollider
+                + " stuckMul=" + this.player.stuckSpeedMultiplier + " consecutivelyPenetrated=" + this.player.depenetrationState.consecutivelyPenetrated()
                 + " fallDistance=" + player.fallDistance);
         log("input: vec=" + player.input + " data=" + player.getInputData()
                 + " inputMode=" + player.inputMode + " gameType=" + player.gameType);

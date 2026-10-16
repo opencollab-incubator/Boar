@@ -16,7 +16,8 @@ public class PostAuthInputPackets implements PacketListener {
             player.thisTickSpinAttack = false;
             player.doingInventoryAction = false;
 
-            if (player.vehicleData != null && player.getEntity().vehicle() == null && !player.disableMitigations()) {
+            // While leaving, the platform can drop the vehicle before we get the link removal ack.
+            if (player.vehicleData != null && !player.vehicleData.pendingLeave && player.getEntity().vehicle() == null && !player.disableMitigations()) {
                 event.setCancelled(true);
             }
 
@@ -24,8 +25,9 @@ public class PostAuthInputPackets implements PacketListener {
             // Shouldn't desync, since we already set it to be the unvalidated position if offset is close enough
             // Look at LegacyAuthInputPackets#doPostPrediction line 58
             if (!player.disableMitigations()) {
-                // Forward the destination while downstream waits for the client to receive it
-                if (player.getTeleportUtil().getPendingTeleports() > 0) {
+                // A teleport is pending, so the client has not received it yet. Send the teleport destination, not the old position.
+                // Not while riding: the position is then the vehicle position.
+                if (player.getTeleportUtil().getPendingTeleports() > 0 && player.vehicleData == null) {
                     packet.setPosition(player.getTeleportUtil().getPendingTeleportPosition().toVector3f());
                 } else {
                     packet.setPosition(player.position.add(0, player.getYOffset(), 0).toVector3f());

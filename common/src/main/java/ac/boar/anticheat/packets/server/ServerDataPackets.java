@@ -1,9 +1,11 @@
 package ac.boar.anticheat.packets.server;
 
 import ac.boar.anticheat.Boar;
+import ac.boar.anticheat.ack.types.EntityAttributesAck;
 import ac.boar.anticheat.ack.types.EntityMetadataAck;
 import ac.boar.anticheat.ack.types.GameTypeAck;
 import ac.boar.anticheat.ack.types.PlayerMetadataAck;
+import ac.boar.anticheat.ack.types.SeatOffsetAck;
 import ac.boar.anticheat.ack.types.UpdateAbilitiesAck;
 import ac.boar.anticheat.ack.types.UpdateAttributesAck;
 import ac.boar.anticheat.compensated.cache.entity.EntityCache;
@@ -18,6 +20,7 @@ import ac.boar.protocol.api.PacketListener;
 import org.cloudburstmc.protocol.bedrock.data.AttributeData;
 import org.cloudburstmc.protocol.bedrock.data.AuthoritativeMovementMode;
 import org.cloudburstmc.protocol.bedrock.data.GameType;
+import org.cloudburstmc.math.vector.Vector3f;
 import org.cloudburstmc.math.vector.Vector3i;
 import org.cloudburstmc.protocol.bedrock.data.attribute.AttributeModifierData;
 import org.cloudburstmc.protocol.bedrock.data.attribute.AttributeOperation;
@@ -40,6 +43,7 @@ public class ServerDataPackets implements PacketListener {
         switch (event.getPacket()) {
             case StartGamePacket start -> {
                 player.runtimeEntityId = start.getRuntimeEntityId();
+                player.uniqueEntityId = start.getUniqueEntityId();
                 player.sneakingEyeHeightReduction = VanillaOffsetUtil.sneakingEyeHeightReduction(start.getVanillaVersion());
 
                 final Vec3 wirePosition = new Vec3(start.getPlayerPosition());
@@ -85,6 +89,12 @@ public class ServerDataPackets implements PacketListener {
                 // Our own metadata sent with a correction: the client only uses it for the replay (it has a tick).
                 if (packet == player.correctionMetadataPacket) {
                     return;
+                }
+
+                // Where we sit on a vehicle. The server sends it right before the link, and while riding.
+                final Vector3f seatOffset = packet.getMetadata().get(EntityDataTypes.SEAT_OFFSET);
+                if (seatOffset != null) {
+                    player.queueAcknowledgment(new SeatOffsetAck(seatOffset));
                 }
 
                 if (player.vehicleData != null) {
@@ -137,6 +147,12 @@ public class ServerDataPackets implements PacketListener {
                             + " width=" + width + " height=" + height + " scale=" + scale);
                 }
                 player.queueAcknowledgment(acknowledgment);
+            }
+            case UpdateAttributesPacket packet when packet.getRuntimeEntityId() != player.runtimeEntityId -> {
+                final EntityCache entity = player.compensatedWorld.getTrackedEntity(packet.getRuntimeEntityId());
+                if (entity != null) {
+                    player.queueAcknowledgment(new EntityAttributesAck(packet.getAttributes(), entity));
+                }
             }
             case UpdateAttributesPacket packet when packet.getRuntimeEntityId() == player.runtimeEntityId -> {
                 if (!packet.getAttributes().isEmpty()) {
