@@ -3,6 +3,7 @@ package ac.boar.anticheat.collision;
 import ac.boar.anticheat.data.block.BoarBlockState;
 import ac.boar.anticheat.data.inventory.BoarItemStack;
 import ac.boar.anticheat.player.BoarPlayer;
+import ac.boar.anticheat.util.block.BlockUtil;
 import ac.boar.anticheat.util.math.Axis;
 import ac.boar.anticheat.util.math.Box;
 import ac.boar.anticheat.util.math.Direction;
@@ -206,8 +207,12 @@ public class BedrockCollision {
         }
 
         if (BlockMappings.get().getDoorBlocks().contains(state.block())) {
-            Direction direction = state.get(Properties.HORIZONTAL_FACING);
-            boolean bl = !state.get(Properties.OPEN);
+            BoarBlockState bottom = player.compensatedWorld.getBlockState(BlockUtil.getDoorBottom(player, vector3i, state), 0);
+            if (!bottom.is(state.block())) {
+                bottom = state;
+            }
+            Direction direction = bottom.get(Properties.HORIZONTAL_FACING);
+            boolean bl = !bottom.get(Properties.OPEN);
             boolean bl2 = state.get(Properties.DOOR_HINGE).equalsIgnoreCase("right");
 
             switch (direction) {

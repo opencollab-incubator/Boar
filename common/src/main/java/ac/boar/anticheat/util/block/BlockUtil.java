@@ -10,6 +10,14 @@ import org.cloudburstmc.protocol.bedrock.packet.UpdateBlockPacket;
 
 public final class BlockUtil {
 
+    public static Vector3i getDoorBottom(BoarPlayer player, Vector3i pos, BoarBlockState state) {
+        int below = 0;
+        while (below < 16 && player.compensatedWorld.getBlockState(pos.getX(), pos.getY() - below - 1, pos.getZ(), 0).is(state.block())) {
+            below++;
+        }
+        return below % 2 == 1 ? pos.sub(0, 1, 0) : pos;
+    }
+
     public static void restoreCorrectBlock(BoarPlayer player, Vector3i vector, BoarBlockState blockState) {
         if (player.disableMitigations()) {
             return;

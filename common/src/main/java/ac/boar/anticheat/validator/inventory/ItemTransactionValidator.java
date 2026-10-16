@@ -178,7 +178,13 @@ public final class ItemTransactionValidator {
                 }
 
                 float distance = player.position.toVector3f().distanceSquared(position.getX(), position.getY(), position.getZ());
-                if (!MathUtil.isValid(position) || distance > 12 * 12 && position.getX() + position.getY() + position.getZ() != 0) {
+                boolean isValidPos = MathUtil.isValid(position);
+                if (!isValidPos || distance > 12 * 12 && position.getX() + position.getY() + position.getZ() != 0) {
+                    if (isValidPos) {
+                        BlockUtil.restoreCorrectBlock(player, BlockUtil.getBlockPosition(position, packet.getBlockFace()));
+                        BlockUtil.restoreCorrectBlock(player, position);
+                        placementDebug("denied clicked=" + position + " face=" + packet.getBlockFace() + " reason=too far from " + player.position + ", resynced");
+                    }
                     return fail("ITEM_USE: invalid block position " + position + ", distanceSq=" + distance + ", playerPos=" + player.position);
                 }
 
@@ -322,6 +328,16 @@ public final class ItemTransactionValidator {
                                 player.compensatedWorld.updateBlock(position, 0,
                                         player.mappingInfo.fromIntermediary().applyAsInt(boarState.with(Properties.OPEN, !open).intermediaryId()));
                                 result = InteractionResult.SUCCESS;
+
+                                if (BlockMappings.get().getDoorBlocks().contains(block)) {
+                                    final Vector3i bottomPos = BlockUtil.getDoorBottom(player, position, boarState);
+                                    final BoarBlockState bottom = player.compensatedWorld.getBlockState(bottomPos, 0);
+                                    if (!bottomPos.equals(position) && bottom.is(block)) {
+                                        final boolean bottomOpen = !bottom.get(Properties.OPEN);
+                                        player.compensatedWorld.updateBlock(bottomPos, 0, player.mappingInfo.fromIntermediary().applyAsInt(bottom.with(Properties.OPEN, bottomOpen).intermediaryId()));
+                                        placementDebug("door top clicked=" + position + " -> bottom " + bottomPos + " open=" + bottomOpen);
+                                    }
+                                }
                             }
 
                             if (result != InteractionResult.TRY_WITH_EMPTY_HAND) {
