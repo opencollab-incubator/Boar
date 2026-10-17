@@ -4,8 +4,9 @@ import ac.boar.anticheat.util.Reference;
 import ac.boar.anticheat.util.ReferencePopulator;
 import ac.boar.mappings.item.Item;
 import ac.boar.mappings.item.ItemMappings;
+import org.geysermc.geyser.api.util.Identifier;
 import org.geysermc.geyser.item.Items;
-import org.geysermc.geyser.registry.Registries;
+import org.geysermc.geyser.registry.java.BuiltInJavaRegistries;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -59,8 +60,10 @@ public final class GeyserItemMappings implements ItemMappings {
     }
 
     public static void finalizeItemMappings(ReferencePopulator<Item> populator) {
-        for (org.geysermc.geyser.item.type.Item item : Registries.JAVA_ITEMS.get()) {
-            String key = item.javaIdentifier();
+        for (org.geysermc.geyser.item.type.Item item : BuiltInJavaRegistries.ITEM) {
+            final Identifier identifier = item.javaIdentifier();
+
+            String key = identifier.namespace() + ':' + identifier.path();
             Reference<Item> ref = populator.get(key);
             if (ref != null) {
                 populator.populate(key, new GeyserItem(item));
