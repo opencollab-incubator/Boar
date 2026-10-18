@@ -32,6 +32,7 @@ import ac.boar.anticheat.compensated.cache.container.ContainerCache;
 import ac.boar.anticheat.compensated.cache.container.impl.TradeContainerCache;
 import ac.boar.anticheat.compensated.cache.entity.EntityCache;
 import ac.boar.anticheat.data.EntityDimensions;
+import ac.boar.anticheat.data.block.BoarBlockState;
 import ac.boar.anticheat.data.inventory.ItemCache;
 import ac.boar.anticheat.data.vanilla.AttributeInstance;
 import ac.boar.anticheat.data.vanilla.StatusEffect;
@@ -41,6 +42,8 @@ import ac.boar.anticheat.prediction.engine.data.Vector;
 import ac.boar.anticheat.prediction.engine.data.VectorType;
 import ac.boar.anticheat.util.geyser.BlockEntityInfo;
 import ac.boar.anticheat.util.geyser.BoarChunk;
+import ac.boar.mappings.block.BlockMappings;
+import ac.boar.mappings.block.Properties;
 import org.cloudburstmc.math.vector.Vector3i;
 import org.cloudburstmc.protocol.bedrock.data.Ability;
 import org.cloudburstmc.protocol.bedrock.data.AbilityLayer;
@@ -118,6 +121,18 @@ public final class BoarDefaultAcknowledgments {
     }
 
     private static void handleBlockUpdate(BoarPlayer player, BlockUpdateAck ack) {
+        // Track a shulker box lid starting or stopping to move: while it animates, the bedrock
+        // player gets pushed by the lid, which the java collision view does not know about.
+        if (ack.layer() == 0) {
+            final BoarBlockState oldState = player.compensatedWorld.getBlockState(ack.position(), 0);
+            if (BlockMappings.get().getShulkerBlocks().contains(oldState.block())) {
+                final BoarBlockState newState = BoarBlockState.create(player.fromRawBlockId(ack.runtimeId()), ack.position(), 0);
+                if (BlockMappings.get().getShulkerBlocks().contains(newState.block()) && !Objects.equals(oldState.get(Properties.OPEN), newState.get(Properties.OPEN))) {
+                    player.shulkerAnimationTicks = 10;
+                }
+            }
+        }
+
         player.compensatedWorld.updateBlock(ack.position(), ack.layer(), ack.runtimeId());
     }
 

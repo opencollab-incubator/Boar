@@ -159,6 +159,10 @@ public class PlayerData {
     public boolean nearBamboo;
     public boolean nearDripstone;
 
+    // The lid of a shulker box pushes the bedrock player while it animates, which java collision
+    // does not do, so the prediction needs a few ticks of lenience after an open/close update.
+    public int shulkerAnimationTicks;
+
     public boolean beingPushByLava;
 
     public final Map<Fluid, Float> fluidHeight = new HashMap<>();
