@@ -7,6 +7,7 @@ import ac.boar.anticheat.compensated.cache.container.ContainerCache;
 import ac.boar.anticheat.compensated.cache.container.impl.TradeContainerCache;
 import ac.boar.anticheat.compensated.cache.entity.EntityCache;
 import ac.boar.anticheat.data.EntityDimensions;
+import ac.boar.anticheat.data.block.BoarBlockState;
 import ac.boar.anticheat.data.effect.Effect;
 import ac.boar.anticheat.data.inventory.ItemCache;
 import ac.boar.anticheat.data.inventory.SlotSnapshot;
@@ -53,6 +54,7 @@ import org.cloudburstmc.protocol.bedrock.packet.RespawnPacket;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.OptionalInt;
 
 public final class BoarDefaultAcknowledgments {
 
@@ -235,25 +237,80 @@ public final class BoarDefaultAcknowledgments {
         if (ack.entity() != null && vehicle != null && vehicle.vehicleUniqueId == ack.uniqueEntityId()
                 && player.compensatedWorld.getEntity(vehicle.vehicleRuntimeId) == ack.entity()) {
             player.horseJumpInput.invalidate();
+            // Decide the exit before endRide. It reads the ride and the seat.
+            final RemovedVehicleExit exit = removedVehicleExit(player, vehicle, ack.entity());
             // A removal ends the ride like a link removal, so apply the dismount teleport the same way as in handleVehicleClear.
-            endRide(player, vehicle, ack.lastTeleport());
+            final boolean teleported = endRide(player, vehicle, ack.lastTeleport());
+            if (exit != null && !teleported) {
+                player.setPos(exit.feet());
+                // Store the client's float, like AuthInputPackets.leaveRide.
+                player.nativeOriginY = exit.actorY();
+                player.getMovementTrace().log("ride: vehicle removed, exit at the rider's body point feet=" + exit.feet() + " actorY=" + exit.actorY());
+            }
         }
         player.compensatedWorld.removeEntity(ack.uniqueEntityId(), ack.entity());
     }
 
+    // The rider's exit pose after the server removed the ridden vehicle: feet position and the actor (eye) Y the client stores.
+    private record RemovedVehicleExit(Vec3 feet, float actorY) {}
+
+    /**
+     * Where the client puts the rider when the server removes the vehicle under it, or null when we cannot tell.
+     * Client: ExitVehicleSystemImpl::_tickExitVehicle, for a vehicle with ActorIsBeingDestroyedFlagComponent. Without
+     * ExitFromPassengerFlagComponent it uses VehicleUtils::testPosFollowingLegacyActorPattern: it tries the vehicle's cell
+     * plus (0,0,0), (0,1,0), (0,2,0). A try fails when VehicleUtils::calculateBlockFloorHeight finds no floor.
+     * When all tries fail, the rider goes to its Body attach point (GetAttachPositionUtility::getAttachPosition),
+     * plus its height offset, plus 0.001 on Y.
+     */
+    private static RemovedVehicleExit removedVehicleExit(final BoarPlayer player, final VehicleData vehicle, final EntityCache entity) {
+        final var current = entity.getCurrent();
+        if (current == null || vehicle.ticks == 0 || VehicleTicker.clientSimulates(player, vehicle)
+                || entity.hasFlag(EntityFlag.DOES_SERVER_AUTH_ONLY_DISMOUNT) || current.getPos().distanceTo(current.getPrevPos()) != 0) {
+            return null;
+        }
+        final float y = current.getPos().y + entity.getYOffset();
+        final int cellX = (int) ((float) (int) current.getPos().x + 0.5F), cellY = (int) y, cellZ = (int) ((float) (int) current.getPos().z + 0.5F);
+        for (int dy = -1; dy <= 2; dy++) {
+            if (!knownAir(player, cellX, cellY + dy, cellZ)) {
+                return null;
+            }
+        }
+        final float riderOffset = player.getPlayerYOffset();
+        final float bodyY = player.nativeOriginY - riderOffset + player.dimensions.height() * 0.5F;
+        final float actorY = riderOffset + bodyY + 0.001F;
+        return new RemovedVehicleExit(new Vec3(player.position.x, actorY - riderOffset, player.position.z), actorY);
+    }
+
+    private static boolean knownAir(final BoarPlayer player, final int x, final int y, final int z) {
+        for (int layer = 0; layer <= 1; layer++) {
+            final OptionalInt raw = player.compensatedWorld.getKnownMappedRawBlockAt(x, y, z, layer);
+            if (raw.isEmpty() || !BoarBlockState.create(player.fromRawBlockId(raw.getAsInt()), Vector3i.from(x, y, z), layer).isAir()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     // Ends the ride and applies its dismount teleport, if there is one. Without it, the position stays in the seat's coordinates.
     // Callers reset the jump input first. Each caller has its own rule for that.
-    private static void endRide(final BoarPlayer player, final VehicleData vehicle, final TeleportData lastTeleport) {
+    // Returns true when it applied a dismount teleport.
+    private static boolean endRide(final BoarPlayer player, final VehicleData vehicle, final TeleportData lastTeleport) {
         player.vehicleData = null;
         // While riding, player.velocity was the controlled vehicle's velocity. The rider has its own frozen velocity.
         player.velocity = Vec3.ZERO.clone();
+        // While riding, setPos does not move the box (PlayerData.setPos), so it is still where the ride started. Move it to the position,
+        // and drop the cached block at the old position, like setPos does. A dismount teleport below moves both again.
+        player.setBoundingBox(player.position);
+        player.inBlockState = null;
 
         // A teleport accepted while riding only counts if it is the one the server sent right before the dismount.
         final TeleportData accepted = player.getTeleportUtil().takeAcceptedTeleport();
         final TeleportData candidate = accepted != null ? accepted : vehicle.parkedTeleport;
         if (candidate != null && candidate == lastTeleport) {
             player.getTeleportUtil().apply(candidate);
+            return true;
         }
+        return false;
     }
 
     // An ordinary move (not a teleport or forced move) of this boat while the player is its first passenger.
