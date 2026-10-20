@@ -429,7 +429,7 @@ public final class ItemTransactionValidator {
 
                             if (known) {
                                 // System.out.println(player.getSession().getBlockMappings().getBedrockBlock(mappedBlock.defaultBlockState().javaId()));
-                                BoarBlockState state1 = BlockUtil.getPlacementState(player, mappedBlock, packet.getBlockPosition());
+                                BoarBlockState state1 = BlockUtil.getPlacementState(player, mappedBlock, packet.getBlockPosition(), blockFace);
                                 final int placedRuntimeId = player.mappingInfo.fromIntermediary().applyAsInt(state1.intermediaryId());
 
                                 // Don't place block if position is obstructed

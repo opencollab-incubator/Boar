@@ -82,7 +82,9 @@ public class GeyserBoarBlockStateDelegate implements BoarBlockStateDelegate {
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
     public <T extends Comparable<T>> BoarBlockState with(Property<T> property, T value) {
-        BlockState newState = this.state.withValue((org.geysermc.geyser.level.block.property.Property) ((GeyserProperty<T>) property).handle(), value);
+        GeyserProperty<T> geyserProperty = (GeyserProperty<T>) property;
+        Object raw = geyserProperty.reverter() != null ? geyserProperty.reverter().apply(value) : value;
+        BlockState newState = this.state.withValue((org.geysermc.geyser.level.block.property.Property) geyserProperty.handle(), (Comparable) raw);
         return BoarBlockState.create(newState.javaId(), this.position, this.layer);
     }
 

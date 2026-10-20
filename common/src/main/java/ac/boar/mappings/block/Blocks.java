@@ -35,6 +35,7 @@ public final class Blocks {
     public static final Reference<Block> HONEY_BLOCK = create("honey_block");
     public static final Reference<Block> ICE = create("ice");
     public static final Reference<Block> INVISIBLE_BEDROCK = create("invisible_bedrock");
+    public static final Reference<Block> LADDER = create("ladder");
     public static final Reference<Block> LAVA = create("lava");
     public static final Reference<Block> LECTERN = create("lectern");
     public static final Reference<Block> LEVER = create("lever");

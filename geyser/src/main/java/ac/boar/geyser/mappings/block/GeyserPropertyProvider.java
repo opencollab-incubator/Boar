@@ -18,7 +18,8 @@ public class GeyserPropertyProvider implements PropertyProvider {
             case "bites" -> new GeyserProperty(Properties.BITES);
             case "chest_type" -> new GeyserProperty<>(
                     Properties.CHEST_TYPE,
-                    raw -> (T) ac.boar.mappings.block.ChestType.VALUES[((ChestType) raw).ordinal()]
+                    raw -> (T) ac.boar.mappings.block.ChestType.VALUES[((ChestType) raw).ordinal()],
+                    value -> ChestType.values()[((ac.boar.mappings.block.ChestType) value).ordinal()]
             );
             case "door_hinge" -> new GeyserProperty(Properties.DOOR_HINGE);
             case "drag" -> new GeyserProperty(Properties.DRAG);
@@ -28,7 +29,8 @@ public class GeyserPropertyProvider implements PropertyProvider {
             case "has_book" -> new GeyserProperty(Properties.HAS_BOOK);
             case "horizontal_facing" -> new GeyserProperty<>(
                     Properties.HORIZONTAL_FACING,
-                    raw -> (T) ac.boar.anticheat.util.math.Direction.VALUES[((Direction) raw).ordinal()]
+                    raw -> (T) ac.boar.anticheat.util.math.Direction.VALUES[((Direction) raw).ordinal()],
+                    value -> Direction.values()[((ac.boar.anticheat.util.math.Direction) value).ordinal()]
             );
             case "level" -> new GeyserProperty(Properties.LEVEL);
             case "lit" -> new GeyserProperty(Properties.LIT);
@@ -37,7 +39,8 @@ public class GeyserPropertyProvider implements PropertyProvider {
             case "vault_state" -> new GeyserProperty(Properties.VAULT_STATE);
             case "vertical_direction" -> new GeyserProperty<>(
                     Properties.VERTICAL_DIRECTION,
-                    raw -> (T) ac.boar.anticheat.util.math.Direction.VALUES[((Direction) raw).ordinal()]
+                    raw -> (T) ac.boar.anticheat.util.math.Direction.VALUES[((Direction) raw).ordinal()],
+                    value -> Direction.values()[((ac.boar.anticheat.util.math.Direction) value).ordinal()]
             );
             case "waterlogged" -> new GeyserProperty(Properties.WATERLOGGED);
             default -> throw new IllegalArgumentException("Unknown property: " + key);

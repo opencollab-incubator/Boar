@@ -2,7 +2,11 @@ package ac.boar.anticheat.util.block;
 
 import ac.boar.anticheat.data.block.BoarBlockState;
 import ac.boar.anticheat.player.BoarPlayer;
+import ac.boar.anticheat.util.math.Axis;
+import ac.boar.anticheat.util.math.Direction;
 import ac.boar.mappings.block.Block;
+import ac.boar.mappings.block.Blocks;
+import ac.boar.mappings.block.Properties;
 import org.cloudburstmc.math.vector.Vector3i;
 import org.cloudburstmc.protocol.bedrock.data.GameType;
 import org.cloudburstmc.protocol.bedrock.data.definitions.BlockDefinition;
@@ -72,8 +76,16 @@ public final class BlockUtil {
         restoreCorrectBlock(player, blockPos, player.getWorldAccessor().blockStateAt(blockPos, 0));
     }
 
-    public static BoarBlockState getPlacementState(BoarPlayer player, Block block, Vector3i position) {
-        return block.defaultBlockState(position, 0);
+    // The state a block gets when the player places it. face is the side of the clicked block (Direction ordinal).
+    // Only ladders are handled: they face away from the wall they hang on, which is the clicked side.
+    // Other blocks (stairs, slabs, logs...) still use the default state.
+    public static BoarBlockState getPlacementState(BoarPlayer player, Block block, Vector3i position, int face) {
+        BoarBlockState state = block.defaultBlockState(position, 0);
+        if (block.is(Blocks.LADDER) && face >= 0 && face < Direction.VALUES.length && Direction.VALUES[face].getAxis() != Axis.Y) {
+            state = state.with(Properties.HORIZONTAL_FACING, Direction.VALUES[face]);
+        }
+
+        return state;
     }
 
     public static boolean determineCanBreak(final BoarPlayer player, final BoarBlockState state) {
