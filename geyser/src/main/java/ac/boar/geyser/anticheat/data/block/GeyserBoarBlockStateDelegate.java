@@ -76,7 +76,7 @@ public class GeyserBoarBlockStateDelegate implements BoarBlockStateDelegate {
         }
 
         GeyserSession session = ((GeyserNetworkSession) player.getSession()).session();
-        return session.getTagCache().is(BlockTag.REPLACEABLE, this.state.block());
+        return session.javaRegistries().is(BlockTag.REPLACEABLE, this.state.block());
     }
 
     @Override
