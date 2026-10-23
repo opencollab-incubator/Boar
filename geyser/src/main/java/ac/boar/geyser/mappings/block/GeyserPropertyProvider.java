@@ -36,6 +36,7 @@ public class GeyserPropertyProvider implements PropertyProvider {
             case "lit" -> new GeyserProperty(Properties.LIT);
             case "open" -> new GeyserProperty(Properties.OPEN);
             case "respawn_anchor_charges" -> new GeyserProperty(Properties.RESPAWN_ANCHOR_CHARGES);
+            case "slab_type" -> new GeyserProperty(Properties.SLAB_TYPE);
             case "vault_state" -> new GeyserProperty(Properties.VAULT_STATE);
             case "vertical_direction" -> new GeyserProperty<>(
                     Properties.VERTICAL_DIRECTION,

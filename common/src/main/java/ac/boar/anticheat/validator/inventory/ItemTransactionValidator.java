@@ -429,11 +429,21 @@ public final class ItemTransactionValidator {
 
                             if (known) {
                                 // System.out.println(player.getSession().getBlockMappings().getBedrockBlock(mappedBlock.defaultBlockState().javaId()));
-                                BoarBlockState state1 = BlockUtil.getPlacementState(player, mappedBlock, packet.getBlockPosition(), blockFace);
+                                final float clickY = packet.getClickPosition() != null ? packet.getClickPosition().getY() : 0;
+                                BoarBlockState state1 = BlockUtil.getPlacementState(player, mappedBlock, packet.getBlockPosition(), blockFace, clickY);
+
+                                // Slab merging is skipped when the click replaces the clicked block (tall grass...), since where the client looks then is not known.
+                                final Vector3i slabMergePos = !replacesClicked && BlockUtil.getSlabType(state1) != null
+                                        ? BlockUtil.getSlabMergePosition(player, mappedBlock, position, blockFace) : null;
+                                if (slabMergePos != null) {
+                                    placePos = slabMergePos;
+                                    state1 = player.compensatedWorld.getBlockState(slabMergePos, 0)
+                                            .with(Properties.SLAB_TYPE, "double").with(Properties.WATERLOGGED, false);
+                                }
                                 final int placedRuntimeId = player.mappingInfo.fromIntermediary().applyAsInt(state1.intermediaryId());
 
                                 // Don't place block if position is obstructed
-                                final String blocker = this.findPlacementBlocker(placePos, placedRuntimeId);
+                                final String blocker = this.findPlacementBlocker(placePos, placedRuntimeId, slabMergePos != null);
                                 if (blocker != null) {
                                     placementDebug("denied placePos=" + placePos + " reason=" + blocker);
                                     BlockUtil.restoreCorrectBlock(player, placePos);
@@ -441,7 +451,7 @@ public final class ItemTransactionValidator {
                                 }
 
                                 placementDebug("attempt clicked=" + position + " face=" + blockFace + " placePos=" + placePos
-                                        + " replacesClicked=" + replacesClicked + " item=" + describe(heldItem.getData())
+                                        + " replacesClicked=" + replacesClicked + " mergesSlab=" + (slabMergePos != null) + " item=" + describe(heldItem.getData())
                                         + " prediction=" + packet.getClientInteractPrediction() + " playerBox=" + player.boundingBox);
 
                                 player.compensatedWorld.updateBlock(placePos, 0, placedRuntimeId);
@@ -594,9 +604,10 @@ public final class ItemTransactionValidator {
     );
 
     // Returns why a block can't go at this spot, or null if it can.
-    private String findPlacementBlocker(final Vector3i placePos, final int runtimeId) {
+    // mergesSlab: the spot holds a single slab that turns into a double slab. Entities still block it (SlabBlockItemUtil::convertToDoubleBlock).
+    private String findPlacementBlocker(final Vector3i placePos, final int runtimeId, final boolean mergesSlab) {
         final BoarBlockState current = player.compensatedWorld.getBlockState(placePos, 0);
-        if (!current.isReplaceable(player)) {
+        if (!mergesSlab && !current.isReplaceable(player)) {
             return "spot not replaceable (" + current.block() + ")";
         }
 

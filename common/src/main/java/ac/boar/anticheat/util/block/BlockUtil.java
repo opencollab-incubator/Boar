@@ -76,16 +76,49 @@ public final class BlockUtil {
         restoreCorrectBlock(player, blockPos, player.getWorldAccessor().blockStateAt(blockPos, 0));
     }
 
-    // The state a block gets when the player places it. face is the side of the clicked block (Direction ordinal).
-    // Only ladders are handled: they face away from the wall they hang on, which is the clicked side.
-    // Other blocks (stairs, slabs, logs...) still use the default state.
-    public static BoarBlockState getPlacementState(BoarPlayer player, Block block, Vector3i position, int face) {
+    // The state a block gets when the player places it. face is the side of the clicked block (Direction ordinal), clickY is the click height inside it.
+    // Only ladders and slabs are handled. Other blocks (stairs, logs...) still use the default state.
+    public static BoarBlockState getPlacementState(BoarPlayer player, Block block, Vector3i position, int face, float clickY) {
         BoarBlockState state = block.defaultBlockState(position, 0);
+        // Ladders face away from the wall they hang on, which is the clicked side.
         if (block.is(Blocks.LADDER) && face >= 0 && face < Direction.VALUES.length && Direction.VALUES[face].getAxis() != Axis.Y) {
             state = state.with(Properties.HORIZONTAL_FACING, Direction.VALUES[face]);
         }
 
+        // Slabs go on top against a bottom face, at the bottom against a top face, and otherwise follow the click height (UpdateVerticalHalfGetPlacementBlockCallback::getPlacementBlock).
+        if (getSlabType(state) != null) {
+            boolean top = face == Direction.DOWN.ordinal() || face != Direction.UP.ordinal() && clickY > 0.5F;
+            state = state.with(Properties.SLAB_TYPE, top ? "top" : "bottom");
+        }
+
         return state;
+    }
+
+    // Where a slab item turns a single slab of the same block into a double slab, or null if it does not (SlabBlockItem::_useOn)
+    public static Vector3i getSlabMergePosition(BoarPlayer player, Block slab, Vector3i clicked, int face) {
+        BoarBlockState clickedState = player.compensatedWorld.getBlockState(clicked, 0);
+        String clickedType = clickedState.is(slab) ? getSlabType(clickedState) : null;
+        if ("bottom".equals(clickedType) && face == Direction.UP.ordinal() || "top".equals(clickedType) && face == Direction.DOWN.ordinal()) {
+            return clicked;
+        }
+
+        Vector3i next = getBlockPosition(clicked, face);
+        BoarBlockState nextState = player.compensatedWorld.getBlockState(next, 0);
+        String nextType = nextState.is(slab) ? getSlabType(nextState) : null;
+        if ("bottom".equals(nextType) || "top".equals(nextType)) {
+            return next;
+        }
+
+        return null;
+    }
+
+    // "top", "bottom" or "double" for a slab, or null for any other block. Some platforms throw for a block without this property.
+    public static String getSlabType(BoarBlockState state) {
+        try {
+            return state.get(Properties.SLAB_TYPE);
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
     }
 
     public static boolean determineCanBreak(final BoarPlayer player, final BoarBlockState state) {

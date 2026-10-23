@@ -19,6 +19,7 @@ public final class Properties {
     public static final Property<Boolean> LIT = create("lit");
     public static final Property<Boolean> OPEN = create("open");
     public static final Property<Integer> RESPAWN_ANCHOR_CHARGES = create("respawn_anchor_charges");
+    public static final Property<String> SLAB_TYPE = create("slab_type");
     public static final Property<String> VAULT_STATE = create("vault_state");
     public static final Property<Direction> VERTICAL_DIRECTION = create("vertical_direction");
     public static final Property<Boolean> WATERLOGGED = create("waterlogged");
