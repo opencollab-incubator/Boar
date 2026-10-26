@@ -43,6 +43,9 @@ public interface BlockMappings {
 
     List<Block> getCauldronBlocks();
 
+    // Blocks that are used instead of the held item when pressed on without sneaking (see InteractiveBlocks)
+    List<Block> getInteractiveBlocks();
+
     Map<Item, Block> getItemToBlock();
 
     static BlockMappings get() {
