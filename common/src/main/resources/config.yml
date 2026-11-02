@@ -81,6 +81,11 @@ max-latency-wait: 15000
 # To disable (which you probably shouldn't), set this to any value smaller or equals to 0.
 max-balance-advantage: 8500
 
+# How many ghost blocks (blocks the server refused to place, which only the player can see) can be placed against each other before Boar stops more placements on them.
+# Without a limit, a cheater can keep building on ghost blocks to look like they fly, since other players can't see them.
+# Set this to -1 to allow any amount of ghost blocks. 0 works the same as 1, and values above 100 work the same as -1.
+max-ghost-block-chain: 10
+
 # Should debug mode be enabled or not?
 debug-mode: false
 

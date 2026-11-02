@@ -61,6 +61,9 @@ public final class Config {
     @JsonProperty("correction-flag-cooldown-ticks")
     @JsonSetter(nulls = Nulls.SKIP)
     private int correctionFlagCooldownTicks = 100;
+    @JsonProperty("max-ghost-block-chain")
+    @JsonSetter(nulls = Nulls.SKIP)
+    private int maxGhostBlockChain = 10;
     @JsonProperty("debug-mode")
     @JsonSetter(nulls = Nulls.SKIP)
     private boolean debugMode;
@@ -131,6 +134,10 @@ public final class Config {
 
     public int correctionFlagCooldownTicks() {
         return Math.max(0, correctionFlagCooldownTicks);
+    }
+
+    public int maxGhostBlockChain() {
+        return maxGhostBlockChain;
     }
 
     public boolean debugMode() {

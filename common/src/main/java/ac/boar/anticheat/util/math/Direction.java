@@ -21,6 +21,13 @@ public enum Direction {
         this.unitVector = unitVector;
     }
 
+    public static Direction fromInt(int axis) {
+        if (axis < 0 || axis > 5) {
+            throw new IllegalArgumentException("face range must be between 0 and 5, got " + axis);
+        }
+        return VALUES[axis];
+    }
+
     public Axis getAxis() {
         return axis;
     }
@@ -28,4 +35,16 @@ public enum Direction {
     public Vector3i getUnitVector() {
         return this.unitVector;
     }
+
+    public Direction getOpposite() {
+        return switch (this) {
+            case DOWN -> UP;
+            case UP -> DOWN;
+            case NORTH -> SOUTH;
+            case SOUTH -> NORTH;
+            case WEST -> EAST;
+            case EAST -> WEST;
+        };
+    }
+
 }

@@ -353,18 +353,28 @@ public final class ItemTransactionValidator {
                         }
 
                         if (boarState.isAir() && !player.blockPlacements.isUnansweredPlacement(position)) {
-                            // Player seems to be able to do this... on Vanilla, and even claimed "yeah the block definition for this is air".
-                            // Well an advantage is an advantage... resync.
+                            // The player can "click" against AIR during SIMULATION_TICK placements, as MCBE's block chaining does not care if the block is air or not.
                             BlockUtil.restoreCorrectBlock(player, newBlockPos);
                             BlockUtil.restoreCorrectBlock(player, packet.getBlockPosition());
 
-                            placementDebug("denied clicked=" + position + " face=" + blockFace + " reason=clicked block is air, resynced");
 
                             // At high ping the server can briefly turn a block the client stands on back into air (optimistic block updates for surrounding blocks)
                             // Just keep the click from reaching the server for now
                             this.shouldDropPacket = true;
+                            placementDebug("denied clicked=" + position + " face=" + blockFace + " reason=clicked block is air, resynced");
                             if (Boar.getInstance().getPlatform().developerDebug()) {
                                 sendPopup("§cPLACE_AIR (" + position.getX() + ", " + position.getY() + ", " + position.getZ() + ")");
+                            }
+                            return true;
+                        }
+
+                        if (player.blockPlacements.exceedsGhostBlockChain(position)) {
+                            BlockUtil.restoreCorrectBlock(player, newBlockPos);
+                            BlockUtil.restoreCorrectBlock(player, packet.getBlockPosition());
+                            this.shouldDropPacket = true;
+                            placementDebug("denied clicked=" + position + " face=" + blockFace + " reason=clicked block is a refused ghost block");
+                            if (Boar.getInstance().getPlatform().developerDebug()) {
+                                sendPopup("§cGHOST_BLOCK (" + position.getX() + ", " + position.getY() + ", " + position.getZ() + ")");
                             }
                             return true;
                         }
@@ -454,8 +464,8 @@ public final class ItemTransactionValidator {
                                         + " replacesClicked=" + replacesClicked + " mergesSlab=" + (slabMergePos != null) + " item=" + describe(heldItem.getData())
                                         + " prediction=" + packet.getClientInteractPrediction() + " playerBox=" + player.boundingBox);
 
+                                player.blockPlacements.onClientPlace(placePos, packet.getBlockPosition(), Direction.fromInt(packet.getBlockFace()), player.compensatedWorld.getRawBlockAt(placePos.getX(), placePos.getY(), placePos.getZ(), 0));
                                 player.compensatedWorld.updateBlock(placePos, 0, placedRuntimeId);
-                                player.blockPlacements.onClientPlace(placePos);
                                 placementDebug("placed placePos=" + placePos + " runtimeId=" + placedRuntimeId);
                             } else {
                                 placementDebug("unknown block... not mapped (or inv handling)? item=" + describe(packet.getItemInHand()));

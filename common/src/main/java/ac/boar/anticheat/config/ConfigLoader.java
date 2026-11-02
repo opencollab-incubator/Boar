@@ -72,6 +72,7 @@ public class ConfigLoader {
                         s = s.replace("disabled-checks: []", "disabled-checks: " + Arrays.toString(config.disabledChecks().toArray(new String[0])));
                         s = s.replace("disable-mitigations: false", "disable-mitigations: " + config.disableMitigations());
                         s = s.replace("differ-till-alert: 0.0", "differ-till-alert: " + config.alertThreshold());
+                        s = s.replace("max-ghost-block-chain: 10", "max-ghost-block-chain: " + config.maxGhostBlockChain());
                         s = s.replace("debug-mode: false", "debug-mode: " + config.debugMode());
                         s = s.replace("static-seat-identifiers: []",
                                 "static-seat-identifiers: " + new ObjectMapper().writeValueAsString(config.staticSeatIdentifiers()));
