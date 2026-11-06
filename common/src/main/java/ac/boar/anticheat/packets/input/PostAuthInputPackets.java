@@ -43,6 +43,7 @@ public class PostAuthInputPackets implements PacketListener {
             }
 
             if (player.tickSinceBlockResync > 0) player.tickSinceBlockResync--;
+            if (player.shulkerAnimationTicks > 0) player.shulkerAnimationTicks--;
             player.getTeleportUtil().pollRewindHistory();
         }
     }

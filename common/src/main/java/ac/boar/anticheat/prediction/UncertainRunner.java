@@ -190,6 +190,20 @@ public class UncertainRunner {
             extra = offset;
         }
 
+        // A shulker box lid pushes the bedrock player up while it opens (and down while it closes),
+        // but the java collision boxes the prediction runs against never reproduce that push, so the
+        // player ends up higher than predicted during the animation. The lid's push tops out at half
+        // a block, so only cover offsets within that range, and keep the usual horizontal checks
+        // (no extra horizontal speed, same direction) so this cannot be abused for free movement.
+        boolean shulkerHorizontalNotExceeded = actual.horizontalLength() <= predicted.horizontalLength();
+        boolean shulkerHorizontalSaneDir = (MathUtil.sign(actual.x) == MathUtil.sign(predicted.x) || actual.x == 0)
+                && (MathUtil.sign(actual.z) == MathUtil.sign(predicted.z) || actual.z == 0);
+        if (player.shulkerAnimationTicks > 0
+                && Math.abs(player.position.y - player.unvalidatedPosition.y) <= 0.5F + player.getMaxOffset()
+                && shulkerHorizontalNotExceeded && shulkerHorizontalSaneDir) {
+            extra = offset;
+        }
+
         return extra;
     }
 }
