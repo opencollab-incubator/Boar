@@ -158,7 +158,8 @@ public final class ItemTransactionValidator {
                 boolean noActions = packet.getActions().isEmpty();
                 if (!noActions) {
                     for (final InventoryActionData action : packet.getActions()) {
-                        if (action.getSlot() < 0 || action.getSlot() > 8) {
+                        // Not only the hotbar: a filled bucket goes to the main inventory when the hotbar is full.
+                        if (action.getSlot() < 0 || action.getSlot() >= inventory.inventoryContainer.getContainerSize()) {
                             return fail("ITEM_USE: action slot out of bounds: " + action.getSlot());
                         }
 
@@ -423,8 +424,9 @@ public final class ItemTransactionValidator {
                             }
 
                             player.compensatedWorld.updateBlock(position, layer, player.mappingInfo.airId());
-                            BoarItemStack stack = BoarItemStack.of(player.getSession(), itemRef, 1);
-                            inventory.inventoryContainer.set(inventory.heldItemSlot, stack.toItemData(player.getSession()));
+                            if (player.gameType != GameType.CREATIVE) {
+                                fillHeldBucket(inventory, heldItem, BoarItemStack.of(player.getSession(), itemRef, 1).toItemData(player.getSession()));
+                            }
                         }
 
                         if (item.isBlock()) { // Handle block item after bucket.
@@ -676,6 +678,23 @@ public final class ItemTransactionValidator {
         packet.setMessage(message);
         packet.setXuid("");
         player.getConnection().sendPacket(packet);
+    }
+
+    // Same as BucketItem::_useOn: one empty bucket comes off the held stack. The filled bucket takes the held slot if the stack ran out,
+    // else the first empty inventory slot (hotbar first). With no empty slot it is dropped.
+    private static void fillHeldBucket(final CompensatedInventory inventory, final ItemCache held, final ItemData filled) {
+        held.count(held.count() - 1);
+        if (held.isEmpty()) {
+            inventory.inventoryContainer.set(inventory.heldItemSlot, filled);
+            return;
+        }
+
+        for (int slot = 0; slot < inventory.inventoryContainer.getContainerSize(); slot++) {
+            if (inventory.inventoryContainer.get(slot).isEmpty()) {
+                inventory.inventoryContainer.set(slot, filled);
+                return;
+            }
+        }
     }
 
     private static boolean canHoldWater(final BoarBlockState state) {
