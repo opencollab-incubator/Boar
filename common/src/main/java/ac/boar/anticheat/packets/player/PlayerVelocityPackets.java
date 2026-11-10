@@ -15,28 +15,21 @@ public class PlayerVelocityPackets implements PacketListener {
     public void onPacketSend(final CloudburstPacketEvent event) {
         final BoarPlayer player = event.getPlayer();
 
-        // Yes only this, there no packet for explosion (for bedrock), geyser translate explosion directly to SetEntityMotionPacket
-        if (event.getPacket() instanceof SetEntityMotionPacket packet) {
-            if (packet.getRuntimeEntityId() != player.runtimeEntityId) {
-                return;
+        switch (event.getPacket()) {
+            case SetEntityMotionPacket packet when packet.getRuntimeEntityId() == player.runtimeEntityId -> {
+                player.sendLatencyStack(new VelocityAck(new Vec3(packet.getMotion())));
             }
+            case MovementEffectPacket packet -> {
+                if (packet.getEntityRuntimeId() != player.runtimeEntityId || packet.getEffectType() != MovementEffectType.GLIDE_BOOST) {
+                    return;
+                }
 
-            // I think there is some rewind like behavior when there is ehm the tick is not 0, so just default back to 0 till I figure it out.
-            packet.setTick(0);
-
-            player.sendLatencyStack(new VelocityAck(new Vec3(packet.getMotion())));
-        }
-
-        if (event.getPacket() instanceof MovementEffectPacket packet) {
-            if (packet.getEntityRuntimeId() != player.runtimeEntityId || packet.getEffectType() != MovementEffectType.GLIDE_BOOST) {
-                return;
+                // If you have rewind history that is not 0 and send tick id 0 this will fucked up the movement~~~:tm:
+                // Well anyway.... if you just send a valid tick id or send an invalid id it works fine :D
+                packet.setTick(Integer.MIN_VALUE);
+                player.sendLatencyStack(new GlideBoostAck(packet.getDuration()));
             }
-
-            // If you have rewind history that is not 0 and send tick id 0 this will fucked up the movement~~~:tm:
-            // Well anyway.... if you just send a valid tick id or send an invalid id it works fine :D
-            packet.setTick(Integer.MIN_VALUE);
-
-            player.sendLatencyStack(new GlideBoostAck(packet.getDuration()));
+            default -> {}
         }
     }
 }

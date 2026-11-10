@@ -51,6 +51,13 @@ public record GeyserNetworkSession(GeyserSession session) implements NetworkSess
         return this.session.platform() == BedrockPlatform.PS4;
     }
 
+    // TODO: Only Windows and Android are tested in game and Xbox is assumed to match Windows. Needs more testing.
+    @Override
+    public boolean wideRandomOffsetSeed() {
+        final BedrockPlatform platform = this.session.platform();
+        return platform == BedrockPlatform.UWP || platform == BedrockPlatform.WIN32 || platform == BedrockPlatform.XBOX;
+    }
+
     @Override
     public int protocolVersion() {
         return this.session.protocolVersion();

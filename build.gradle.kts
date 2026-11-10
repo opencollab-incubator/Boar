@@ -13,7 +13,11 @@ plugins {
 
 allprojects {
     group = "ac.boar"
-    version = "2.0.1-SNAPSHOT"
+    // dev2 is the CubeCraft-focused branch. CI publishes this version to
+    // repo.opencollab.dev/maven-snapshots on each dev2 push, so consumers can
+    // pin "dev2-SNAPSHOT" and always get the latest dev2 build. Master keeps
+    // its own semver snapshot version.
+    version = "dev2-SNAPSHOT"
 }
 
 subprojects {
@@ -45,6 +49,10 @@ subprojects {
         mitLicense()
 
         javaVersions {
+            // Strict mode makes indra pin the compile toolchain to exactly 21.
+            // Without it, indra compiles with whatever JDK runs Gradle, and
+            // Lombok breaks inside newer javac versions (for example JDK 26).
+            strictVersions(true)
             target(21)
         }
 

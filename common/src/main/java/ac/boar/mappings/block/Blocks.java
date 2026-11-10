@@ -11,6 +11,7 @@ public final class Blocks {
     public static final Reference<Block> BAMBOO = create("bamboo");
     public static final Reference<Block> BAMBOO_SAPLING = create("bamboo_sapling");
     public static final Reference<Block> BARREL = create("barrel");
+    public static final Reference<Block> BARRIER = create("barrier");
     public static final Reference<Block> BEACON = create("beacon");
     public static final Reference<Block> BELL = create("bell");
     public static final Reference<Block> BLAST_FURNACE = create("blast_furnace");
@@ -33,9 +34,12 @@ public final class Blocks {
     public static final Reference<Block> FURNACE = create("furnace");
     public static final Reference<Block> HONEY_BLOCK = create("honey_block");
     public static final Reference<Block> ICE = create("ice");
+    public static final Reference<Block> INVISIBLE_BEDROCK = create("invisible_bedrock");
+    public static final Reference<Block> LADDER = create("ladder");
     public static final Reference<Block> LAVA = create("lava");
     public static final Reference<Block> LECTERN = create("lectern");
     public static final Reference<Block> LEVER = create("lever");
+    public static final Reference<Block> LILY_PAD = create("lily_pad");
     public static final Reference<Block> NOTE_BLOCK = create("note_block");
     public static final Reference<Block> PACKED_ICE = create("packed_ice");
     public static final Reference<Block> POINTED_DRIPSTONE = create("pointed_dripstone");
@@ -47,6 +51,7 @@ public final class Blocks {
     public static final Reference<Block> SEA_PICKLE = create("sea_pickle");
     public static final Reference<Block> SEA_LANTERN = create("sea_lantern");
     public static final Reference<Block> SLIME_BLOCK = create("slime_block");
+    public static final Reference<Block> SNOW = create("snow");
     public static final Reference<Block> SOUL_SAND = create("soul_sand");
     public static final Reference<Block> SWEET_BERRY_BUSH = create("sweet_berry_bush");
     public static final Reference<Block> TNT = create("tnt");

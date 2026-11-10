@@ -26,7 +26,7 @@ public class PlayerContainerCache extends ContainerCache {
     }
 
     public ItemCache getItemFromSlot(final int slot) {
-        if (slot < 0 || slot > 8 || slot >= this.getContainerSize()) {
+        if (slot < 0 || slot >= this.getContainerSize()) {
             return ItemCache.AIR;
         }
 

@@ -3,6 +3,7 @@ package ac.boar.anticheat.util.geyser;
 import io.netty.buffer.ByteBuf;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
+import org.cloudburstmc.math.GenericMath;
 import org.cloudburstmc.protocol.common.util.VarInts;
 
 public final class ChunkDecoder {
@@ -44,6 +45,55 @@ public final class ChunkDecoder {
         return new BlockStorage(bitArray, palette);
     }
 
+    // This method must stay in sync with readLayer. It consumes the same bytes but allocates nothing.
+    private static void skipLayer(final ByteBuf buf) {
+        final int version = buf.readUnsignedByte() >> 1;
+        if (version == 127) { // 127 = Same values as previous palette
+            return;
+        }
+
+        final BitArrayVersion arrayVersion = BitArrayVersion.get(version, true);
+        if (arrayVersion != BitArrayVersion.V0) {
+            // Same word count that createArray allocates for a 4096-entry section.
+            buf.skipBytes(GenericMath.ceil(4096F / arrayVersion.entriesPerWord) * 4);
+        }
+
+        final int size = arrayVersion == BitArrayVersion.V0 ? 1 : VarInts.readInt(buf);
+        for (int i = 0; i < size; i++) {
+            VarInts.readInt(buf);
+        }
+    }
+
+    /**
+     * Skips one serialized sub-chunk and does not decode it. This method moves the reader index of
+     * {@code buf} to the end of the sub-chunk, the same as {@link #readSubChunk} moves it. It returns
+     * the section Y index. Use this method to measure the byte range of a sub-chunk before a cache
+     * lookup. This method must stay in sync with readSubChunk.
+     */
+    public static int skipSubChunk(final ByteBuf buf, final int fallbackIndex, final int dimensionMinY) {
+        final int version = buf.readUnsignedByte();
+        int sectionY = fallbackIndex;
+        final int layerCount;
+
+        if (version == 1) {
+            layerCount = 1;
+        } else if (version == 8 || version == 9) {
+            layerCount = buf.readUnsignedByte();
+            if (version == 9) {
+                // Signed Y of the sub-chunk in world space. Translate to a 0-based section index.
+                final int uIndex = buf.readByte();
+                sectionY = uIndex - (dimensionMinY >> 4);
+            }
+        } else {
+            throw new IllegalStateException("Unknown sub-chunk version: " + version);
+        }
+
+        for (int layer = 0; layer < layerCount; layer++) {
+            skipLayer(buf);
+        }
+        return sectionY;
+    }
+
     public static DecodedSubChunk readSubChunk(final ByteBuf buf, final int airId, final int fallbackIndex, final int dimensionMinY) {
         final int version = buf.readUnsignedByte();
         int sectionY = fallbackIndex;
@@ -66,6 +116,6 @@ public final class ChunkDecoder {
         for (int layer = 0; layer < layerCount; layer++) {
             layers[layer] = readLayer(buf, airId);
         }
-        return new DecodedSubChunk(new BoarChunkSection(layers), sectionY);
+        return new DecodedSubChunk(new BoarChunkSection(layers, airId), sectionY);
     }
 }

@@ -68,11 +68,14 @@ public class ConfigLoader {
                     if (config != null) {
                         s = s.replace("player-rewind-history-size-ticks: 20", "player-rewind-history-size-ticks: " + config.rewindHistory());
                         s = s.replace("player-position-acceptance-threshold: 1.0E-4", "player-position-acceptance-threshold: " + config.acceptanceThreshold());
-                        s = s.replace("max-tolerance-compensated-reach: 3.005", "max-tolerance-compensated-reach: " + config.toleranceReach());
+                        s = s.replace("max-tolerance-compensated-reach: 2.91", "max-tolerance-compensated-reach: " + config.toleranceReach());
                         s = s.replace("disabled-checks: []", "disabled-checks: " + Arrays.toString(config.disabledChecks().toArray(new String[0])));
-                        s = s.replace("ignore-ghost-block: false", "ignore-ghost-block: " + config.ignoreGhostBlock());
+                        s = s.replace("disable-mitigations: false", "disable-mitigations: " + config.disableMitigations());
                         s = s.replace("differ-till-alert: 0.0", "differ-till-alert: " + config.alertThreshold());
+                        s = s.replace("max-ghost-block-chain: 10", "max-ghost-block-chain: " + config.maxGhostBlockChain());
                         s = s.replace("debug-mode: false", "debug-mode: " + config.debugMode());
+                        s = s.replace("static-seat-identifiers: []",
+                                "static-seat-identifiers: " + new ObjectMapper().writeValueAsString(config.staticSeatIdentifiers()));
                         s = s.replace("max-latency-wait: 15000", "max-latency-wait: " + config.maxLatencyWait());
                         String prefix = config.prefix()
                                 .replace("\\", "\\\\")

@@ -6,6 +6,7 @@ import ac.boar.anticheat.util.ReferencePopulator;
 import ac.boar.geyser.mappings.item.GeyserItem;
 import ac.boar.mappings.block.Block;
 import ac.boar.mappings.block.BlockMappings;
+import ac.boar.mappings.block.InteractiveBlocks;
 import ac.boar.mappings.item.Item;
 import org.geysermc.geyser.item.Items;
 import org.geysermc.geyser.level.block.Blocks;
@@ -43,6 +44,7 @@ public final class GeyserBlockMappings implements BlockMappings {
     private final List<Block> lanternBlocks = new ArrayList<>();
     private final List<Block> anvilBlocks = new ArrayList<>();
     private final List<Block> cauldronBlocks = new ArrayList<>();
+    private final List<Block> interactiveBlocks = new ArrayList<>();
 
     private final Map<String, Block> keyToBlock = new HashMap<>();
 
@@ -87,6 +89,10 @@ public final class GeyserBlockMappings implements BlockMappings {
 
                     if (lowercaseName.equals("cauldron") || lowercaseName.endsWith("_cauldron")) {
                         mappings.cauldronBlocks.add(new GeyserBlock(block));
+                    }
+
+                    if (InteractiveBlocks.isInteractive(lowercaseName)) {
+                        mappings.interactiveBlocks.add(new GeyserBlock(block));
                     }
 
                     if (block instanceof BedBlock) {
@@ -227,6 +233,11 @@ public final class GeyserBlockMappings implements BlockMappings {
     @Override
     public List<Block> getCauldronBlocks() {
         return Collections.unmodifiableList(cauldronBlocks);
+    }
+
+    @Override
+    public List<Block> getInteractiveBlocks() {
+        return Collections.unmodifiableList(interactiveBlocks);
     }
 
     @Override

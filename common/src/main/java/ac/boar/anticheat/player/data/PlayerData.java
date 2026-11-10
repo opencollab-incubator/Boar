@@ -1,6 +1,7 @@
 package ac.boar.anticheat.player.data;
 
 import ac.boar.anticheat.Boar;
+import ac.boar.anticheat.collision.DepenetrationState;
 import ac.boar.anticheat.compensated.CompensatedInventory;
 import ac.boar.anticheat.data.vanilla.Attribute;
 import ac.boar.anticheat.data.EntityDimensions;
@@ -22,14 +23,19 @@ import org.cloudburstmc.math.vector.Vector2f;
 import org.cloudburstmc.math.vector.Vector3f;
 import org.cloudburstmc.math.vector.Vector3i;
 import org.cloudburstmc.protocol.bedrock.data.Ability;
+import org.cloudburstmc.protocol.bedrock.data.AttributeData;
 import org.cloudburstmc.protocol.bedrock.data.GameType;
 import org.cloudburstmc.protocol.bedrock.data.InputMode;
+import org.cloudburstmc.protocol.bedrock.data.InputInteractionModel;
 import org.cloudburstmc.protocol.bedrock.data.PlayerAuthInputData;
 import org.cloudburstmc.protocol.bedrock.data.attribute.AttributeModifierData;
 import org.cloudburstmc.protocol.bedrock.data.attribute.AttributeOperation;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
+import org.cloudburstmc.protocol.bedrock.packet.SetEntityDataPacket;
+import org.cloudburstmc.protocol.bedrock.packet.UpdateAttributesPacket;
 
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -39,7 +45,10 @@ import java.util.concurrent.atomic.AtomicLong;
 
 @RequiredArgsConstructor
 public class PlayerData {
-    private final static AttributeModifierData SPRINTING_SPEED_BOOST = new AttributeModifierData("D208FC00-42AA-4AAD-9276-D5446530DE43",
+
+    // apparently this is exactly what the client uses (SharedModifiers::SPRINTING_BOOST) and it also allows for the client
+    // to predict it's own stop sprinting as well. more server softwares should implement this!
+    public final static AttributeModifierData SPRINTING_SPEED_BOOST = new AttributeModifierData("D208FC00-42AA-4AAD-9276-D5446530DE43",
             "Sprinting speed boost",
             0.3F, AttributeOperation.MULTIPLY_TOTAL, 2, false);
 
@@ -54,24 +63,37 @@ public class PlayerData {
     @Setter
     private Set<PlayerAuthInputData> inputData = new HashSet<>();
 
+    // Boar's own tick counter, +1 for every PlayerAuthInput. Use this for all timing, never the client's claimed tick.
     public long tick = -1; // Allow tick id 0.
+    // The tick the client claims in PlayerAuthInput. Only use it to stamp packets the client matches to its own frames
+    // (corrections, rewind packets). The client can send any value here.
+    public long simulationFrame;
     public long sinceAuthInput = System.currentTimeMillis();
 
     public Integer currentLoadingScreen = null;
     public boolean inLoadingScreen;
+    public long loadingScreenStartMs;
     public int sinceLoadingScreen;
 
+    public int pendingDimensionSwitches;
     public boolean insideUnloadedChunk;
+
+    public boolean dead;
 
     public GameType gameType = GameType.DEFAULT;
     public InputMode inputMode = InputMode.UNDEFINED;
+    public InputInteractionModel interactionModel = InputInteractionModel.TOUCH;
 
     // Position, rotation, other.
     public float yaw, pitch, prevYaw, prevPitch;
     public Vec3 unvalidatedPosition = Vec3.ZERO, prevUnvalidatedPosition = Vec3.ZERO;
-    public Vector2f interactRotation = Vector2f.ZERO;
+
+    public Vector2f interactRotation = Vector2f.ZERO, prevInteractRotation = Vector2f.ZERO;
+    public boolean prevInteractRotUnchanged = false;
 
     public Vec3 position = Vec3.ZERO, prevPosition = Vec3.ZERO;
+    // Keep accepted packet origin Y separately since the feet conversion can lose float precision - yes, I tested that out
+    public float nativeOriginY, unvalidatedNativeOriginY;
     public Vector3f rotation = Vector3f.ZERO;
 
     // Sprinting, sneaking, swimming and other status.
@@ -79,12 +101,36 @@ public class PlayerData {
     private final FlagTracker flagTracker = new FlagTracker();
 
     public float sneakingAttributeModifier;
+    public float hunger = 20;
+    public long ackDebugUntilTick = Long.MIN_VALUE;
+
+    public boolean clientSprintIntent;
+    // Server metadata turned off a sprint the client started itself. The client lets that win for one tick, then turns
+    // sprint back on by itself if it still can (SprintTriggerSystem::doIntentTick), without sending START_SPRINTING
+    public boolean serverClearedSprint;
+    public long serverClearedSprintTick;
+    // Tick of the last kept collision retry, for its cooldown.
+    public long lastCollisionRetryTick = Long.MIN_VALUE;
+    public float sneakingEyeHeightReduction = 0.35F;
 
     public int glideBoostTicks;
-    public int ticksSinceSwimming, ticksSinceCrawling, ticksSinceCanSlowdown;
+    public int ticksSinceCrawling, ticksSinceCanSlowdown;
+    // ViewT<StrictEntityContext, Include<InterpolateMovementNeededComponent>, SwimAmountComponent, ActorDataFlagComponent const>::each<void (*)(StrictEntityContext const&, SwimAmountComponent&, ActorDataFlagComponent const&)>
+    // The swimAmount rises toward 1 while swimming or crawling. Otherwise, it falls toward 0
+    public float swimAmount;
+
+    public float vanillaOffsetY = 0.0F, previousVanillaOffsetY = 0.0F;
+    public float headSampleOffsetY = 0.0F;
+    public boolean headInWater;
 
     public boolean doingInventoryAction;
     public AtomicLong desyncedFlag = new AtomicLong(-1);
+
+    public boolean clientNeedsMovementSpeedAttributeUpdate = false;
+    public volatile AttributeData lastMovementAttribute;
+    public volatile UpdateAttributesPacket correctionAttributesPacket;
+    public volatile EnumMap<EntityFlag, Boolean> lastServerFlags;
+    public volatile SetEntityDataPacket correctionMetadataPacket;
 
     // Effect status related
     @Getter
@@ -101,6 +147,10 @@ public class PlayerData {
     public Vec3 input = Vec3.ZERO;
     public Vec3 unvalidatedTickEnd = Vec3.ZERO;
 
+    public Vector2f clientMotion = Vector2f.ZERO;
+    public boolean prevUsingItemFlag;
+    public long lastItemUseStateChangeTick = Long.MIN_VALUE / 4;
+
     public Vector certainVelocity;
 
     // Attribute related, abilities
@@ -114,7 +164,7 @@ public class PlayerData {
     public final Set<Ability> abilities = new HashSet<>();
 
     // Riptide related
-    public boolean dirtyRiptide, dirtySpinStop, thisTickSpinAttack, thisTickOnGroundSpinAttack;
+    public boolean dirtyRiptide, dirtySpinStop, thisTickSpinAttack;
     public int autoSpinAttackTicks, sinceTridentUse;
     public ItemData riptideItem = ItemData.AIR;
     public void setDirtyRiptide(int j, ItemData data) {
@@ -144,22 +194,15 @@ public class PlayerData {
     public Vec3 beforeCollision = Vec3.ZERO, afterCollision = Vec3.ZERO;
 
     public boolean onGround;
-    public boolean bounce;
-    public float minBounceYVel;
 
     public Vec3 stuckSpeedMultiplier = Vec3.ZERO;
 
     public float fallDistance = 0;
 
-    public boolean hasDepthStrider;
     public boolean touchingWater;
+    public Fluid selectedFluid = Fluid.EMPTY;
     public boolean horizontalCollision, verticalCollision;
-    public boolean soulSandBelow;
-
-    public boolean nearBamboo;
-    public boolean nearDripstone;
-
-    public boolean beingPushByLava;
+    public final DepenetrationState depenetrationState = new DepenetrationState(new Vec3(.01F, .01F, .01F));
 
     public final Map<Fluid, Float> fluidHeight = new HashMap<>();
     public float getFluidHeight(Fluid tagKey) {
@@ -170,14 +213,31 @@ public class PlayerData {
     public boolean scaffoldDescend;
 
     public VehicleData vehicleData = null;
+    public final StaticSeatTracker staticSeatTracker = new StaticSeatTracker();
+    public StaticSeatData staticSeat;
 
     public Vector3i bedPosition = null;
 
-    public int tickSinceBlockResync;
-
     // Prediction related method
-    public final float getMaxOffset() {
+    public final float getPosAcceptanceThreshold() {
         return Boar.getConfig().acceptanceThreshold();
+    }
+
+    public final float getPositionUlp() {
+        return Math.max(Math.max(Math.ulp(this.position.x), Math.ulp(this.position.z)), Math.max(Math.ulp(this.unvalidatedPosition.x), Math.ulp(this.unvalidatedPosition.z)));
+    }
+
+    // An offset below this is accepted: the acceptance threshold plus one float step at the position (getPositionUlp).
+    public final float getPosAcceptanceLimit() {
+        return this.getPosAcceptanceThreshold() + this.getPositionUlp();
+    }
+
+    // For an input where the player cannot move: no velocity, no certain velocity, a zero prediction result and no chosen possibility.
+    public final void clearMovementForImmobileInput() {
+        this.velocity = Vec3.ZERO.clone();
+        this.certainVelocity = null;
+        this.predictionResult = new PredictionData(Vec3.ZERO, Vec3.ZERO, Vec3.ZERO);
+        this.bestPossibility = Vector.NONE;
     }
 
     public final void setSprinting(boolean sprinting) {
@@ -207,7 +267,10 @@ public class PlayerData {
     }
 
     public float getSpeed() {
-        return this.attributes.get(Attribute.MOVEMENT.getIdentifier()).getValue();
+        AttributeInstance movementAttr = this.attributes.get(Attribute.MOVEMENT.getIdentifier());
+        return this.clientNeedsMovementSpeedAttributeUpdate ?
+                movementAttr.getBaseValueWithModifiers() :
+                movementAttr.getValue();
     }
 
     // Others (methods)
@@ -215,9 +278,9 @@ public class PlayerData {
         this.setPos(vec3, true);
     }
 
-    public final void setPos(Vec3 vec3, boolean prev) {
+    public void setPos(Vec3 vec3, boolean prev) {
         if (prev) {
-            this.prevPosition = this.position;
+            this.prevPosition = this.position.clone();
         }
 
         this.position = vec3;
@@ -228,6 +291,13 @@ public class PlayerData {
         this.setBoundingBox(vec3);
 
         this.inBlockState = null;
+    }
+
+    public void setDimensions(final EntityDimensions dimensions) {
+        if (this.dimensions.width() != dimensions.width() || this.dimensions.height() != dimensions.height()) {
+            this.depenetrationState.onSizeChanged();
+        }
+        this.dimensions = dimensions;
     }
 
     public final void setBoundingBox(Vec3 vec3) {

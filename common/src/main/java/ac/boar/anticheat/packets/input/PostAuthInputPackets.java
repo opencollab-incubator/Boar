@@ -1,6 +1,5 @@
 package ac.boar.anticheat.packets.input;
 
-import ac.boar.anticheat.data.input.TickData;
 import ac.boar.anticheat.packets.input.legacy.LegacyAuthInputPackets;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.protocol.api.CloudburstPacketEvent;
@@ -15,35 +14,29 @@ public class PostAuthInputPackets implements PacketListener {
         if (event.getPacket() instanceof PlayerAuthInputPacket packet) {
             player.dirtyRiptide = false;
             player.thisTickSpinAttack = false;
-            player.thisTickOnGroundSpinAttack = false;
             player.doingInventoryAction = false;
-            player.hasDepthStrider = false;
-            player.nearBamboo = false;
-            player.nearDripstone = false;
 
-            player.getTeleportUtil().getAuthInputHistory().put(packet.getTick(), new TickData(packet, player.getFlagTracker().cloneFlags(), player.cloneAttributes(), player.dimensions));
-
-            if (player.vehicleData != null && player.getEntity().vehicle() == null) {
+            // While leaving, the platform can drop the vehicle before we get the link removal ack.
+            if (player.vehicleData != null && !player.vehicleData.pendingLeave && player.getEntity().vehicle() == null && !player.disableMitigations()) {
                 event.setCancelled(true);
             }
 
             // Although I'd like to avoid to do this at all times, it's justttt to be safe.
             // Shouldn't desync, since we already set it to be the unvalidated position if offset is close enough
             // Look at LegacyAuthInputPackets#doPostPrediction line 58
-            packet.setPosition(player.position.add(0, player.getYOffset(), 0).toVector3f());
+            if (!player.disableMitigations()) {
+                // A teleport is pending, so the client has not received it yet. Send the teleport destination, not the old position.
+                // Not while riding: the position is then the vehicle position.
+                if (player.getTeleportUtil().getPendingTeleports() > 0 && player.vehicleData == null) {
+                    packet.setPosition(player.getTeleportUtil().getPendingTeleportPosition().toVector3f());
+                } else {
+                    packet.setPosition(player.position.add(0, player.getYOffset(), 0).toVector3f());
+                }
+            }
             LegacyAuthInputPackets.correctInputData(player, packet);
 
-            // If the player is teleporting, NO PACKET SHOULD EVER PASS THROUGH. Except when they're rewinding.
-            if (player.getTeleportUtil().isHardTeleporting()) {
-                event.setCancelled(true);
-                return;
-            }
-            if (player.getTeleportUtil().isTeleporting()) {
-                return;
-            }
-
-            if (player.tickSinceBlockResync > 0) player.tickSinceBlockResync--;
-            player.getTeleportUtil().pollRewindHistory();
+            player.blockPlacements.tick();
+            player.getFlagTracker().tickFlying();
         }
     }
 }

@@ -3,6 +3,7 @@ package ac.boar.anticheat.collision;
 import ac.boar.anticheat.data.block.BoarBlockState;
 import ac.boar.anticheat.data.inventory.BoarItemStack;
 import ac.boar.anticheat.player.BoarPlayer;
+import ac.boar.anticheat.util.block.BlockUtil;
 import ac.boar.anticheat.util.math.Axis;
 import ac.boar.anticheat.util.math.Box;
 import ac.boar.anticheat.util.math.Direction;
@@ -116,48 +117,6 @@ public class BedrockCollision {
             return collisions;
         }
 
-        if (state.is(Blocks.BAMBOO)) {
-//            Box baseShape = state.getValue(Properties.BAMBOO_LEAVES).equals("large") ? new Box(0, 0, 0, 0.1875F, 1, 0.1875F) : new Box(0, 0, 0, 0.125F, 1, 0.125F);
-
-            // Couldn't they just keep the bamboo offsetting pre 1.21.80 but nope they changed it, and now I have no idea how it works?
-            // Let's try to hack around this, if player is not colliding or only colliding horizontally then look at
-            // UncertainRunner#extraOffsetNonTickEnd and EntityTicker#doSelfMove, for VERTICAL_COLLISION we can do a bit tricky hack to ensure accurate motion.
-            if (!player.getInputData().contains(PlayerAuthInputData.VERTICAL_COLLISION) || box == null) {
-                return EMPTY_SHAPE;
-            }
-
-            // Workaround.... we can still ensure player won't be having weird y motion on bamboo using the VERTICAL_COLLISION input.
-            Box solidOffset = SOLID_SHAPE.getFirst().offset(vector3i.getX(), vector3i.getY(), vector3i.getZ());
-
-            // If player claimed to have y collision and their feet/head does hit something then we can be sure it's correct.
-            // Also, this bamboo should not collide with player horizontal collision, only vertical so we can handle it properly.
-            boolean likelyYCollision = solidOffset.calculateMaxDistance(Axis.Y, player.boundingBox, player.velocity.y) != player.velocity.y;
-            return likelyYCollision && solidOffset.intersects(box) ? SOLID_SHAPE : EMPTY_SHAPE;
-        }
-
-        if (state.is(Blocks.POINTED_DRIPSTONE)) {
-            // Like bamboo
-            if (!player.getInputData().contains(PlayerAuthInputData.VERTICAL_COLLISION) || box == null) {
-                return EMPTY_SHAPE;
-            }
-
-            List<Box> javaBoxes = state.getCollisionBoxes();
-            if (javaBoxes.isEmpty()) {
-                return EMPTY_SHAPE;
-            }
-
-            float minY = 1f, maxY = 0f;
-            for (Box b : javaBoxes) {
-                minY = Math.min(minY, b.minY);
-                maxY = Math.max(maxY, b.maxY);
-            }
-
-            List<Box> vertical = List.of(new Box(0, minY, 0, 1, maxY, 1));
-            Box verticalOffset = vertical.getFirst().offset(vector3i.getX(), vector3i.getY(), vector3i.getZ());
-            boolean likelyYCollision = verticalOffset.calculateMaxDistance(Axis.Y, player.boundingBox, player.velocity.y) != player.velocity.y;
-            return likelyYCollision && verticalOffset.intersects(box) ? vertical : EMPTY_SHAPE;
-        }
-
         if (state.is(Blocks.END_PORTAL_FRAME)) {
             return END_PORTAL_FRAME_SHAPE;
         }
@@ -248,8 +207,12 @@ public class BedrockCollision {
         }
 
         if (BlockMappings.get().getDoorBlocks().contains(state.block())) {
-            Direction direction = state.get(Properties.HORIZONTAL_FACING);
-            boolean bl = !state.get(Properties.OPEN);
+            BoarBlockState bottom = player.compensatedWorld.getBlockState(BlockUtil.getDoorBottom(player, vector3i, state), 0);
+            if (!bottom.is(state.block())) {
+                bottom = state;
+            }
+            Direction direction = bottom.get(Properties.HORIZONTAL_FACING);
+            boolean bl = !bottom.get(Properties.OPEN);
             boolean bl2 = state.get(Properties.DOOR_HINGE).equalsIgnoreCase("right");
 
             switch (direction) {

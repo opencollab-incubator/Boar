@@ -23,7 +23,7 @@ public class DebugOffsetA extends BaseCheck implements OffsetHandlerCheck {
 
         final AlertManager alertManager = Boar.getInstance().getAlertManager();
 
-        final float maxOffset = player.getMaxOffset();
+        final float maxOffset = player.getPosAcceptanceThreshold();
         float eotOffset = player.unvalidatedTickEnd.distanceTo(player.velocity);
 
         Vec3 predicted = player.position.subtract(player.prevUnvalidatedPosition);

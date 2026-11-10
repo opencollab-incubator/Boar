@@ -31,6 +31,8 @@ public class BadPacketB extends BaseCheck implements PacketCheck {
         }
 
         // Should be safe to kick?
-        player.kick("Invalid auth input packet!");
+        if (!player.disableMitigations()) {
+            player.kick("Invalid auth input packet!");
+        }
     }
 }

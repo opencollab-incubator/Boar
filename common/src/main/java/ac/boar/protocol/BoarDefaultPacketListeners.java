@@ -11,6 +11,7 @@ import ac.boar.anticheat.packets.player.PlayerVelocityPackets;
 import ac.boar.anticheat.packets.server.ServerChunkPackets;
 import ac.boar.anticheat.packets.server.ServerDataPackets;
 import ac.boar.anticheat.packets.server.ServerEntityPackets;
+import ac.boar.anticheat.packets.server.ServerRewindPackets;
 
 public final class BoarDefaultPacketListeners {
 
@@ -19,6 +20,7 @@ public final class BoarDefaultPacketListeners {
 
     public static void registerAll() {
         PacketEvents api = PacketEvents.getApi();
+        api.register(new ServerRewindPackets());
         api.register(new NetworkLatencyPackets());
         api.register(new ServerChunkPackets());
         api.register(new ServerEntityPackets());

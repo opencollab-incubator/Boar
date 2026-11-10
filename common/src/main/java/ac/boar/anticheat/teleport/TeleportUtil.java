@@ -1,42 +1,67 @@
 package ac.boar.anticheat.teleport;
 
 import ac.boar.anticheat.Boar;
+import ac.boar.anticheat.ack.types.MovementCorrectionAck;
 import ac.boar.anticheat.ack.types.TeleportAcceptAck;
-import ac.boar.anticheat.data.input.PredictionData;
-import ac.boar.anticheat.data.input.TickData;
+import ac.boar.anticheat.data.vanilla.Attribute;
+import ac.boar.anticheat.data.vanilla.AttributeInstance;
 import ac.boar.anticheat.player.BoarPlayer;
-import ac.boar.anticheat.teleport.data.RewindData;
-import ac.boar.anticheat.teleport.data.RewindHistory;
+import ac.boar.anticheat.player.data.VehicleType;
 import ac.boar.anticheat.teleport.data.TeleportData;
+import ac.boar.anticheat.util.block.BlockUtil;
+import ac.boar.anticheat.util.geyser.BoarChunk;
 import ac.boar.anticheat.util.math.Vec3;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import lombok.Setter;
 import org.cloudburstmc.math.vector.Vector2f;
+import org.cloudburstmc.math.vector.Vector3i;
+import org.cloudburstmc.protocol.bedrock.data.AttributeData;
 import org.cloudburstmc.protocol.bedrock.data.PredictionType;
+import org.cloudburstmc.protocol.bedrock.data.attribute.AttributeModifierData;
+import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 import org.cloudburstmc.protocol.bedrock.packet.CorrectPlayerMovePredictionPacket;
 import org.cloudburstmc.protocol.bedrock.packet.MovePlayerPacket;
+import org.cloudburstmc.protocol.bedrock.packet.SetEntityDataPacket;
+import org.cloudburstmc.protocol.bedrock.packet.UpdateAttributesPacket;
 
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.List;
 
 @RequiredArgsConstructor
 public class TeleportUtil {
+
+    private static final int MIN_CHUNK_AGE_FOR_BLOCK_SYNC = 200;
+
     private final BoarPlayer player;
 
     @Getter
-    @Setter
-    private Vec3 lastKnowValid = Vec3.ZERO;
+    private Vec3 lastKnownValid = Vec3.ZERO;
+    private int pendingCorrections;
+    @Getter
+    private boolean correctionCooldown;
 
     @Getter
-    private final Queue<TeleportData> queuedTeleports = new ConcurrentLinkedQueue<>();
+    private long lastCorrectionTick = -1;
+
+    private TeleportData acceptedTeleport;
+    private boolean skipTravel;
+    private boolean applyTeleportWaterInput;
+    @Getter
+    private Vec3 pendingTeleportPosition;
+    @Getter
+    private int pendingTeleports;
+    private long generation;
+    private TeleportData lastQueuedTeleport;
+    private long lastQueuedTick = -1;
+    @Getter
+    private Vec3 interpolationTarget;
+    @Getter
+    private int interpolationTicks;
 
     public void teleport(final Vec3 vec3) {
         if (this.isTeleporting()) {
-            Boar.debug("[movement-debug] skipped teleport reason=already-teleporting queued=" + this.queuedTeleports.size(), Boar.DebugMessage.WARNING);
+            Boar.debug(player.getSession().name() + ": [movement-debug] skipped teleport reason=already-teleporting pending=" + this.pendingTeleports, Boar.DebugMessage.WARNING);
             return;
         }
 
@@ -49,70 +74,309 @@ public class TeleportUtil {
         packet.setTeleportationCause(MovePlayerPacket.TeleportationCause.BEHAVIOR);
 
         this.player.getConnection().sendPacket(packet);
-        Boar.debug("[movement-debug] sent teleport pos=" + vec3 + " lastKnown=" + this.lastKnowValid, Boar.DebugMessage.WARNING);
+        Boar.debug(player.getSession().name() + ": [movement-debug] sent teleport pos=" + vec3 + " lastKnown=" + this.lastKnownValid, Boar.DebugMessage.WARNING);
     }
 
     public void queue(TeleportData data) {
-        this.queuedTeleports.add(data);
-        player.sendLatencyStack(new TeleportAcceptAck(data));
+        this.lastQueuedTeleport = data;
+        this.lastQueuedTick = this.player.tick;
+        this.pendingTeleports++;
+        this.pendingTeleportPosition = data.getPosition().clone();
+        player.sendLatencyStack(new TeleportAcceptAck(data, this.generation));
     }
 
-    public boolean isTeleporting() {
-        return !this.queuedTeleports.isEmpty();
+    // The last teleport sent at or after the given tick, null if none.
+    public TeleportData getLastTeleportSince(final long tick) {
+        return this.lastQueuedTick >= tick ? this.lastQueuedTeleport : null;
     }
 
-    public boolean isHardTeleporting() {
-        return !this.queuedTeleports.stream().filter(teleport -> !(teleport instanceof RewindData)).toList().isEmpty();
-    }
+    public void accept(TeleportData data, long generation) {
+        if (generation != this.generation) {
+            return;
+        }
+        if (this.pendingTeleports > 0) {
+            this.pendingTeleports--;
+        }
 
-    // Rewind
-    @Getter
-    private final Map<Long, TickData> authInputHistory = new ConcurrentSkipListMap<>();
-    private final Map<Long, RewindHistory> rewindHistory = new ConcurrentSkipListMap<>();
-
-    public void rewind(long tick) {
-        this.rewind(this.rewindHistory.getOrDefault(tick, new RewindHistory(player.tick, this.lastKnowValid, player.predictionResult)));
-    }
-
-    public void rewind(final RewindHistory rewind) {
-        if (this.isTeleporting()) {
-            Boar.debug("[movement-debug] skipped rewind reason=already-teleporting queued=" + this.queuedTeleports.size() + " tick=" + rewind.tick(), Boar.DebugMessage.WARNING);
+        // While riding, our position is the vehicle position. So only save the teleport. It is applied later if it is the dismount teleport.
+        if (this.player.vehicleData != null) {
+            this.player.vehicleData.invalidateMatchedClaim(this.player.tick + 1);
+            this.acceptedTeleport = data;
             return;
         }
 
-        final PredictionData data = rewind.data();
-
-        final boolean onGround = data.before().y != data.after().y && data.before().y < 0;
-
-        final long tick = rewind.tick();
-        final CorrectPlayerMovePredictionPacket packet = new CorrectPlayerMovePredictionPacket();
-        packet.setPosition(rewind.position().add(data.after()).toVector3f());
-        packet.setOnGround(onGround);
-        packet.setTick(tick);
-        packet.setDelta(data.tickEnd().toVector3f());
-        packet.setVehicleRotation(Vector2f.ZERO);
-        packet.setPredictionType(player.vehicleData != null ? PredictionType.VEHICLE : PredictionType.PLAYER);
-
-        this.player.getConnection().sendPacketImmediately(packet);
-        Boar.debug("sent rewind tick=" + tick + " pos=" + packet.getPosition() + " delta=" + packet.getDelta() + " onGround=" + onGround, Boar.DebugMessage.WARNING);
+        this.apply(data);
     }
 
-    public void cacheRewindHistory(long tick, Vec3 position) {
-        this.rewindHistory.put(tick, new RewindHistory(tick, this.lastKnowValid.clone(), player.predictionResult));
-        this.lastKnowValid = position;
+    public void apply(TeleportData data) {
+        // No ride here, so no matched claim to clear. accept calls this only when there is no ride.
+        // The other callers end the ride (player.vehicleData = null) first: the LEFT path in AuthInputPackets and BoarDefaultAcknowledgments.endRide.
+        this.acceptedTeleport = data;
+        player.onGround = data.isOnGround();
+        if (data.getSource() == TeleportData.Source.MOVE_PLAYER_NORMAL) {
+            final Vec3 origin = new Vec3(player.position.x, player.nativeOriginY, player.position.z);
+            player.velocity = data.getPosition().subtract(origin);
+            player.certainVelocity = null;
+            // Player::onMovePlayerPacketNormal only does interpolation if the destination is loaded
+            if (player.compensatedWorld.isChunkLoadedAt(data.getPosition().x, data.getPosition().z)) {
+                this.startInterpolation(data.getPosition());
+            } else {
+                this.setPacketPosition(data.getPosition());
+            }
+        } else {
+            // Actor::teleportTo and Player::resetUserPos clear velocity and interpolation.
+            this.clearInterpolation();
+            this.setPacketPosition(data.getPosition());
+            player.velocity = Vec3.ZERO.clone();
+            player.certainVelocity = null;
+            if (data.getSource() != TeleportData.Source.MOVE_PLAYER_RESPAWN) {
+                player.fallDistance = 0;
+                // A later NORMAL or RESPAWN packet does not remove HasTeleportedFlagComponent.
+                this.skipTravel = true;
+                this.applyTeleportWaterInput |= data.getSource() == TeleportData.Source.MOVE_PLAYER_TELEPORT;
+            }
+        }
     }
 
-    public void pollRewindHistory() {
-        final Iterator<Map.Entry<Long, RewindHistory>> iterator = this.rewindHistory.entrySet().iterator();
-        while (iterator.hasNext() && this.rewindHistory.size() > Boar.getConfig().rewindHistory()) {
-            iterator.next();
-            iterator.remove();
+    public TeleportData takeAcceptedTeleport() {
+        final TeleportData data = this.acceptedTeleport;
+        this.acceptedTeleport = null;
+        return data;
+    }
+
+    public boolean takeSkipTravel() {
+        final boolean skip = this.skipTravel;
+        this.skipTravel = false;
+        return skip;
+    }
+
+    public boolean takeApplyTeleportWaterInput() {
+        final boolean apply = this.applyTeleportWaterInput;
+        this.applyTeleportWaterInput = false;
+        return apply;
+    }
+
+    public void setPacketPosition(Vec3 position) {
+        this.player.setPos(position.down(this.player.getPlayerYOffset()));
+        player.nativeOriginY = position.y;
+        player.insideUnloadedChunk = !player.compensatedWorld.isChunkLoadedAt(position.x, position.z);
+    }
+
+    public void startInterpolation(Vec3 target) {
+        this.interpolationTarget = target.clone();
+        this.interpolationTicks = 3;
+    }
+
+    public void tickInterpolation() {
+        if (this.interpolationTicks > 0) {
+            this.interpolationTicks--;
+        }
+    }
+
+    public void clearInterpolation() {
+        this.interpolationTarget = null;
+        this.interpolationTicks = 0;
+    }
+
+    private void clearTeleports() {
+        // Ignore acknowledgments that arrive after a reset.
+        this.generation++;
+        this.acceptedTeleport = null;
+        this.skipTravel = false;
+        this.applyTeleportWaterInput = false;
+        this.pendingTeleports = 0;
+        this.pendingTeleportPosition = null;
+        this.clearInterpolation();
+    }
+
+    /**
+     * Resets all teleport state to a position that the server already established.
+     */
+    public void reset(Vec3 position) {
+        this.clearTeleports();
+        this.lastKnownValid = position.clone();
+        this.pendingCorrections = 0;
+        this.correctionCooldown = false;
+        this.lastCorrectionTick = -1;
+    }
+
+    public void markCorrected() {
+        this.lastCorrectionTick = player.tick;
+    }
+
+    public boolean correctedWithin(int ticks) {
+        return this.lastCorrectionTick >= 0 && (player.tick - this.lastCorrectionTick) <= ticks;
+    }
+
+    public boolean isTeleporting() {
+        return this.pendingTeleports > 0 || this.acceptedTeleport != null || this.interpolationTicks > 0;
+    }
+
+    public boolean hasPendingCorrection() {
+        return this.pendingCorrections > 0;
+    }
+
+    public void addPendingCorrection() {
+        this.pendingCorrections++;
+    }
+
+    public void removePendingCorrection() {
+        if (this.pendingCorrections > 0) {
+            this.pendingCorrections--;
+        }
+    }
+
+    public void updateLastKnownValid(Vec3 position) {
+        this.lastKnownValid = position.clone();
+    }
+
+    public void setCorrectionCooldown(boolean correctionCooldown) {
+        this.correctionCooldown = correctionCooldown;
+    }
+
+    public void correct() {
+        if (player.disableMitigations()) {
+            return;
         }
 
-        final Iterator<Map.Entry<Long, TickData>> iterator1 = this.authInputHistory.entrySet().iterator();
-        while (iterator1.hasNext() && this.authInputHistory.size() > Boar.getConfig().rewindHistory()) {
-            iterator1.next();
-            iterator1.remove();
+        if (this.isTeleporting()) {
+            Boar.debug(player.getSession().name() + ": [movement-debug] skipped correction reason=already-teleporting pending=" + this.pendingTeleports + " tick=" + player.tick, Boar.DebugMessage.WARNING);
+            return;
         }
+
+        if (this.hasPendingCorrection()) {
+            Boar.debug(player.getSession().name() + ": [movement-debug] skipped correction reason=already-correcting pending=" + this.pendingCorrections + " tick=" + player.tick, Boar.DebugMessage.WARNING);
+            return;
+        }
+
+        if (player.isMovementExempted()) {
+            Boar.debug(player.getSession().name() + ": [movement-debug] skipped correction reason=movement-exempt tick=" + player.tick, Boar.DebugMessage.WARNING);
+            return;
+        }
+
+        final CorrectPlayerMovePredictionPacket correction = new CorrectPlayerMovePredictionPacket();
+        final boolean vehicleCorrection = this.player.vehicleData != null && this.player.vehicleData.clientSimulatesRide;
+        final var boatActor = vehicleCorrection && this.player.vehicleData.awaitingBoatFormatInput ? this.player.vehicleData.boatActorState : null;
+        final Vec3 position = boatActor != null ? boatActor.position() : this.player.position;
+        final float yOffset = vehicleCorrection ? this.player.getYOffset() : this.player.getYOffset() + 0.001f;
+        correction.setPosition(position.add(0, yOffset, 0).toVector3f());
+        correction.setOnGround(vehicleCorrection ? this.player.vehicleData.onGround : this.player.onGround);
+        correction.setTick(player.simulationFrame);
+        correction.setDelta((boatActor != null ? boatActor.velocity() : this.player.velocity).toVector3f());
+        // A vehicle correction only works for a vehicle the client simulates. Other riders get a player correction: the client ignores a vehicle one.
+        // The client puts the vehicle at this rotation, so ZERO would turn the boat.
+        // The angular velocity is the boat's yaw velocity. Without it, the client keeps its own.
+        if (!vehicleCorrection) {
+            correction.setVehicleRotation(Vector2f.ZERO);
+        } else if (boatActor != null) {
+            correction.setVehicleRotation(Vector2f.from(boatActor.pitch(), boatActor.yaw()));
+            correction.setVehicleAngularVelocity(boatActor.angularVelocity());
+        } else {
+            correction.setVehicleRotation(Vector2f.from(this.player.vehicleData.pitch, this.player.vehicleData.yaw));
+            correction.setVehicleAngularVelocity(this.player.vehicleData.yawVelocity);
+        }
+        correction.setPredictionType(vehicleCorrection ? PredictionType.VEHICLE : PredictionType.PLAYER);
+
+        this.addPendingCorrection();
+        if (this.player.vehicleData != null) {
+            this.player.vehicleData.boatTakeover = null;
+        }
+        this.correctionCooldown = true;
+        this.player.sendLatencyStack(new MovementCorrectionAck());
+        this.syncBlocks();
+        this.syncMetadata();
+        this.syncMovementSpeed();
+        if (this.player.vehicleData != null && this.player.vehicleData.type == VehicleType.HORSE) {
+            this.player.vehicleData.invalidateHorseJump();
+            this.player.vehicleData.invalidateHorseStand();
+            var horse = this.player.compensatedWorld.getEntity(this.player.vehicleData.vehicleRuntimeId);
+            if (horse != null) {
+                horse.getHorseGround().markUnknown();
+            }
+            if (!vehicleCorrection) {
+                this.player.horseJumpInput.invalidate();
+            }
+        }
+        this.player.getConnection().sendPacket(correction);
+        if (Boar.getInstance().getPlatform().developerDebug()) {
+            this.player.getSession().sendMessage("correction sent at sim tick " + correction.getTick());
+        }
+        Boar.debug(this.player.getSession().name() + ": [movement-debug] sent correction tick=" + this.player.tick + " simFrame=" + this.player.simulationFrame
+                + " pos=" + correction.getPosition() + " delta=" + correction.getDelta()
+                + " onGround=" + correction.isOnGround()
+                + " boarSprinting=" + player.getFlagTracker().has(org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag.SPRINTING)
+                + " clientVector=" + player.clientMotion + " rawInput=" + player.input.horizontalLength(), Boar.DebugMessage.WARNING);
+    }
+
+    private void syncBlocks() {
+        final Vec3 pos = player.position;
+        final int minX = (int) Math.floor(pos.x - 0.05F), maxX = (int) Math.ceil(pos.x + 0.05F);
+        final int minZ = (int) Math.floor(pos.z - 0.05F), maxZ = (int) Math.ceil(pos.z + 0.05F);
+
+        for (int chunkX = minX >> 4; chunkX <= maxX >> 4; chunkX++) {
+            for (int chunkZ = minZ >> 4; chunkZ <= maxZ >> 4; chunkZ++) {
+                final BoarChunk chunk = player.compensatedWorld.getChunk(chunkX, chunkZ);
+                if (chunk == null || player.tick - chunk.loadedTick() < MIN_CHUNK_AGE_FOR_BLOCK_SYNC) {
+                    Boar.debug(player.getSession().name() + ": [movement-debug] skipped block sync because chunk is new chunk=(" + chunkX + ", " + chunkZ + ")"  + " loadedTick=" + (chunk == null ? "none" : chunk.loadedTick()) + " tick=" + player.tick, Boar.DebugMessage.INFO);
+                    return;
+                }
+            }
+        }
+
+        for (int x = minX; x <= maxX; x++) {
+            for (int y = (int) Math.floor(pos.y - 0.05F); y <= (int) Math.ceil(pos.y + 0.05F); y++) {
+                for (int z = minZ; z <= maxZ; z++) {
+                    BlockUtil.syncBlock(player, Vector3i.from(x, y, z));
+                }
+            }
+        }
+    }
+
+    // Resend the server's last flags for this player, with our sprint, sneak and item use state, with the correction's tick.
+    // The client replays with these, so they must match what we predicted with.
+    private void syncMetadata() {
+        final EnumMap<EntityFlag, Boolean> lastFlags = player.lastServerFlags;
+        if (lastFlags == null || player.vehicleData != null) {
+            return;
+        }
+
+        final EnumMap<EntityFlag, Boolean> flags = new EnumMap<>(lastFlags);
+        flags.put(EntityFlag.SPRINTING, player.getFlagTracker().has(EntityFlag.SPRINTING));
+        flags.put(EntityFlag.SNEAKING, player.getFlagTracker().has(EntityFlag.SNEAKING));
+        flags.put(EntityFlag.USING_ITEM, player.getFlagTracker().has(EntityFlag.USING_ITEM));
+
+        final SetEntityDataPacket packet = new SetEntityDataPacket();
+        packet.setRuntimeEntityId(player.runtimeEntityId);
+        packet.getMetadata().putFlags(flags);
+        packet.setTick(player.simulationFrame);
+
+        player.correctionMetadataPacket = packet;
+        this.player.getConnection().sendPacket(packet);
+    }
+
+    private void syncMovementSpeed() {
+        if (player.vehicleData != null) {
+            return;
+        }
+        final AttributeInstance movement = player.attributes.get(Attribute.MOVEMENT.getIdentifier());
+        if (movement == null) {
+            return;
+        }
+
+        final AttributeData last = player.lastMovementAttribute;
+        final float min = last == null ? 0.0F : last.getMinimum();
+        final float max = last == null ? Float.MAX_VALUE : last.getMaximum();
+
+        final UpdateAttributesPacket packet = new UpdateAttributesPacket();
+        packet.setRuntimeEntityId(player.runtimeEntityId);
+        // Send our modifiers too (like the sprint boost). The client drops all of its modifiers on this packet, and it can
+        // only remove a modifier later (e.g. when it stops sprinting) if it has it.
+        final List<AttributeModifierData> modifiers = new ArrayList<>(movement.getModifiers().values());
+        packet.setAttributes(new ArrayList<>(List.of(new AttributeData(Attribute.MOVEMENT.getIdentifier(), min, max, player.getSpeed(),
+                last == null ? min : last.getDefaultMinimum(), last == null ? max : last.getDefaultMaximum(), movement.getBaseValue(), modifiers))));
+        packet.setTick(player.simulationFrame);
+
+        player.correctionAttributesPacket = packet;
+        this.player.getConnection().sendPacket(packet);
     }
 }

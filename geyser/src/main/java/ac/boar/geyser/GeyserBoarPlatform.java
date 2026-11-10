@@ -29,6 +29,12 @@ import java.nio.file.Path;
 
 public record GeyserBoarPlatform(Path dataFolder, BoarLogger logger, BoarPlayerManager<GeyserSession> playerManager) implements BoarPlatform {
 
+    // for local tests, to use run w/ -Dboar.developerDebug=true
+    @Override
+    public boolean developerDebug() {
+        return Boolean.getBoolean("boar.developerDebug");
+    }
+
     @Override
     public BlockMappings loadBlockMappings() {
         return GeyserBlockMappings.load();

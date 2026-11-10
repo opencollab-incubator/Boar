@@ -1,5 +1,7 @@
 package ac.boar.anticheat.data.block;
 
+import ac.boar.anticheat.collision.BambooCollision;
+import ac.boar.anticheat.collision.DripstoneCollision;
 import ac.boar.anticheat.collision.BedrockCollision;
 import ac.boar.anticheat.data.Fluid;
 import ac.boar.anticheat.data.FluidState;
@@ -7,6 +9,7 @@ import ac.boar.anticheat.data.effect.Effect;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.util.Reference;
 import ac.boar.anticheat.util.math.Box;
+import ac.boar.anticheat.util.math.Direction;
 import ac.boar.anticheat.util.math.Mutable;
 import ac.boar.anticheat.util.math.Vec3;
 import ac.boar.mappings.block.Block;
@@ -89,6 +92,11 @@ public abstract class AbstractBoarBlockState implements BoarBlockState {
     }
 
     @Override
+    public boolean isReplaceable(BoarPlayer player) {
+        return delegate.isReplaceable(player);
+    }
+
+    @Override
     public Vector3i getPosition() {
         return delegate.getPosition();
     }
@@ -168,6 +176,35 @@ public abstract class AbstractBoarBlockState implements BoarBlockState {
     @Override
     public List<Box> findCollision(BoarPlayer player, Vector3i pos, Box playerAABB, boolean checkAAB) {
         List<Box> list = new ArrayList<>();
+        // No player means no platform to go by, so keep the Windows seed that bamboo always used.
+        final boolean wideSeed = player == null || player.getSession().wideRandomOffsetSeed();
+        if (is(Blocks.BAMBOO)) {
+            int age = get(Properties.AGE_1);
+            Box box = BambooCollision.getCollisionBox(pos.getX(), pos.getY(), pos.getZ(), wideSeed, age != 0);
+            if (player != null) {
+                player.getMovementTrace().log("bamboo: pos=" + pos + " age=" + age + " box=[" + box.minX + "," + box.minY + "," + box.minZ
+                        + " -> " + box.maxX + "," + box.maxY + "," + box.maxZ + "]");
+            }
+            if (!checkAAB || box.intersects(playerAABB)) {
+                list.add(box);
+            }
+            return list;
+        }
+
+        if (is(Blocks.POINTED_DRIPSTONE)) {
+            final String thickness = get(Properties.DRIPSTONE_THICKNESS);
+            final boolean hanging = get(Properties.VERTICAL_DIRECTION) == Direction.DOWN;
+            Box box = DripstoneCollision.getCollisionBox(pos.getX(), pos.getY(), pos.getZ(), wideSeed, thickness, hanging);
+            if (player != null) {
+                player.getMovementTrace().log("dripstone: pos=" + pos + " thickness=" + thickness + " hanging=" + hanging + " box=[" + box.minX + "," + box.minY + "," + box.minZ
+                        + " -> " + box.maxX + "," + box.maxY + "," + box.maxZ + "]");
+            }
+            if (!checkAAB || box.intersects(playerAABB)) {
+                list.add(box);
+            }
+            return list;
+        }
+
         List<Box> bedrockCollisions = BedrockCollision.getCollisionBox(player, playerAABB, pos, this);
         if (bedrockCollisions != null) {
             for (Box box : bedrockCollisions) {
@@ -224,10 +261,8 @@ public abstract class AbstractBoarBlockState implements BoarBlockState {
 
     @Override
     public FluidState getFluidState(int level) {
-        if (level == 1) {
-            if (is(Blocks.WATER)) {
-                return new FluidState(Fluid.WATER, 8 / 9F, 8);
-            }
+        // see BlockSource::getLiquidBlock
+        if (level == 1 && !is(Blocks.WATER)) {
             return new FluidState(Fluid.EMPTY, 0, 0);
         }
 
@@ -238,7 +273,8 @@ public abstract class AbstractBoarBlockState implements BoarBlockState {
 
         Fluid fluid = water ? Fluid.WATER : Fluid.LAVA;
         int rawLevel = get(Properties.LEVEL);
-        if (rawLevel == 0 || rawLevel == 8) {
+        // from LiquidBlockBase::_getFlow - treat depths 8 through 15 as falling liquid
+        if (rawLevel == 0 || rawLevel >= 8) {
             return new FluidState(fluid, 8 / 9F, rawLevel);
         }
         return new FluidState(fluid, (8 - rawLevel) / 9F, rawLevel);

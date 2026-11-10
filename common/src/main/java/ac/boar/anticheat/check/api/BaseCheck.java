@@ -14,6 +14,7 @@ public class BaseCheck implements Check {
 
     private final String name, type;
     private final boolean experimental;
+    private final Class<?> origin;
     private final Map<String, BaseCheck> typedChecks = new ConcurrentHashMap<>();
     private int vl = 0;
 
@@ -22,13 +23,30 @@ public class BaseCheck implements Check {
         this.name = getClass().getDeclaredAnnotation(CheckInfo.class).name();
         this.type = getClass().getDeclaredAnnotation(CheckInfo.class).type();
         this.experimental = getClass().getDeclaredAnnotation(Experimental.class) != null;
+        this.origin = getClass();
     }
 
     public BaseCheck(BoarPlayer player, String name, String type, boolean experimental) {
+        this(player, name, type, experimental, null);
+    }
+
+    /**
+     * Makes a check that reports {@code origin} as its owner. A typed sub-check uses this
+     * constructor to keep the class of the parent check that made it.
+     *
+     * @param origin the class that owns the flag, or null to use the class of this check
+     */
+    public BaseCheck(BoarPlayer player, String name, String type, boolean experimental, Class<?> origin) {
         this.player = player;
         this.name = name;
         this.type = type;
         this.experimental = experimental;
+        this.origin = origin == null ? getClass() : origin;
+    }
+
+    @Override
+    public Class<?> origin() {
+        return this.origin;
     }
 
     @Override
@@ -72,7 +90,7 @@ public class BaseCheck implements Check {
             return;
         }
 
-        typedChecks.computeIfAbsent(typedKey, key -> new BaseCheck(this.player, this.name, key, this.experimental)).fail(verbose);
+        typedChecks.computeIfAbsent(typedKey, key -> new BaseCheck(this.player, this.name, key, this.experimental, this.origin)).fail(verbose);
     }
 
     protected final String getDisplayName() {

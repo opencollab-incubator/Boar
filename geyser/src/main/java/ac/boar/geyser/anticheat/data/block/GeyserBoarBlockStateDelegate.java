@@ -26,6 +26,7 @@ import org.geysermc.geyser.level.physics.BoundingBox;
 import org.geysermc.geyser.registry.BlockRegistries;
 import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.geyser.session.cache.SkullCache;
+import org.geysermc.geyser.session.cache.tags.BlockTag;
 import org.geysermc.geyser.translator.collision.BlockCollision;
 import org.geysermc.geyser.translator.collision.SolidCollision;
 import org.geysermc.geyser.util.BlockUtils;
@@ -69,9 +70,21 @@ public class GeyserBoarBlockStateDelegate implements BoarBlockStateDelegate {
     }
 
     @Override
+    public boolean isReplaceable(BoarPlayer player) {
+        if (this.state.block() == org.geysermc.geyser.level.block.Blocks.SNOW) {
+            return this.state.getValue(org.geysermc.geyser.level.block.property.Properties.LAYERS) == 1;
+        }
+
+        GeyserSession session = ((GeyserNetworkSession) player.getSession()).session();
+        return session.javaRegistries().is(BlockTag.REPLACEABLE, this.state.block());
+    }
+
+    @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
     public <T extends Comparable<T>> BoarBlockState with(Property<T> property, T value) {
-        BlockState newState = this.state.withValue((org.geysermc.geyser.level.block.property.Property) ((GeyserProperty<T>) property).handle(), value);
+        GeyserProperty<T> geyserProperty = (GeyserProperty<T>) property;
+        Object raw = geyserProperty.reverter() != null ? geyserProperty.reverter().apply(value) : value;
+        BlockState newState = this.state.withValue((org.geysermc.geyser.level.block.property.Property) geyserProperty.handle(), (Comparable) raw);
         return BoarBlockState.create(newState.javaId(), this.position, this.layer);
     }
 

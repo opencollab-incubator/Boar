@@ -21,21 +21,36 @@ public class ContainerCache {
     @Getter
     private final long uniqueEntityId;
 
-    private final int containerSize;
+    private int containerSize;
     @Getter
     private final int offset;
 
     @Getter
-    private final ItemCache[] contents;
+    private ItemCache[] contents;
 
     public ContainerCache(CompensatedInventory inventory, byte id, ContainerType type, Vector3i blockPosition, long uniqueEntityId) {
+        this(inventory, id, type, blockPosition, uniqueEntityId, defaultOffset(type), defaultSize(type));
+    }
+
+    protected ContainerCache(CompensatedInventory inventory, byte id, ContainerType type, Vector3i blockPosition, long uniqueEntityId, int offset, int containerSize) {
         this.inventory = inventory;
         this.id = id;
         this.type = type;
         this.blockPosition = blockPosition;
         this.uniqueEntityId = uniqueEntityId;
+        this.offset = offset;
+        this.containerSize = containerSize;
 
-        this.offset = switch (type) {
+        if (this.containerSize > 0) {
+            this.contents = new ItemCache[this.containerSize];
+            Arrays.fill(this.contents, ItemCache.AIR);
+        } else {
+            this.contents = null;
+        }
+    }
+
+    private static int defaultOffset(ContainerType type) {
+        return switch (type) {
             case ENCHANTMENT -> 14;
             case LOOM -> 9;
             case WORKBENCH -> 32;
@@ -48,7 +63,10 @@ public class ContainerCache {
             case TRADE -> 4;
             default -> 0;
         };
-        this.containerSize = switch (type) {
+    }
+
+    private static int defaultSize(ContainerType type) {
+        return switch (type) {
             case FURNACE, BLAST_FURNACE, SMOKER, LOOM, SMITHING_TABLE -> 3;
             case BREWING_STAND, HOPPER, MINECART_HOPPER -> 5;
             case DROPPER, DISPENSER, WORKBENCH, CRAFTER -> 9;
@@ -61,17 +79,27 @@ public class ContainerCache {
             case ARMOR -> 4;
             default -> 36;
         };
-
-        if (this.containerSize > 0) {
-            this.contents = new ItemCache[this.containerSize];
-            Arrays.fill(this.contents, ItemCache.AIR);
-        } else {
-            this.contents = null;
-        }
     }
 
     public int getContainerSize() {
         return this.containerSize + this.offset;
+    }
+
+    public boolean holdsSlot(final int slot) {
+        return this.contents != null && slot >= this.offset && slot - this.offset < this.contents.length;
+    }
+
+    public void ensureSlots(final int slots) {
+        if (this.contents == null || slots <= this.contents.length) {
+            return;
+        }
+
+        final ItemCache[] grown = new ItemCache[slots];
+        Arrays.fill(grown, ItemCache.AIR);
+        System.arraycopy(this.contents, 0, grown, 0, this.contents.length);
+
+        this.contents = grown;
+        this.containerSize = slots;
     }
 
     public ItemCache get(final int slot) {

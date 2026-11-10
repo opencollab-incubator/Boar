@@ -7,8 +7,6 @@ import java.util.Optional;
 public class Box implements Cloneable {
     public final static Box EMPTY = new Box(0, 0, 0, 0, 0, 0);
 
-    public final static float EPSILON = 1.0E-7F;
-
     public final float minX, minY, minZ;
     public final float maxX, maxY, maxZ;
 

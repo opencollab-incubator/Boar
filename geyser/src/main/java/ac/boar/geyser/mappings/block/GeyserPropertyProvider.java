@@ -12,27 +12,38 @@ public class GeyserPropertyProvider implements PropertyProvider {
     @SuppressWarnings("unchecked")
     public <T extends Comparable<T>> GeyserProperty<T> get(String key) {
         return switch (key) {
+            case "age_1" -> new GeyserProperty(Properties.AGE_1);
             case "age_3" -> new GeyserProperty(Properties.AGE_3);
             case "bell_attachment" -> new GeyserProperty(Properties.BELL_ATTACHMENT);
             case "bites" -> new GeyserProperty(Properties.BITES);
             case "chest_type" -> new GeyserProperty<>(
                     Properties.CHEST_TYPE,
-                    raw -> (T) ac.boar.mappings.block.ChestType.VALUES[((ChestType) raw).ordinal()]
+                    raw -> (T) ac.boar.mappings.block.ChestType.VALUES[((ChestType) raw).ordinal()],
+                    value -> ChestType.values()[((ac.boar.mappings.block.ChestType) value).ordinal()]
             );
             case "door_hinge" -> new GeyserProperty(Properties.DOOR_HINGE);
             case "drag" -> new GeyserProperty(Properties.DRAG);
+            case "dripstone_thickness" -> new GeyserProperty(Properties.SPELEOTHEM_THICKNESS);
             case "half" -> new GeyserProperty(Properties.HALF);
             case "hanging" -> new GeyserProperty(Properties.HANGING);
             case "has_book" -> new GeyserProperty(Properties.HAS_BOOK);
             case "horizontal_facing" -> new GeyserProperty<>(
                     Properties.HORIZONTAL_FACING,
-                    raw -> (T) ac.boar.anticheat.util.math.Direction.VALUES[((Direction) raw).ordinal()]
+                    raw -> (T) ac.boar.anticheat.util.math.Direction.VALUES[((Direction) raw).ordinal()],
+                    value -> Direction.values()[((ac.boar.anticheat.util.math.Direction) value).ordinal()]
             );
             case "level" -> new GeyserProperty(Properties.LEVEL);
             case "lit" -> new GeyserProperty(Properties.LIT);
             case "open" -> new GeyserProperty(Properties.OPEN);
             case "respawn_anchor_charges" -> new GeyserProperty(Properties.RESPAWN_ANCHOR_CHARGES);
+            case "slab_type" -> new GeyserProperty(Properties.SLAB_TYPE);
             case "vault_state" -> new GeyserProperty(Properties.VAULT_STATE);
+            case "vertical_direction" -> new GeyserProperty<>(
+                    Properties.VERTICAL_DIRECTION,
+                    raw -> (T) ac.boar.anticheat.util.math.Direction.VALUES[((Direction) raw).ordinal()],
+                    value -> Direction.values()[((ac.boar.anticheat.util.math.Direction) value).ordinal()]
+            );
+            case "waterlogged" -> new GeyserProperty(Properties.WATERLOGGED);
             default -> throw new IllegalArgumentException("Unknown property: " + key);
         };
     }

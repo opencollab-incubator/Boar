@@ -11,9 +11,11 @@ import ac.boar.api.anticheat.annotations.Experimental;
 @Experimental
 @CheckInfo(name = "Timer")
 public final class Timer extends BaseCheck implements PingBasedCheck {
-    private static final long AVERAGE_DISTANCE = (long) 5e+7;
 
-    private long lastNS, balance, prevTick;
+    private static final long AVERAGE_DISTANCE = (long) 5e+7;
+    private static final long MAX_LOADING_SCREEN_SKIP_MS = 10_000L;
+
+    private long lastNS, balance;
     private long loseBalance;
     private boolean beforeAuthInput;
 
@@ -32,15 +34,13 @@ public final class Timer extends BaseCheck implements PingBasedCheck {
             long distance = (latency.ns() - (System.nanoTime() + this.balance)) - (AVERAGE_DISTANCE / 2);
             this.balance += distance;
             this.loseBalance = Math.max(0, this.loseBalance - distance);
-
-//            Boar.debug(getDisplayName() + " is behind, likely fake lagging, distance=" + distance, Boar.DebugMessage.INFO);
         }
     }
 
     public boolean isInvalid() {
-        if (this.lastNS == 0 || player.inLoadingScreen || player.sinceLoadingScreen < 20) {
+        final boolean skipLoadingScreen = player.inLoadingScreen ? System.currentTimeMillis() - player.loadingScreenStartMs < MAX_LOADING_SCREEN_SKIP_MS : player.sinceLoadingScreen < 200;
+        if (this.lastNS == 0 || skipLoadingScreen) {
             this.lastNS = System.nanoTime();
-            this.prevTick = player.tick;
             this.balance = 0;
             return false;
         }
@@ -48,19 +48,20 @@ public final class Timer extends BaseCheck implements PingBasedCheck {
         boolean valid = true;
 
         long distance = System.nanoTime() - this.lastNS;
-        long neededDistance = (player.tick - this.prevTick) * AVERAGE_DISTANCE;
-
+        final long neededDistance = AVERAGE_DISTANCE;
         final long limit = (long) (AVERAGE_DISTANCE + 1e+7 + 3e+6);
         if (this.balance > limit) {
             if (this.balance - this.loseBalance <= limit) {
                 this.loseBalance -= AVERAGE_DISTANCE;
-                Boar.debug(getDisplayName() + " failed timer check due to balance limiter, but won't flag since player could actually be lagging.", Boar.DebugMessage.INFO);
+                Boar.debug(player.getSession().name() + ": failed timer check due to balance limiter, but won't flag since player could actually be lagging.", Boar.DebugMessage.INFO);
             } else {
-                this.fail("balance=" + this.balance + ", player is ahead!");
+                this.fail("balance=" + this.balance);
             }
 
-            Boar.debug("[timer-debug] invalid tick=" + player.tick + " prevTick=" + this.prevTick + " balance=" + this.balance + " loseBalance=" + this.loseBalance + " distanceNs=" + distance + " neededNs=" + neededDistance + " teleporting=" + player.getTeleportUtil().isTeleporting(), Boar.DebugMessage.WARNING);
-            player.getTeleportUtil().teleport(player.getTeleportUtil().getLastKnowValid());
+            Boar.debug(player.getSession().name() + ": [timer-debug] invalid tick=" + player.tick + " balance=" + this.balance + " loseBalance=" + this.loseBalance + " distanceNs=" + distance + " neededNs=" + neededDistance + " teleporting=" + player.getTeleportUtil().isTeleporting(), Boar.DebugMessage.WARNING);
+            /* if (!player.disableMitigations()) {
+                player.getTeleportUtil().teleport(player.getTeleportUtil().getLastKnownValid());
+            } */
             this.balance -= AVERAGE_DISTANCE;
             valid = false;
         } else {
@@ -73,7 +74,6 @@ public final class Timer extends BaseCheck implements PingBasedCheck {
 
         this.balance -= distance - neededDistance;
         this.lastNS = Math.max(this.lastNS, System.nanoTime());
-        this.prevTick = player.tick;
 
         this.beforeAuthInput = true;
         return !valid;

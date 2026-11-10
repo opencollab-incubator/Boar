@@ -1,12 +1,17 @@
 package ac.boar.geyser.mappings.entity;
 
+import ac.boar.anticheat.packets.server.ServerDataPackets;
 import ac.boar.mappings.entity.Entity;
 import ac.boar.mappings.entity.EntityDefinition;
 import org.cloudburstmc.math.vector.Vector3i;
+import org.cloudburstmc.protocol.bedrock.data.AttributeData;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataType;
 import org.cloudburstmc.protocol.bedrock.packet.UpdateAttributesPacket;
 import org.geysermc.geyser.entity.type.player.PlayerEntity;
 import org.geysermc.geyser.entity.type.player.SessionPlayerEntity;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public record GeyserEntity(org.geysermc.geyser.entity.type.Entity handle) implements Entity {
 
@@ -60,9 +65,12 @@ public record GeyserEntity(org.geysermc.geyser.entity.type.Entity handle) implem
             return;
         }
 
+        List<AttributeData> attributes = new ArrayList<>(List.copyOf(sessionEntity.getAttributes().values()));
+        attributes.replaceAll(ServerDataPackets::stripModifiers);
+
         UpdateAttributesPacket attributesPacket = new UpdateAttributesPacket();
         attributesPacket.setRuntimeEntityId(this.handle.geyserId());
-        attributesPacket.getAttributes().addAll(sessionEntity.getAttributes().values());
+        attributesPacket.getAttributes().addAll(attributes);
         sessionEntity.getSession().sendUpstreamPacket(attributesPacket);
     }
 

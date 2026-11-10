@@ -52,6 +52,10 @@ public class BlockStorage {
         this.bitArray = bitArray;
     }
 
+    public BlockStorage copy() {
+        return new BlockStorage(this.bitArray.copy(), new IntArrayList(this.palette));
+    }
+
     public int getFullBlock(int index) {
         return this.palette.getInt(this.bitArray.get(index));
     }

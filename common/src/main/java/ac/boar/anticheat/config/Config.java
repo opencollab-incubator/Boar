@@ -22,24 +22,48 @@ public final class Config {
     @JsonProperty("player-position-acceptance-threshold")
     @JsonSetter(nulls = Nulls.SKIP)
     private float acceptanceThreshold = 1.0E-4F;
+    @JsonProperty("player-position-drift-amount")
+    @JsonSetter(nulls = Nulls.SKIP)
+    private float positionDriftAmount = 0.0F;
+    @JsonProperty("player-position-retry-enabled")
+    @JsonSetter(nulls = Nulls.SKIP)
+    private boolean retryEnabled = true;
+    @JsonProperty("player-position-retry-max-offset")
+    @JsonSetter(nulls = Nulls.SKIP)
+    private float retryMaxOffset = 0.0F;
+    @JsonProperty("player-position-retry-max-start-offset")
+    @JsonSetter(nulls = Nulls.SKIP)
+    private float retryMaxStartOffset = 0.6F;
+    @JsonProperty("player-position-retry-cooldown-ticks")
+    @JsonSetter(nulls = Nulls.SKIP)
+    private int retryCooldownTicks = 20;
     @JsonProperty("max-tolerance-compensated-reach")
     @JsonSetter(nulls = Nulls.SKIP)
-    private float toleranceReach = 3.005F;
+    private float toleranceReach = 2.91F;
     @JsonProperty("differ-till-alert")
     @JsonSetter(nulls = Nulls.SKIP)
     private float alertThreshold = 0.0F;
+    @JsonProperty("static-seat-identifiers")
+    @JsonSetter(nulls = Nulls.SKIP)
+    private List<String> staticSeatIdentifiers = new ArrayList<>();
     @JsonProperty("disabled-checks")
     @JsonSetter(nulls = Nulls.SKIP)
     private List<String> disabledChecks = new ArrayList<>();
-    @JsonProperty("ignore-ghost-block")
+    @JsonProperty("disable-mitigations")
     @JsonSetter(nulls = Nulls.SKIP)
-    private boolean ignoreGhostBlock;
+    private boolean disableMitigations;
     @JsonProperty("max-latency-wait")
     @JsonSetter(nulls = Nulls.SKIP)
     private long maxLatencyWait = 15000L;
     @JsonProperty("max-balance-advantage")
     @JsonSetter(nulls = Nulls.SKIP)
     private long maxBalanceAdvantage = 2000L;
+    @JsonProperty("correction-flag-cooldown-ticks")
+    @JsonSetter(nulls = Nulls.SKIP)
+    private int correctionFlagCooldownTicks = 100;
+    @JsonProperty("max-ghost-block-chain")
+    @JsonSetter(nulls = Nulls.SKIP)
+    private int maxGhostBlockChain = 10;
     @JsonProperty("debug-mode")
     @JsonSetter(nulls = Nulls.SKIP)
     private boolean debugMode;
@@ -60,20 +84,44 @@ public final class Config {
         return acceptanceThreshold;
     }
 
+    public float positionDriftAmount() {
+        return Math.max(0.0F, positionDriftAmount);
+    }
+
+    public boolean retryEnabled() {
+        return retryEnabled;
+    }
+
+    public float retryMaxOffset() {
+        return Math.max(0.0F, retryMaxOffset);
+    }
+
+    public float retryMaxStartOffset() {
+        return Math.max(0.0F, retryMaxStartOffset);
+    }
+
+    public int retryCooldownTicks() {
+        return Math.max(0, retryCooldownTicks);
+    }
+
     public float toleranceReach() {
-        return Math.max(3.0001F, toleranceReach);
+        return Math.max(2.9F, toleranceReach);
     }
 
     public float alertThreshold() {
         return alertThreshold;
     }
 
+    public List<String> staticSeatIdentifiers() {
+        return this.staticSeatIdentifiers;
+    }
+
     public List<String> disabledChecks() {
         return disabledChecks;
     }
 
-    public boolean ignoreGhostBlock() {
-        return ignoreGhostBlock;
+    public boolean disableMitigations() {
+        return disableMitigations;
     }
 
     public long maxLatencyWait() {
@@ -82,6 +130,14 @@ public final class Config {
 
     public long maxBalanceAdvantage() {
         return maxBalanceAdvantage;
+    }
+
+    public int correctionFlagCooldownTicks() {
+        return Math.max(0, correctionFlagCooldownTicks);
+    }
+
+    public int maxGhostBlockChain() {
+        return maxGhostBlockChain;
     }
 
     public boolean debugMode() {

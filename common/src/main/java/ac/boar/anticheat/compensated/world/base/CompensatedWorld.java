@@ -1,9 +1,11 @@
 package ac.boar.anticheat.compensated.world.base;
 
+import ac.boar.anticheat.Boar;
 import ac.boar.anticheat.compensated.cache.entity.EntityCache;
 import ac.boar.anticheat.data.EntityDimensions;
 import ac.boar.anticheat.data.block.BoarBlockState;
 import ac.boar.anticheat.player.BoarPlayer;
+import ac.boar.anticheat.player.data.VehicleType;
 import ac.boar.anticheat.util.Dimension;
 import ac.boar.anticheat.util.MathUtil;
 import ac.boar.anticheat.util.geyser.BlockEntityInfo;
@@ -16,6 +18,7 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
@@ -23,33 +26,84 @@ import org.cloudburstmc.math.GenericMath;
 import org.cloudburstmc.math.vector.Vector3i;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.Optional;
+import java.util.OptionalInt;
 
 @RequiredArgsConstructor
 @Setter
 @Getter
 public class CompensatedWorld {
+    private static final int INITIAL_CHUNK_CLEANUP_DELAY_TICKS = 300;
+
     private final BoarPlayer player;
     private final Long2ObjectMap<BoarChunk> chunks = new Long2ObjectOpenHashMap<>();
     private final LongSet exemptedChunks = new LongOpenHashSet();
+    @Getter(AccessLevel.NONE)
+    private final Long2ObjectMap<Map<PendingBlockUpdateKey, Integer>> pendingBlockUpdates = new Long2ObjectOpenHashMap<>();
 
     private Dimension dimension;
 
     private final Long2ObjectMap<EntityCache> entities = new Long2ObjectOpenHashMap<>();
+    // Entities the server has spawned but the client has not acknowledged yet. An AddEntityAck
+    // promotes them into the visible map, so checks and prediction stay in sync with the client.
+    private final Long2ObjectMap<EntityCache> pendingEntities = new Long2ObjectOpenHashMap<>();
     private final Map<Long, Long> uniqueIdToRuntimeId = new HashMap<>();
 
-    public void removeEntity(final long uniqueId) {
-        final Long key = this.uniqueIdToRuntimeId.remove(uniqueId);
-        if (key == null) {
+    // The ack removes only the spawn it was made for. A later spawn may reuse the same unique or runtime id before this reply arrives.
+    public void removeEntity(final long uniqueId, final EntityCache entity) {
+        if (entity == null) {
             return;
         }
-
-        this.entities.remove((long) key);
+        final long runtimeId = entity.getRuntimeId();
+        this.entities.remove(runtimeId, entity);
+        this.pendingEntities.remove(runtimeId, entity);
+        final EntityCache latest = this.getTrackedEntity(runtimeId);
+        if (latest == null || latest.getUniqueId() != uniqueId) {
+            this.uniqueIdToRuntimeId.remove(uniqueId, runtimeId);
+        }
     }
 
     public EntityCache getEntity(long id) {
         return this.entities.get(id);
+    }
+
+    public Optional<EntityCache> fetchEntity(long id) {
+        EntityCache entity = this.entities.get(id);
+        return entity == null ? Optional.empty() : Optional.of(entity);
+    }
+
+    /**
+     * Get an entity the server has spawned, even when the client has not acknowledged the spawn
+     * yet. Only outbound packet handlers must use this — they mirror what the server has sent so
+     * far. Checks and prediction must use {@link #getEntity(long)} so they only see entities that
+     * exist on the client.
+     */
+    public EntityCache getTrackedEntity(long id) {
+        final EntityCache entity = this.pendingEntities.get(id);
+        return entity != null ? entity : this.entities.get(id);
+    }
+
+    public Optional<EntityCache> fetchTrackedEntity(long id) {
+        return Optional.ofNullable(this.getTrackedEntity(id));
+    }
+
+    // getTrackedEntity by unique ID. Null when the unique ID has no runtime ID or that runtime ID has no entity.
+    public EntityCache getTrackedEntityByUniqueId(long uniqueId) {
+        final Long runtimeId = this.uniqueIdToRuntimeId.get(uniqueId);
+        return runtimeId == null ? null : this.getTrackedEntity(runtimeId);
+    }
+
+    /**
+     * Make a pending entity visible. Called when the client acknowledges the spawn packet.
+     */
+    public void promoteEntity(final EntityCache entity) {
+        // Keep a newer pending spawn as it is. This ack only shows its own spawn.
+        this.pendingEntities.remove(entity.getRuntimeId(), entity);
+        this.entities.put(entity.getRuntimeId(), entity);
     }
 
     public EntityCache addToCache(final BoarPlayer player, final long runtimeId, final long uniqueId) {
@@ -58,14 +112,15 @@ public class CompensatedWorld {
             return null;
         }
 
-        boolean affectedByOffset = definition.type().is(EntityTypes.PLAYER) || definition.identifier().equalsIgnoreCase("minecraft:boat") || definition.identifier().equalsIgnoreCase("minecraft:chest_boat");
+        boolean affectedByOffset = definition.type().is(EntityTypes.PLAYER) || VehicleType.isBoat(definition.identifier());
 
         final EntityCache cache = new EntityCache(player, definition.type(), definition, runtimeId);
+        cache.setUniqueId(uniqueId);
         cache.setAffectedByOffset(affectedByOffset);
         // Default back to default bounding box if there ain't anything.
         cache.setDimensions(EntityDimensions.fixed(definition.width(), definition.height()));
 
-        this.entities.put(runtimeId, cache);
+        this.pendingEntities.put(runtimeId, cache);
         this.uniqueIdToRuntimeId.put(uniqueId, runtimeId);
 
         return cache;
@@ -73,6 +128,7 @@ public class CompensatedWorld {
 
     private int viewDistance = 16;
     private long lastChunkClean = Long.MIN_VALUE;
+    private int chunkCleanupDelayTicks = INITIAL_CHUNK_CLEANUP_DELAY_TICKS;
 
     public void setViewDistance(int viewDistance) {
         // The client always uses the server chunk view distance plus 1 unconditionally regardless of the radius it requested. It's also why we can get away with
@@ -82,6 +138,11 @@ public class CompensatedWorld {
 
     public void cleanChunksAtPlayerPosition() {
         if (this.player == null) {
+            return;
+        }
+
+        if (this.chunkCleanupDelayTicks > 0) {
+            this.chunkCleanupDelayTicks--;
             return;
         }
 
@@ -142,29 +203,33 @@ public class CompensatedWorld {
         return distanceSquared < threshold * threshold;
     }
 
-    public void put(int x, int z, BoarChunkSection[] chunks) {
+    public void put(int x, int z, BoarChunkSection[] chunks, boolean[] knownSections) {
         long chunkPosition = MathUtil.chunkPositionToLong(x, z);
-        this.chunks.put(chunkPosition, new BoarChunk(chunks, new ArrayList<>()));
+        final BoarChunkSection[] sections = Arrays.copyOf(chunks, chunks.length);
+        this.chunks.put(chunkPosition, new BoarChunk(sections, new ArrayList<>(), true, this.player.tick, knownSections));
         this.updateChunkExemption(chunkPosition, x, z);
+        this.applyPendingBlockUpdates(chunkPosition, sections);
     }
 
-    public void updateSection(int chunkX, int chunkZ, int sectionY, BoarChunkSection section) {
+    public void updateSection(int chunkX, int chunkZ, int sectionY, BoarChunkSection section, boolean known) {
         final int sectionCount = this.dimension.height() >> 4;
         if (sectionY < 0 || sectionY >= sectionCount) {
             return;
         }
 
+        final long chunkPosition = MathUtil.chunkPositionToLong(chunkX, chunkZ);
         BoarChunk chunk = this.getChunk(chunkX, chunkZ);
         if (chunk == null) {
             final BoarChunkSection[] sections = new BoarChunkSection[sectionCount];
-            sections[sectionY] = section;
-            final long chunkPosition = MathUtil.chunkPositionToLong(chunkX, chunkZ);
-            this.chunks.put(chunkPosition, new BoarChunk(sections, new ArrayList<>()));
-            this.updateChunkExemption(chunkPosition, chunkX, chunkZ);
-            return;
+            chunk = new BoarChunk(sections, new ArrayList<>(), sectionCount == 1, this.player.tick);
+            chunk.setSection(section, sectionY, known);
+            this.chunks.put(chunkPosition, chunk);
+        } else {
+            chunk.setSection(section, sectionY, known);
         }
 
-        chunk.sections()[sectionY] = section;
+        this.updateChunkExemption(chunkPosition, chunkX, chunkZ);
+        this.applyPendingBlockUpdates(chunkPosition, chunk.sections(), sectionY);
     }
 
     private void updateChunkExemption(long chunkPosition, int chunkX, int chunkZ) {
@@ -178,6 +243,7 @@ public class CompensatedWorld {
     public void clearChunks() {
         this.chunks.clear();
         this.exemptedChunks.clear();
+        this.pendingBlockUpdates.clear();
         this.lastChunkClean = Long.MIN_VALUE;
     }
 
@@ -198,28 +264,88 @@ public class CompensatedWorld {
     }
 
     public void updateBlock(int x, int y, int z, int layer, int block) {
+        if (this.dimension == null || y < this.getMinY() || y >= this.getHeightY()) {
+            return;
+        }
+
         final BoarChunkSection[] column = this.getChunkSections(x >> 4, z >> 4);
         if (column == null) {
+            this.queuePendingBlockUpdate(x, y, z, layer, block);
             return;
         }
 
-        if (y < getMinY() || ((y - getMinY()) >> 4) > column.length - 1) {
-            // Y likely goes above or below the height limit of this world
+        this.applyBlockUpdate(column, x, y, z, layer, block);
+    }
+
+    private void queuePendingBlockUpdate(int x, int y, int z, int layer, int block) {
+        final long chunkPosition = MathUtil.chunkPositionToLong(x >> 4, z >> 4);
+        Map<PendingBlockUpdateKey, Integer> updates = this.pendingBlockUpdates.get(chunkPosition);
+        if (updates == null) {
+            updates = new HashMap<>();
+            this.pendingBlockUpdates.put(chunkPosition, updates);
+        }
+        updates.put(new PendingBlockUpdateKey(x, y, z, layer), block);
+    }
+
+    private void applyPendingBlockUpdates(long chunkPosition, BoarChunkSection[] column) {
+        final Map<PendingBlockUpdateKey, Integer> updates = this.pendingBlockUpdates.remove(chunkPosition);
+        if (updates == null) {
             return;
         }
 
-        BoarChunkSection palette = column[(y - getMinY()) >> 4];
-        if (palette == null) {
-            if (block != 0) {
-                // A previously empty chunk, which is no longer empty as a block has been added to it
-                column[(y - getMinY()) >> 4] = palette = new BoarChunkSection(this.player.mappingInfo.airId());
+        for (Map.Entry<PendingBlockUpdateKey, Integer> entry : updates.entrySet()) {
+            final PendingBlockUpdateKey key = entry.getKey();
+            this.applyBlockUpdate(column, key.x(), key.y(), key.z(), key.layer(), entry.getValue());
+        }
+    }
+
+    private void applyPendingBlockUpdates(long chunkPosition, BoarChunkSection[] column, int sectionY) {
+        final Map<PendingBlockUpdateKey, Integer> updates = this.pendingBlockUpdates.get(chunkPosition);
+        if (updates == null) {
+            return;
+        }
+
+        final Iterator<Map.Entry<PendingBlockUpdateKey, Integer>> iterator = updates.entrySet().iterator();
+        while (iterator.hasNext()) {
+            final Map.Entry<PendingBlockUpdateKey, Integer> entry = iterator.next();
+            final PendingBlockUpdateKey key = entry.getKey();
+            if ((key.y() - this.getMinY()) >> 4 != sectionY) {
+                continue;
+            }
+
+            this.applyBlockUpdate(column, key.x(), key.y(), key.z(), key.layer(), entry.getValue());
+            iterator.remove();
+        }
+
+        if (updates.isEmpty()) {
+            this.pendingBlockUpdates.remove(chunkPosition);
+        }
+    }
+
+    private void applyBlockUpdate(BoarChunkSection[] column, int x, int y, int z, int layer, int block) {
+        final int index = (y - this.getMinY()) >> 4;
+        if (index < 0 || index >= column.length) {
+            return;
+        }
+
+        BoarChunkSection section = column[index];
+        if (section == null) {
+            if (!this.player.mappingInfo.airIds().contains(block)) {
+                section = new BoarChunkSection(this.player.mappingInfo.airId());
+                column[index] = section;
             } else {
-                // Nothing to update
                 return;
             }
+        } else if (section.isShared()) {
+            // COW so that we never modify a section shared with other players worlds
+            section = section.copy();
+            column[index] = section;
         }
 
-        palette.setFullBlock(x & 0xF, y & 0xF, z & 0xF, layer, block);
+        section.setFullBlock(x & 0xF, y & 0xF, z & 0xF, layer, block);
+    }
+
+    private record PendingBlockUpdateKey(int x, int y, int z, int layer) {
     }
 
     public BoarBlockState getBlockState(Mutable vector3i, int layer) {
@@ -232,6 +358,41 @@ public class CompensatedWorld {
 
     public BoarBlockState getBlockState(int x, int y, int z, int layer) {
         return BoarBlockState.create(getBlockAt(x, y, z, layer), Vector3i.from(x, y, z), layer);
+    }
+
+    /**
+     * Strict read. Returns empty unless we know where each block slot came from.
+     * A decoded section that sent only layer 0 has air in layer 1.
+     */
+    public OptionalInt getKnownRawBlockAt(int x, int y, int z, int layer) {
+        if (this.dimension == null || y < getMinY() || layer < 0 || layer > 1) {
+            return OptionalInt.empty();
+        }
+        final BoarChunk column = this.getChunk(x >> 4, z >> 4);
+        final int index = (y - getMinY()) >> 4;
+        if (column == null || !column.isSectionKnown(index)) {
+            return OptionalInt.empty();
+        }
+        try {
+            final BoarChunkSection section = column.getSection(index);
+            if (layer == 1 && section.hasOnlyLayerZeroStorage()) {
+                return OptionalInt.of(this.player.mappingInfo.airId());
+            }
+            final int id = section.getFullBlock(x & 15, y & 15, z & 15, layer);
+            return id == Integer.MIN_VALUE ? OptionalInt.empty() : OptionalInt.of(id);
+        } catch (Exception e) {
+            return OptionalInt.empty();
+        }
+    }
+
+    // Like getKnownRawBlockAt, but also empty when the block mapping does not know the ID (BlockMappingInfo.isKnownRawId).
+    // It records no read for KnownBlockReads.
+    public OptionalInt getKnownMappedRawBlockAt(int x, int y, int z, int layer) {
+        final OptionalInt raw = this.getKnownRawBlockAt(x, y, z, layer);
+        if (raw.isEmpty() || !this.player.mappingInfo.isKnownRawId(raw.getAsInt())) {
+            return OptionalInt.empty();
+        }
+        return raw;
     }
 
     public int getRawBlockAt(int x, int y, int z, int layer) {
@@ -251,7 +412,7 @@ public class CompensatedWorld {
                 int id = chunk.getFullBlock(x & 0xF, y & 0xF, z & 0xF, layer);
                 return id == Integer.MIN_VALUE ? player.mappingInfo.airId() : id;
             } catch (Exception e) {
-//                e.printStackTrace();
+                Boar.getInstance().getPlatform().logger().error(player.getSession().name() + ": failed to read block at " + x + "," + y + "," + z + " layer=" + layer, e);
                 return player.mappingInfo.airId();
             }
         }

@@ -20,6 +20,8 @@ public class GeyserEffectProvider implements EffectProvider {
 
         for (EffectType type : EffectType.values()) {
             Effect effect = switch (type) {
+                case SPEED -> Effect.SPEED;
+                case SLOWNESS -> Effect.SLOWNESS;
                 case JUMP_BOOST -> Effect.JUMP_BOOST;
                 case LEVITATION -> Effect.LEVITATION;
                 case CONDUIT_POWER -> Effect.CONDUIT_POWER;

@@ -3,6 +3,7 @@ package ac.boar.anticheat.data.block.impl;
 import ac.boar.anticheat.data.block.AbstractBoarBlockState;
 import ac.boar.anticheat.data.block.BoarBlockStateDelegate;
 import ac.boar.anticheat.player.BoarPlayer;
+import org.cloudburstmc.protocol.bedrock.codec.v944.Bedrock_v944;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 
 public class BedBlockState extends AbstractBoarBlockState {
@@ -15,10 +16,10 @@ public class BedBlockState extends AbstractBoarBlockState {
         if (player.velocity.y < 0 && !player.getFlagTracker().has(EntityFlag.SNEAKING)) {
             final float d = living ? 1.0F : 0.8F;
             player.velocity.y = -player.velocity.y * 0.75F * d;
-            if (player.velocity.y > 0.75) {
+            if (player.getSession().protocolVersion() < Bedrock_v944.CODEC.getProtocolVersion() && player.velocity.y > 0.75F) {
                 player.velocity.y = 0.75F;
             }
-        } else {
+        } else if (player.getSession().protocolVersion() >= Bedrock_v944.CODEC.getProtocolVersion() || player.getFlagTracker().has(EntityFlag.SNEAKING)) {
             player.velocity.y = 0;
         }
     }

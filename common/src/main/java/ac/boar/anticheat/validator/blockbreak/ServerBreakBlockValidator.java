@@ -1,12 +1,13 @@
 package ac.boar.anticheat.validator.blockbreak;
 
+import ac.boar.api.anticheat.annotations.CheckInfo;
+import ac.boar.anticheat.check.api.BaseCheck;
 import ac.boar.anticheat.data.BreakingData;
 import ac.boar.anticheat.data.block.BoarBlockState;
 import ac.boar.anticheat.player.BoarPlayer;
 import ac.boar.anticheat.util.MathUtil;
 import ac.boar.anticheat.util.block.BlockUtil;
 import ac.boar.anticheat.util.math.Direction;
-import lombok.RequiredArgsConstructor;
 import org.cloudburstmc.math.vector.Vector3i;
 import org.cloudburstmc.protocol.bedrock.data.PlayerActionType;
 import org.cloudburstmc.protocol.bedrock.data.PlayerAuthInputData;
@@ -17,13 +18,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-import static org.cloudburstmc.protocol.bedrock.data.PlayerActionType.ABORT_BREAK;
-import static org.cloudburstmc.protocol.bedrock.data.PlayerActionType.BLOCK_CONTINUE_DESTROY;
-import static org.cloudburstmc.protocol.bedrock.data.PlayerActionType.BLOCK_PREDICT_DESTROY;
-import static org.cloudburstmc.protocol.bedrock.data.PlayerActionType.START_BREAK;
+import static org.cloudburstmc.protocol.bedrock.data.PlayerActionType.*;
 
-@RequiredArgsConstructor
-public class ServerBreakBlockValidator {
+@CheckInfo(name = "Block Break")
+public class ServerBreakBlockValidator extends BaseCheck {
+
     private final static List<PlayerActionType> ALLOWED_ACTIONS = List.of(
             START_BREAK,
             ABORT_BREAK,
@@ -31,9 +30,11 @@ public class ServerBreakBlockValidator {
             BLOCK_CONTINUE_DESTROY
     );
 
-    private final BoarPlayer player;
-
     private BreakingData breakingData;
+
+    public ServerBreakBlockValidator(BoarPlayer player) {
+        super(player);
+    }
 
     public void handle(final PlayerAuthInputPacket packet) {
         if (!packet.getInputData().contains(PlayerAuthInputData.PERFORM_BLOCK_ACTIONS)) {
@@ -41,17 +42,26 @@ public class ServerBreakBlockValidator {
         }
 
         final List<PlayerBlockActionData> validActions = new ArrayList<>();
-
         for (final PlayerBlockActionData action : packet.getPlayerActions()) {
             final PlayerActionType actionType = action.getAction();
             final int face = action.getFace();
+
+            // TODO: see if we need to have any other actions pass through
+            if (actionType == DROP_ITEM) {
+                validActions.add(action);
+                continue;
+            } else if (actionType == ABORT_BREAK) {
+                this.breakingData = null;
+                validActions.add(action);
+                continue;
+            }
 
             // These action are shouldn't be process, and likely won't be process by Geyser anyway.
             if (!ALLOWED_ACTIONS.contains(actionType) || action.getBlockPosition() == null || !MathUtil.isValid(action.getBlockPosition())) {
                 continue;
             }
 
-            if (actionType != ABORT_BREAK && (face < 0 || face >= Direction.VALUES.length)) {
+            if (face < 0 || face >= Direction.VALUES.length) {
                 continue;
             }
 
@@ -92,7 +102,6 @@ public class ServerBreakBlockValidator {
                     this.breakingData.setBreakingProcess(1F);
                 }
 
-                case ABORT_BREAK -> this.breakingData = null;
                 case BLOCK_PREDICT_DESTROY -> {
                     if (this.breakingData == null || !Objects.equals(blockPosition, this.breakingData.getPosition())) {
                         continue;
@@ -110,6 +119,10 @@ public class ServerBreakBlockValidator {
             }
 
             validActions.add(action);
+        }
+
+        if (player.disableMitigations()) {
+            return;
         }
 
         packet.getPlayerActions().clear();

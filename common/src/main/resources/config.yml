@@ -14,26 +14,63 @@ player-rewind-history-size-ticks: 20
 # any offset smaller than 5.0E-5
 player-position-acceptance-threshold: 1.0E-4
 
+# How far (in blocks per tick) the server position can move towards the client position when the two are out of sync,
+# but the difference is still too small to send a correction.
+# A small and constant difference (usually caused by collisions) can grow until Boar must send a correction, which the
+# player sees as a rubberband. This drift removes the difference slowly, so no correction is necessary.
+# The drift applies only to the X and Z axes. The Y axis stays as Boar predicts it, because a vertical drift can help
+# flight cheats.
+# To disable the drift, set this to 0.
+# NOTE: This only takes effect for differences below "differ-till-alert", because any larger difference gets a correction.
+player-position-drift-amount: 0.0
+
+# A small difference between the client and server position can grow into a correction when collision logic differs (ex: when running into the
+# edge/corner of a block, if the position difference is high enough it can cause a large difference since the prediction could move on X-axis
+# whilst client moves it's Z-axis)
+# Before Boar sends out a correction, it can run the simulation again from the client's last position, and keeps that second
+# result (and sends no correction) only if all of these are true:
+# - The client's last position was not inside a block.
+# - The second run hit blocks differently than the first run (collision, ground, or step up).
+# - The second run agrees with the collision flags the client sent.
+# - The second run ends at most "player-position-retry-max-offset" blocks from the client position.
+# - The client's last position is at most "player-position-retry-max-start-offset" blocks from Boar's.
+# - No retry was kept in the last "player-position-retry-cooldown-ticks" ticks, and this isn't a knockback tick.
+# A cheater can gain at most the start difference plus "player-position-retry-max-offset" each time a retry is kept (only if they're colliding
+# with blocks) but the benefit is that you avoid a correction which could be priority for some servers.
+# To disable the retry, set "player-position-retry-enabled" to false or "player-position-retry-max-offset" to 0
+player-position-retry-enabled: true
+player-position-retry-max-offset: 0.0
+
+# The client's last position is never checked, so without this cap a client could claim any start and have one normal-looking
+# tick from there accepted (ignore a correction, then get retried to wherever it is). 0.6 is above every legit retry seen so far.
+player-position-retry-max-start-offset: 0.6
+
+# How many ticks after a kept retry before another one can be kept. Legit retries are rare, so this limits how often a cheater
+# can gain the start difference. 0 means no cooldown.
+player-position-retry-cooldown-ticks: 20
+
 # This is the max reach that Boar going to tolerance before flagging, it does account for lag so no worry :)
 max-tolerance-compensated-reach: 3.005
 
-# How many discrepancies between the Client and Server Player position needed to be before the anticheat send alert message
-# NOTE: This is NOT tolerance of discrepancies (that's player-position-acceptance-threshold), this will still do silent
-# correction unless you change player-position-acceptance-threshold.
-# This configuration exists so that some falses or other stuff won't keep spamming the chat/logs.
+# How far the client position can be from Boar's prediction before Boar sends a correction and flags the player.
+# NOTE: This IS a tolerance. A difference above player-position-acceptance-threshold but below this value gets no correction.
+# Boar keeps its own predicted position, sends it to the server, and only moves X/Z toward the client by player-position-drift-amount.
+# So the client can be up to this far from Boar without a rubberband.
+# A difference at or above this value gets a correction.
+# Exception: a player held on a static seat (see static-seat-identifiers) whose client is not at the seat gets a correction
+# at any difference, even below player-position-acceptance-threshold.
 differ-till-alert: 0.0
 
 # Checks that you want Boar to disable.
 # Check name should be in format "Name-Type" and if there is no type then "Name", ex: Reach-A (don't actually disable reach check lol).
 disabled-checks: []
 
-# Normally Boar will account for lag, that also including block, if on the server side the block below player is Air but if
-# on the client side, it's an actual block, then Boar will account for this. However, with this enable, Boar will forcefully
-# rewind player if player is standing on a ghost block, this for ex: prevent player from abusing high ping to climb up walls in
-# region that doesn't allow block placing (ex: WorldEdit).
-
-# NOTE: This will only take effect if player is STANDING on the block.
-ignore-ghost-block: false
+# Disable every anti-cheat mitigation while continuing to run checks and report violations.
+# This allows detected actions to reach the server without Boar cancelling packets, correcting blocks, rewinding movement, or kicking players.
+# This is the default each player starts with; mitigations are tracked per-player, so an integration can override
+# BoarPlayerManager#shouldDisableMitigations to split players into arms (ex: A/B testing corrections) or flip a single
+# player at runtime with BoarPlayer#setDisableMitigations.
+disable-mitigations: false
 
 # How long do we wait for player to respond to latency confirmation/acknowledgements till we kicked the player for timed out.
 # This value shouldn't be too low to account for lagging player and shouldn't be too high so cheaters won't be able to stop responding to latency for too long.
@@ -44,5 +81,16 @@ max-latency-wait: 15000
 # To disable (which you probably shouldn't), set this to any value smaller or equals to 0.
 max-balance-advantage: 8500
 
+# How many ghost blocks (blocks the server refused to place, which only the player can see) can be placed against each other before Boar stops more placements on them.
+# Without a limit, a cheater can keep building on ghost blocks to look like they fly, since other players can't see them.
+# Set this to -1 to allow any amount of ghost blocks. 0 works the same as 1, and values above 100 work the same as -1.
+max-ghost-block-chain: 10
+
 # Should debug mode be enabled or not?
 debug-mode: false
+
+# Server-made actors that never move. The seat is placed from the actor origin, and the client's default exit is used.
+# Entries are actor identifiers, as sent when the actor is added, ex: ["namespace:seat"].
+# An actor that has an entity definition on this platform is never treated as a static seat.
+# Do not add other custom actors here. They need their own seat and movement model first.
+static-seat-identifiers: []

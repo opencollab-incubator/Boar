@@ -27,7 +27,7 @@ public final class BoarViolationRegistry {
             try {
                 listener.onViolation(violation);
             } catch (Throwable t) {
-                Boar.debug("Violation listener " + listener.getClass().getName() + " threw: " + t, Boar.DebugMessage.WARNING);
+                Boar.getInstance().getPlatform().logger().error(violation.player().getSession().name() + ": violation listener " + listener.getClass().getName() + " threw", t);
             }
         }
     }

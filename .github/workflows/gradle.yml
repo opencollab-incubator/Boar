@@ -32,7 +32,7 @@ jobs:
           path: geyser/build/libs/boar-geyser.jar
           if-no-files-found: error
       - name: Publish to Maven Repository
-        if: ${{ success() && github.repository == 'opencollab-incubator/Boar' && github.ref_name == 'master' }}
+        if: ${{ success() && github.repository == 'opencollab-incubator/Boar' && github.ref_name == 'dev2' }}
         run: ./gradlew publish
         env:
           BUILD_NUMBER: ${{ github.run_number }}

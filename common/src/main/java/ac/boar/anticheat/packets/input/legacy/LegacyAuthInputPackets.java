@@ -2,17 +2,20 @@ package ac.boar.anticheat.packets.input.legacy;
 
 import ac.boar.anticheat.check.api.Check;
 import ac.boar.anticheat.check.api.impl.OffsetHandlerCheck;
-import ac.boar.anticheat.collision.Collider;
 import ac.boar.anticheat.compensated.cache.container.ContainerCache;
+import ac.boar.anticheat.Boar;
 import ac.boar.anticheat.data.ItemUseTracker;
 import ac.boar.anticheat.data.inventory.BoarItemStack;
 import ac.boar.anticheat.player.BoarPlayer;
+import ac.boar.anticheat.player.data.VehicleType;
 import ac.boar.anticheat.prediction.UncertainRunner;
+import ac.boar.anticheat.prediction.vehicle.VehicleTicker;
 import ac.boar.anticheat.util.InputUtil;
+import ac.boar.anticheat.util.MathUtil;
 import ac.boar.anticheat.util.math.Vec3;
 import ac.boar.mappings.item.Items;
 import org.cloudburstmc.protocol.bedrock.data.Ability;
-import org.cloudburstmc.protocol.bedrock.data.InputMode;
+import org.cloudburstmc.protocol.bedrock.data.GameType;
 import org.cloudburstmc.protocol.bedrock.data.PlayerAuthInputData;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
@@ -22,25 +25,58 @@ import java.util.Iterator;
 import java.util.Map;
 
 public class LegacyAuthInputPackets {
+
+    private static final float MAX_CLIENT_DELTA = 16.0F;
+
     public static void updateUnvalidatedPosition(final BoarPlayer player, final PlayerAuthInputPacket packet) {
         player.prevUnvalidatedPosition = player.unvalidatedPosition.clone();
+        player.unvalidatedNativeOriginY = packet.getPosition().getY();
         player.unvalidatedPosition = new Vec3(packet.getPosition().down(player.getYOffset()));
-        player.unvalidatedTickEnd = new Vec3(packet.getDelta());
+        player.unvalidatedTickEnd = new Vec3(
+                MathUtil.clamp(packet.getDelta().getX(), -MAX_CLIENT_DELTA, MAX_CLIENT_DELTA),
+                MathUtil.clamp(packet.getDelta().getY(), -MAX_CLIENT_DELTA, MAX_CLIENT_DELTA),
+                MathUtil.clamp(packet.getDelta().getZ(), -MAX_CLIENT_DELTA, MAX_CLIENT_DELTA)
+        );
     }
 
     public static void doPostPrediction(final BoarPlayer player, final PlayerAuthInputPacket packet) {
         player.postTick();
-        player.getTeleportUtil().cacheRewindHistory(player.tick, player.position.up(player.getYOffset()));
+
+        final boolean driverSwitchRider = player.vehicleData != null && player.vehicleData.isDriverSwitchRiderTick(player.tick);
+        if (VehicleTicker.serverDriven(player, player.vehicleData) || driverSwitchRider) {
+            // The server places the rider. Do not correct the rider's client view. Do not use that view as the position or velocity after the ride.
+            player.getTeleportUtil().updateLastKnownValid(player.position.up(player.getYOffset()));
+            player.getMovementTrace().log(driverSwitchRider ? "post: boat driver switch rider, kept acknowledged seat"
+                    : "post: server-driven rider, kept acknowledged seat");
+            if (!player.getTeleportUtil().hasPendingCorrection() && player.getTeleportUtil().isCorrectionCooldown()) {
+                player.getTeleportUtil().setCorrectionCooldown(false);
+            }
+            correctInputData(player, packet);
+            return;
+        }
+
+        if (player.insideUnloadedChunk) {
+            correctInputData(player, packet);
+            return;
+        }
+
+        player.getTeleportUtil().updateLastKnownValid(player.position.up(player.getYOffset()));
 
         final UncertainRunner uncertainRunner = new UncertainRunner(player);
 
         // Properly calculated offset by comparing position instead of poorly calculated velocity that get calculated using (pos - prevPos) to account for floating point errors.
         float offset = player.position.distanceTo(player.unvalidatedPosition);
-        float extraOffset = uncertainRunner.extraOffset(offset);
+        final float rawOffset = offset;
+        final boolean heldStaticSeat = player.staticSeat != null && player.staticSeat.heldThisTick(player);
+        float extraOffset = heldStaticSeat ? 0 : uncertainRunner.extraOffset(offset);
         offset -= extraOffset;
-        offset -= uncertainRunner.extraOffsetNonTickEnd(offset);
-        uncertainRunner.uncertainPushTowardsTheClosetSpace();
-        uncertainRunner.resolveUncertainBouncing();
+        if (!heldStaticSeat) {
+            uncertainRunner.uncertainPushTowardsTheClosetSpace();
+        }
+
+        player.getMovementTrace().log("offset: raw=" + rawOffset + " extra=" + extraOffset
+                + " final=" + offset
+                + " predictedPos=" + player.position + " actualPos=" + player.unvalidatedPosition);
 
         for (Map.Entry<Class<?>, Check> entry : player.getCheckHolder().entrySet()) {
             Check v = entry.getValue();
@@ -49,21 +85,74 @@ public class LegacyAuthInputPackets {
             }
         }
 
-        // Have to do this due to loss precision, especially elytra!
-        if (player.velocity.distanceTo(player.unvalidatedTickEnd) - extraOffset < player.getMaxOffset()) {
+        // Keep the predicted movement during a pending correction or its cooldown tick.
+        // The horse block and the accept code below share this test. Nothing between them changes the teleport state, the offset or the positions.
+        final boolean hasPendingCorrection = player.getTeleportUtil().hasPendingCorrection();
+        final boolean inCorrectionCooldown = player.getTeleportUtil().isCorrectionCooldown();
+        final boolean canAcceptClient = !hasPendingCorrection && !inCorrectionCooldown;
+        final boolean acceptPosition = canAcceptClient && offset < player.getPosAcceptanceThreshold() + player.getPositionUlp();
+
+        final var vehicle = player.vehicleData;
+        if (vehicle != null && vehicle.type == VehicleType.HORSE) {
+            vehicle.finishSlidingClear(acceptPosition && vehicle.matchesMountedEntity(player.compensatedWorld.getEntity(vehicle.vehicleRuntimeId)));
+            vehicle.acceptMatchedClaim(player, packet, rawOffset, acceptPosition);
+        }
+
+        if (player.disableMitigations()) {
             player.velocity = player.unvalidatedTickEnd.clone();
+            player.lastTickFinalVelocity = player.unvalidatedTickEnd.clone();
+            player.setPos(player.unvalidatedPosition.clone(), false);
+            player.nativeOriginY = player.unvalidatedNativeOriginY;
+        } else {
+            final boolean acceptVelocity = canAcceptClient
+                    && player.velocity.distanceTo(player.unvalidatedTickEnd) - extraOffset < player.getPosAcceptanceThreshold();
+
+            // Have to do this due to loss precision, especially elytra!
+            if (acceptVelocity) {
+                player.getMovementTrace().log("post: accepted client velocity " + player.unvalidatedTickEnd);
+                player.velocity = player.unvalidatedTickEnd.clone();
+            }
+
+            if (acceptPosition) {
+                player.getMovementTrace().log("post: accepted client position " + player.unvalidatedPosition);
+                player.setPos(player.unvalidatedPosition.clone(), false);
+                player.nativeOriginY = player.unvalidatedNativeOriginY;
+            }
+
+            // A zero threshold never accepts velocity, even an exact one, so finishing the repair needs an exact match.
+            // An accepted velocity is a copy of the client's, so it matches.
+            // Compare each component. Do not test for a zero distance: squaring a tiny difference can underflow (round down) to zero.
+            final boolean repairVelocityMatches = player.velocity.x == player.unvalidatedTickEnd.x && player.velocity.y == player.unvalidatedTickEnd.y
+                    && player.velocity.z == player.unvalidatedTickEnd.z;
+
+            if (vehicle != null && vehicle.awaitingBoatFormatInput && vehicle.driver && vehicle.inputClaimsClientPrediction
+                    && vehicle.predictedVehicleUniqueId == vehicle.vehicleUniqueId && !vehicle.invalidVehicleInput && acceptPosition
+                    && repairVelocityMatches) {
+                // End the repair only after we accept the boat-format result. The input flag arriving is not enough.
+                vehicle.awaitingBoatFormatInput = false;
+                vehicle.riderCoordinates = false;
+                vehicle.boatActorState = null;
+                player.getMovementTrace().log("boat: accepted vehicle-format state, boat-format input arrived");
+            }
+
+            if (!canAcceptClient) {
+                player.getMovementTrace().log("post: kept prediction (pendingCorrection=" + hasPendingCorrection
+                        + " correctionCooldown=" + inCorrectionCooldown + ")");
+            }
+
+            if (!hasPendingCorrection && inCorrectionCooldown) {
+                player.getTeleportUtil().setCorrectionCooldown(false);
+            }
+        }
+
+        if (heldStaticSeat && !player.disableMitigations()) {
+            player.staticSeat.hold(player);
         }
         correctInputData(player, packet);
-
-        if (offset < player.getMaxOffset()) {
-            player.setPos(player.unvalidatedPosition.clone(), false);
-        }
-
-        player.prevPosition = player.position;
     }
 
     public static void correctInputData(final BoarPlayer player, final PlayerAuthInputPacket packet) {
-        if (player.isMovementExempted()) {
+        if (player.isMovementExempted() || player.disableMitigations()) {
             return;
         }
 
@@ -86,6 +175,7 @@ public class LegacyAuthInputPackets {
 
     public static void processAuthInput(final BoarPlayer player, final PlayerAuthInputPacket packet, boolean processInputData) {
         player.setInputData(packet.getInputData());
+        player.clientMotion = packet.getMotion();
 
         InputUtil.processInput(player, packet);
 
@@ -95,21 +185,70 @@ public class LegacyAuthInputPackets {
         player.pitch = packet.getRotation().getX();
 
         player.rotation = packet.getRotation();
+
+        player.prevInteractRotUnchanged = player.prevInteractRotation.equals(player.interactRotation);
+        player.prevInteractRotation = player.interactRotation.clone();
         player.interactRotation = packet.getInteractRotation().clone();
 
         player.inputMode = packet.getInputMode();
 
         if (processInputData) {
             processInputData(player);
+            updateVanillaOffset(player);
 
-            // Player isn't moving forward but is sprinting and their flag sync, this shouldn't happen.
-            if (player.input.z <= 0 && player.getFlagTracker().has(EntityFlag.SPRINTING) && player.desyncedFlag.get() == -1) {
+            // Player isn't moving forward but is sprinting and their flag sync, this shouldn't happen unless the player is swimming
+            // The client keeps the swim and the sprint flag while the input vector's length is at least 0.7071 long, in any direction
+            // as-per SwimTriggerSystem::doTick
+            if (player.input.z <= 0 && player.getFlagTracker().has(EntityFlag.SPRINTING) && !player.getFlagTracker().has(EntityFlag.SWIMMING) && player.desyncedFlag.get() == -1) {
                 player.getFlagTracker().set(EntityFlag.SPRINTING, false);
-
-                // Tell geyser that the player "want" to stop sprinting.
-                packet.getInputData().add(PlayerAuthInputData.STOP_SPRINTING);
+                if (!player.disableMitigations()) { // tell the server that the player "wants" to stop sprinting.
+                    packet.getInputData().add(PlayerAuthInputData.STOP_SPRINTING);
+                }
             }
         }
+    }
+
+    private static boolean flagAtTickStart(BoarPlayer player, EntityFlag flag, PlayerAuthInputData start, PlayerAuthInputData stop) {
+        if (player.getInputData().contains(stop)) {
+            return true;
+        }
+        if (player.getInputData().contains(start)) {
+            return false;
+        }
+        return player.getFlagTracker().has(flag);
+    }
+
+    private static void updateVanillaOffset(final BoarPlayer player) {
+        // VanillaOffsetSystemUtil::_clientTick and UnderWaterSensingSystem::doUnderWaterSensing.
+        player.headSampleOffsetY = player.previousVanillaOffsetY;
+        player.previousVanillaOffsetY = player.vanillaOffsetY;
+
+        // UpdateHorizontalPoseSystem::update
+        final boolean horizontal = player.getFlagTracker().has(EntityFlag.GLIDING)
+                || player.getFlagTracker().has(EntityFlag.DAMAGE_NEARBY_MOBS)
+                || player.getFlagTracker().has(EntityFlag.SWIMMING)
+                || player.getFlagTracker().has(EntityFlag.CRAWLING);
+        float targetEyeHeight = 1.62001F;
+        if (horizontal) {
+            targetEyeHeight = 0.4F;
+        } else if (player.getFlagTracker().has(EntityFlag.SNEAKING)) {
+            // VanillaOffsetSystem::tick uses the world base game version from StartGame.
+            targetEyeHeight = 1.62001F - player.sneakingEyeHeightReduction;
+        }
+        final float targetOffsetY = 1.62001F - targetEyeHeight; // VanillaOffsetSystemUtil::_clientTick - there's supposed to be an offset here but all paths seem to produce zero
+        player.vanillaOffsetY += (targetOffsetY - player.vanillaOffsetY) * 0.5F;
+    }
+
+    // Returns true if the client is slowed by item use this tick. That includes a "using" the server's metadata put it in, which we
+    // don't track, so go by the client's own vector (raw 1.0 -> 0.1225) and the START_USING_ITEM it echoes back.
+    // The client won't start sprinting while this is true.
+    private static boolean isClientItemSlowed(final BoarPlayer player) {
+        if (player.getInputData().contains(PlayerAuthInputData.START_USING_ITEM)) {
+            return true;
+        }
+        final float rawLen = player.input.horizontalLength();
+        final float mx = player.clientMotion.getX(), my = player.clientMotion.getY();
+        return rawLen > 1.0E-4F && (float) Math.sqrt(mx * mx + my * my) < rawLen * 0.5F;
     }
 
     public static void processInputData(final BoarPlayer player) {
@@ -117,25 +256,16 @@ public class LegacyAuthInputPackets {
             player.sinceTridentUse = 0;
         }
 
-        if (player.getFlagTracker().has(EntityFlag.SWIMMING)) {
-            player.ticksSinceSwimming++;
-        } else {
-            player.ticksSinceSwimming = 0;
-        }
+        // ViewT<StrictEntityContext, Include<InterpolateMovementNeededComponent>, SwimAmountComponent, ActorDataFlagComponent const>::each<void (*)(StrictEntityContext const&, SwimAmountComponent&, ActorDataFlagComponent const&)>
+        // and registerActorMovementTickSystems
+        final boolean swimmingAtTickStart = flagAtTickStart(player, EntityFlag.SWIMMING, PlayerAuthInputData.START_SWIMMING, PlayerAuthInputData.STOP_SWIMMING);
+        final boolean crawlingAtTickStart = flagAtTickStart(player, EntityFlag.CRAWLING, PlayerAuthInputData.START_CRAWLING, PlayerAuthInputData.STOP_CRAWLING);
+        player.swimAmount = swimmingAtTickStart || crawlingAtTickStart ? Math.min(player.swimAmount + 0.1F, 1.0F) : Math.max(player.swimAmount - 0.1F, 0.0F);
 
         if (player.getFlagTracker().has(EntityFlag.CRAWLING)) {
             player.ticksSinceCrawling++;
         } else {
             player.ticksSinceCrawling = 0;
-        }
-
-        // We rely on the SNEAK_CURRENT_RAW flag for the sneaking state since it is more reliable. However, we still need to account for cases where
-        // the player may not be holding the sneak bind but still cannot un-sneak (e.g. - under a slab).
-        final boolean useRawSneakState = player.inputMode.equals(InputMode.MOUSE); // SNEAK_CURRENT_RAW only seems to be applied on KBM (keyboard/mouse) - is this intentional or client bug?
-        if (useRawSneakState) {
-            final boolean wasSneaking = player.getFlagTracker().has(EntityFlag.SNEAKING);
-            final boolean forcedSneak = wasSneaking && !Collider.canStandUp(player);
-            player.getFlagTracker().set(EntityFlag.SNEAKING, player.getInputData().contains(PlayerAuthInputData.SNEAK_CURRENT_RAW) || forcedSneak);
         }
 
         final Iterator<PlayerAuthInputData> iterator = player.getInputData().iterator();
@@ -147,7 +277,7 @@ public class LegacyAuthInputPackets {
 
                     // Prevent player from spoofing elytra gliding, could false, considering that the compensated inventory is a bit half-baked but should works in most case.
                     player.getFlagTracker().set(EntityFlag.GLIDING, BoarItemStack.of(player.getSession(), cache.get(1).getData()).is(Items.ELYTRA));
-                    if (!player.getFlagTracker().has(EntityFlag.GLIDING)) {
+                    if (!player.getFlagTracker().has(EntityFlag.GLIDING) && !player.disableMitigations()) {
                         iterator.remove();
                     }
                 }
@@ -156,33 +286,26 @@ public class LegacyAuthInputPackets {
                 case START_SPRINTING -> {
                     boolean forwardMovement = player.input.getZ() > 0;
                     player.setSprinting(forwardMovement);
+                    player.clientSprintIntent = true;
+                    player.serverClearedSprint = false;
 
                     // Don't let player send an START_SPRINTING to force server to send back a sprinting attribute or allow the
                     // client to trick the server into letting it get sprinting speed while not moving forward.
-                    if (!forwardMovement) {
+                    if (!forwardMovement && !player.disableMitigations()) {
                         iterator.remove();
                     }
                 }
-                case STOP_SPRINTING -> player.setSprinting(false);
+                case STOP_SPRINTING -> {
+                    player.setSprinting(false);
+                    player.clientSprintIntent = false;
+                    player.serverClearedSprint = false;
+                }
 
                 case START_SWIMMING -> player.getFlagTracker().set(EntityFlag.SWIMMING, true);
                 case STOP_SWIMMING -> player.getFlagTracker().set(EntityFlag.SWIMMING, false);
 
-                // Prevent the server from constantly trying to update these states which would cause a massive desync loop
-                case START_SNEAKING ->  {
-                    if (!useRawSneakState) {
-                        player.getFlagTracker().set(EntityFlag.SNEAKING, true);
-                    } else if (!player.getInputData().contains(PlayerAuthInputData.SNEAK_CURRENT_RAW)) {
-                        iterator.remove();
-                    }
-                }
-                case STOP_SNEAKING -> {
-                    if (!useRawSneakState) {
-                        player.getFlagTracker().set(EntityFlag.SNEAKING, false);
-                    } else if (player.getInputData().contains(PlayerAuthInputData.SNEAK_CURRENT_RAW)) {
-                        iterator.remove();
-                    }
-                }
+                case START_SNEAKING -> player.getFlagTracker().set(EntityFlag.SNEAKING, true);
+                case STOP_SNEAKING -> player.getFlagTracker().set(EntityFlag.SNEAKING, false);
 
                 case START_FLYING -> player.getFlagTracker().setFlying(player.abilities.contains(Ability.MAY_FLY) || player.abilities.contains(Ability.FLYING));
                 case STOP_FLYING -> player.getFlagTracker().setFlying(false);
@@ -191,33 +314,31 @@ public class LegacyAuthInputPackets {
                     if (player.dirtySpinStop) {
                         player.stopRiptide();
                         player.velocity = player.velocity.multiply(-0.2F);
-                    } else {
+                    } else if (!player.disableMitigations()) {
                         iterator.remove();
                     }
                 }
 
                 case START_USING_ITEM -> {
-                    // Seems to be the case, this should only be taken seriously when it's trigger by sever metadata
-                    // or actual item use from inventory transaction packet.
-                    if (player.getItemUseTracker().getDirtyUsing() == ItemUseTracker.DirtyUsing.NONE) {
-                        iterator.remove();
-                        return;
-                    }
-
+                    // We prefer to obtain the item use state only from transactions now (click-air starts, release/finish stops)
+                    // This input can arrive after the client already let go (since PAI is end-of-tick), so it must not turn "using" back on
                     final ItemData itemData = player.compensatedInventory.inventoryContainer.getHeldItemData();
                     BoarItemStack itemStack = BoarItemStack.of(player.getSession(), itemData);
 
-                    // The player in fact CAN use an item that is not air even if that item is eg: dirt for 1 tick.
-                    // However, this likely will only happen when flag de-sync.
+                    // TODO: Try and debug inventory issues further.
                     if (itemStack.isEmpty()) {
-                        iterator.remove();
-                        return;
+                        continue;
                     }
 
-//                    System.out.println("Start using item: " + itemData);
-                    player.getFlagTracker().set(EntityFlag.USING_ITEM, true);
-                    player.getItemUseTracker().use(itemData, itemStack.item(), true);
-                    player.getItemUseTracker().setDirtyUsing(ItemUseTracker.DirtyUsing.NONE);
+                    // Still keep the server from starting a use with an item that can't be used
+                    if (!player.getItemUseTracker().canBeUsed(itemData, itemStack.item()) && !player.disableMitigations()) {
+                        iterator.remove();
+                        continue;
+                    }
+
+                    if (!player.getFlagTracker().has(EntityFlag.USING_ITEM)) {
+                        Boar.debug(player.getSession().name() + ": [item-use-debug] tick=" + player.tick + " START_USING_ITEM input ignored, no use transaction (not using)", Boar.DebugMessage.INFO);
+                    }
                 }
 
                 // Should we really validate crawling, I mean sure 1 block gap, but it's that big of advantage if they lose speed
@@ -229,7 +350,10 @@ public class LegacyAuthInputPackets {
         }
 
         final ItemUseTracker.DirtyUsing dirtyUsing = player.getItemUseTracker().getDirtyUsing();
-        if (dirtyUsing != ItemUseTracker.DirtyUsing.NONE) {
+        if (dirtyUsing == ItemUseTracker.DirtyUsing.INVENTORY_TRANSACTION && player.getFlagTracker().has(EntityFlag.USING_ITEM)) {
+            // The client sent a new use transaction while still using an item (right-click spam) + server metadata causing some type of flag desync
+            player.getItemUseTracker().setDirtyUsing(ItemUseTracker.DirtyUsing.NONE);
+        } else if (dirtyUsing != ItemUseTracker.DirtyUsing.NONE) {
             // Shit hack, I know I'm too lazy to properly check for when the item is actually usable eg: riptide trident in water.
             // Also, there are bugs in bedrock where the player can still use even tho they're not supposed to so what we get will never
             // be reliable (https://bugs.mojang.com/browse/MCPE/issues/MCPE-178647), call me out for being lazy but blame bugrock.
@@ -240,6 +364,24 @@ public class LegacyAuthInputPackets {
             player.getFlagTracker().set(EntityFlag.USING_ITEM, false);
             player.getItemUseTracker().setDirtyUsing(ItemUseTracker.DirtyUsing.NONE);
         }
+        // The server stopped a sprint the client started itself. Its value lasts one tick (there's another comment about this
+        // somewhere else pls read that) after that the client turns sprint back on by itself if the sprint key is still held and it
+        // can sprint, and doesn't send START_SPRINTING
+        if (player.serverClearedSprint) {
+            if (player.getFlagTracker().has(EntityFlag.SPRINTING)) {
+                player.serverClearedSprint = false;
+            } else if (player.tick >= player.serverClearedSprintTick + 2
+                    && player.getInputData().contains(PlayerAuthInputData.SPRINT_DOWN)
+                    && player.input.getZ() >= 0.7071F
+                    && !player.getFlagTracker().has(EntityFlag.USING_ITEM)
+                    && !isClientItemSlowed(player)
+                    && (player.hunger > 6 || player.gameType == GameType.CREATIVE)) {
+                player.setSprinting(true);
+                player.serverClearedSprint = false;
+                Boar.debug(player.getSession().name() + ": [sprint-debug] tick=" + player.tick + " silent re-sprint after server stop", Boar.DebugMessage.INFO);
+            }
+        }
+
         player.dirtySpinStop = false;
     }
 }

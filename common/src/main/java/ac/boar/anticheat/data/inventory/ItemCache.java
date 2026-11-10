@@ -4,9 +4,8 @@ import ac.boar.anticheat.compensated.CompensatedInventory;
 import ac.boar.mappings.item.ItemMappings;
 import lombok.Getter;
 import lombok.Setter;
+import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
-
-import java.util.Objects;
 
 @Getter
 @Setter
@@ -31,6 +30,13 @@ public class ItemCache {
         return this.data.getCount();
     }
 
+    public void netId(int netId) {
+        final ItemData.Builder builder = this.data.toBuilder();
+        builder.usingNetId(true);
+        builder.netId(netId);
+        this.data = builder.build();
+    }
+
     public boolean isEmpty() {
         return this.data.getCount() <= 0 || this.data.getDefinition().getRuntimeId() == 0 || this.data.getDefinition().getRuntimeId() == -1;
     }
@@ -48,9 +54,10 @@ public class ItemCache {
         if (ItemMappings.get().getBundleItems().contains(itemStack.item())) {
             int id = -1;
 
-            try {
-                id = Objects.requireNonNull(data.getTag()).getInt("bundle_id");
-            } catch (Exception ignored) {}
+            final NbtMap tag = data.getTag();
+            if (tag != null && tag.containsKey("bundle_id")) {
+                id = tag.getInt("bundle_id");
+            }
 
             if (id == -1 || inventory.getBundleCache().containsKey(id)) {
                 return cache;

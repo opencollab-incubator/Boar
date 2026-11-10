@@ -33,6 +33,23 @@ public class AttributeInstance {
         this.setDirty();
     }
 
+    public float getBaseValueWithModifiers() {
+        float newValue = this.baseValue;
+        for (final Map.Entry<String, AttributeModifierData> entry : this.modifiers.entrySet()) {
+            final AttributeModifierData modifier = entry.getValue();
+            if (modifier.getOperation() == AttributeOperation.MULTIPLY_BASE) {
+                newValue += modifier.getAmount();
+            }
+        }
+        for (final Map.Entry<String, AttributeModifierData> entry : this.modifiers.entrySet()) {
+            final AttributeModifierData modifier = entry.getValue();
+            if (modifier.getOperation() == AttributeOperation.MULTIPLY_TOTAL) {
+                newValue *= (1.0F + modifier.getAmount());
+            }
+        }
+        return newValue;
+    }
+
     public void clearModifiers() {
         if (!this.modifiers.isEmpty()) {
             this.update();

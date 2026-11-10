@@ -36,6 +36,11 @@ public interface BoarPlatform {
 
     BoarLogger logger();
 
+    // Developer-only debug output: movement traces in the console, debug popups for the player, etc.
+    default boolean developerDebug() {
+        return false;
+    }
+
     BoarPlayerManager<?> playerManager();
 
     void finalizeBlockMappings(ReferencePopulator<Block> populator);

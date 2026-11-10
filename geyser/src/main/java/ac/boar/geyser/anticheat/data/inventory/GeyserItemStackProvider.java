@@ -1,5 +1,6 @@
 package ac.boar.geyser.anticheat.data.inventory;
 
+import ac.boar.anticheat.Boar;
 import ac.boar.anticheat.data.inventory.BoarItemStack;
 import ac.boar.anticheat.data.inventory.ItemStackProvider;
 import ac.boar.anticheat.util.Reference;
@@ -57,7 +58,9 @@ public class GeyserItemStackProvider implements ItemStackProvider {
             if (javaStack == null) {
                 javaStack = new ItemStack(Items.AIR_ID);
             }
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            // Fall back to air when the item cannot be translated.
+            Boar.getInstance().getPlatform().logger().error(session.bedrockUsername() + ": failed to translate item to Java stack", e);
             javaStack = new ItemStack(Items.AIR_ID);
         }
 

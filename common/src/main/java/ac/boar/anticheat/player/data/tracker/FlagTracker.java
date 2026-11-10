@@ -1,5 +1,6 @@
 package ac.boar.anticheat.player.data.tracker;
 
+import ac.boar.anticheat.Boar;
 import ac.boar.anticheat.data.ItemUseTracker;
 import ac.boar.anticheat.player.BoarPlayer;
 import lombok.Getter;
@@ -17,32 +18,53 @@ public final class FlagTracker {
         this.flying = this.wasFlying = flying;
     }
     public void setFlying(boolean flying) {
-        this.wasFlying = this.flying;
+        // Keep it until the end of the tick. The server can send abilities twice in a row (CubeTap does on a gamemode
+        // change), and the second one must not wipe the "was flying" from the first.
+        this.wasFlying |= this.flying;
         this.flying = flying;
+    }
+
+    public void tickFlying() {
+        this.wasFlying = this.flying;
     }
 
     public void clear() {
         this.flags.clear();
     }
 
-    public void set(final BoarPlayer player, final Set<EntityFlag> flags) {
-        this.set(player, flags, true);
+    public void set(final BoarPlayer player, final Set<EntityFlag> flags, final long sentTick) {
+        this.set(player, flags, sentTick, true);
     }
 
-    public void set(final BoarPlayer player, final Set<EntityFlag> flags, boolean server) {
-        boolean sneaking = this.has(EntityFlag.SNEAKING), swimming = this.has(EntityFlag.SWIMMING);
+    public void set(final BoarPlayer player, final Set<EntityFlag> flags, final long sentTick, boolean server) {
+        boolean swimming = this.has(EntityFlag.SWIMMING);
+        boolean sprinting = this.has(EntityFlag.SPRINTING);
+        boolean wasUsingFlag = this.has(EntityFlag.USING_ITEM);
 
         this.clear();
         this.flags.addAll(flags);
 
-        // Don't use the server state for these specific flags since it'll cause desync and we want to handle it on PlayerAuthInput
+        // Don't use the server state for swimming since it'll cause desync and we want to handle it on PlayerAuthInput
         if (server) {
-            this.set(EntityFlag.SNEAKING, sneaking);
             this.set(EntityFlag.SWIMMING, swimming);
+
+            // The server's sprint wins for this tick, like on the client. Remember if it stopped a sprint the client started itself: the client will turn it back on silently (see processInputData).
+            if (sprinting && !this.has(EntityFlag.SPRINTING) && player.clientSprintIntent) {
+                player.serverClearedSprint = true;
+                player.serverClearedSprintTick = player.tick;
+                Boar.debug(player.getSession().name() + ": [sprint-debug] tick=" + player.tick + " server metadata stopped the client's sprint, expecting a silent re-sprint", ac.boar.anticheat.Boar.DebugMessage.INFO);
+            } else if (this.has(EntityFlag.SPRINTING)) {
+                player.serverClearedSprint = false;
+            }
         }
 
 //        System.out.println("Metadata using: " + flags.contains(EntityFlag.USING_ITEM));
-        boolean oldUsingItem = player.getItemUseTracker().getUsedItem() != ItemData.AIR;
+        boolean oldUsingItem = player.getItemUseTracker().getUsedItem() != ItemData.AIR || wasUsingFlag;
+        if (player.getItemUseTracker().isUseFromTransaction() && player.lastItemUseStateChangeTick >= sentTick) {
+            this.set(EntityFlag.USING_ITEM, wasUsingFlag);
+            return;
+        }
+
         // Don't update this directly, if player actually start using item they will let us know next tick. If the player has already start using, then nothing changed.
         if (this.has(EntityFlag.USING_ITEM)) {
 //            System.out.println("Wait for next tick: " + oldUsingItem);
@@ -51,6 +73,8 @@ public final class FlagTracker {
                 player.getItemUseTracker().setDirtyUsing(ItemUseTracker.DirtyUsing.METADATA);
 //                System.out.println("Dirty using metadata!");
             }
+        } else if (player.getItemUseTracker().getDirtyUsing() == ItemUseTracker.DirtyUsing.INVENTORY_TRANSACTION) {
+            this.set(EntityFlag.USING_ITEM, oldUsingItem);
         } else {
             // If the player send an inventory transaction packet then receive metadata update set using item to false right before next tick, then the
             // START_USING_ITEM should be ignored (bedrock is weird).
@@ -75,5 +99,10 @@ public final class FlagTracker {
         flags.addAll(this.flags);
 
         return flags;
+    }
+
+    public void restoreFlags(final Set<EntityFlag> flags) {
+        this.flags.clear();
+        this.flags.addAll(flags);
     }
 }

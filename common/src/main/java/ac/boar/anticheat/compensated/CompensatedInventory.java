@@ -2,9 +2,12 @@ package ac.boar.anticheat.compensated;
 
 import ac.boar.anticheat.compensated.cache.container.ContainerCache;
 import ac.boar.anticheat.compensated.cache.container.impl.ArmorContainerCache;
+import ac.boar.anticheat.compensated.cache.container.impl.CraftingGridContainerCache;
 import ac.boar.anticheat.compensated.cache.container.impl.PlayerContainerCache;
+import ac.boar.anticheat.data.ItemUseTracker;
 import ac.boar.anticheat.data.enchantment.Enchantment;
 import ac.boar.anticheat.data.inventory.ItemCache;
+import ac.boar.anticheat.data.inventory.SlotSnapshot;
 import ac.boar.anticheat.player.BoarPlayer;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import lombok.Getter;
@@ -13,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.nbt.NbtType;
+import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ContainerId;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ContainerType;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
@@ -20,6 +24,7 @@ import org.cloudburstmc.protocol.bedrock.data.inventory.crafting.PotionMixData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.crafting.recipe.RecipeData;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -44,11 +49,34 @@ public class CompensatedInventory {
     public final ContainerCache offhandContainer = new ContainerCache(this, (byte) ContainerId.OFFHAND, ContainerType.INVENTORY, null, -1L);
     public final ContainerCache armorContainer = new ArmorContainerCache(this);
     public final ContainerCache hudContainer = new ContainerCache(this, (byte) ContainerId.UI, ContainerType.INVENTORY, null, -1L);
+    public final ContainerCache craftingGridContainer = new CraftingGridContainerCache(this);
 
     public ContainerCache openContainer = null;
 
     @Getter
     private final Map<Integer, ItemCache> bundleCache = new HashMap<>();
+
+    public final Map<Integer, List<SlotSnapshot>> pendingRequests = new LinkedHashMap<>();
+
+    public int rejectionStreak;
+
+    public boolean switchHeldSlot(final int slot) {
+        if (slot < 0 || slot > 8) {
+            return false;
+        }
+
+        // slot is the same, we can forward it to the server but no additional handling needs to happen here
+        if (this.heldItemSlot == slot) {
+            return true;
+        }
+
+        this.heldItemSlot = slot;
+        if (this.player.getItemUseTracker().getItem() != null || this.player.getFlagTracker().has(EntityFlag.USING_ITEM)) {
+            this.player.getItemUseTracker().release();
+            this.player.getItemUseTracker().setDirtyUsing(ItemUseTracker.DirtyUsing.NONE);
+        }
+        return true;
+    }
 
     public ContainerCache getContainer(byte id) {
         if (id == inventoryContainer.getId()) {
