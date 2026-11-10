@@ -13,11 +13,11 @@ plugins {
 
 allprojects {
     group = "ac.boar"
-    // dev2 is the CubeCraft-focused branch. CI publishes this version to
-    // repo.opencollab.dev/maven-snapshots on each dev2 push, so consumers can
-    // pin "dev2-SNAPSHOT" and always get the latest dev2 build. Master keeps
-    // its own semver snapshot version.
-    version = "dev2-SNAPSHOT"
+    // CI publishes to repo.opencollab.dev/maven-snapshots on each dev2 and master push.
+    // Each branch gets its own version so their builds don't overwrite each other.
+    // GITHUB_REF_NAME is the branch name, set by GitHub Actions. Local builds and
+    // other branches don't set it to "master", so they stay "dev2-SNAPSHOT".
+    version = if (System.getenv("GITHUB_REF_NAME") == "master") "master-SNAPSHOT" else "dev2-SNAPSHOT"
 }
 
 subprojects {
