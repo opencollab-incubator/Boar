@@ -17,7 +17,7 @@ Download it on Modrinth: https://modrinth.com/plugin/boar
 - Geyser compatibility: Literally a Geyser extension!
 
 ### Current detections list
-#### Almost every single movement-related cheats (except vehicle aka boat/horse), including - but not limited to:
+#### Almost every single movement-related cheats, including - but not limited to:
 - Fly, Jesus, Step, Fast Climb, High Jump (Any type of fly cheats)
 - Speed (Any type of speed cheats)
 - No Fall (Detected using the fly check, impossible to bypass)
