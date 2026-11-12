@@ -237,6 +237,12 @@ public final class BoarPlayer extends PlayerData {
         this.packetInjector.injectClientPacket(packet);
     }
 
+    // The server's NO_AI flag, once the client has it: the client then does not move the player or let it jump, though it still sends the keys held.
+    // Servers use it to freeze players, such as Dragonfly's Player#SetImmobile before a duel starts.
+    public boolean isImmobile() {
+        return this.getFlagTracker().has(EntityFlag.NO_AI);
+    }
+
     public boolean isMovementExempted() {
         try {
             if (this.session.hasPermission("boar.exempt")) {

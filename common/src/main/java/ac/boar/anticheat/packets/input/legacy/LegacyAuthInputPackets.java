@@ -21,8 +21,11 @@ import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
 import org.cloudburstmc.protocol.bedrock.packet.PlayerAuthInputPacket;
 
+import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 
 public class LegacyAuthInputPackets {
 
@@ -173,8 +176,19 @@ public class LegacyAuthInputPackets {
         packet.setDelta(player.velocity.toVector3f());
     }
 
+    // The inputs that would move an immobile player up or down, which the client ignores while the player is immobile.
+    private static final Set<PlayerAuthInputData> IMMOBILE_IGNORED = EnumSet.of(PlayerAuthInputData.JUMPING, PlayerAuthInputData.START_JUMPING,
+            PlayerAuthInputData.AUTO_JUMPING_IN_WATER, PlayerAuthInputData.ASCEND_BLOCK, PlayerAuthInputData.DESCEND_BLOCK, PlayerAuthInputData.WANT_DOWN);
+
     public static void processAuthInput(final BoarPlayer player, final PlayerAuthInputPacket packet, boolean processInputData) {
-        player.setInputData(packet.getInputData());
+        if (player.isImmobile()) {
+            // A copy, so the packet the server gets keeps the keys the client sent.
+            final Set<PlayerAuthInputData> inputData = new HashSet<>(packet.getInputData());
+            inputData.removeAll(IMMOBILE_IGNORED);
+            player.setInputData(inputData);
+        } else {
+            player.setInputData(packet.getInputData());
+        }
         player.clientMotion = packet.getMotion();
 
         InputUtil.processInput(player, packet);
