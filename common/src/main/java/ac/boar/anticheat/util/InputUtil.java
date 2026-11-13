@@ -8,8 +8,8 @@ public class InputUtil {
     public static void processInput(final BoarPlayer player, final PlayerAuthInputPacket packet) {
         Vec3 input = Vec3.ZERO.clone();
 
-        // Player literally can't move in these cases.
-        if (player.doingInventoryAction || packet.getMotion().getX() == 0 && packet.getMotion().getY() == 0) {
+        // Player literally can't move in these cases. An immobile player (the NO_AI flag) still sends the keys it holds, but Mob::isImmobile stops it from moving.
+        if (player.doingInventoryAction || player.isImmobile() || packet.getMotion().getX() == 0 && packet.getMotion().getY() == 0) {
             player.input = input;
             return;
         }
