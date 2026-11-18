@@ -120,7 +120,7 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
         final int chunkZ = GenericMath.floor(player.position.z) >> 4;
         final BoarChunk chunkInside = player.compensatedWorld.getChunk(chunkX, chunkZ);
         if (chunkInside != null) {
-            player.insideUnloadedChunk = false;
+            player.insideUnloadedChunk = !player.compensatedWorld.isLoadedForPlayerAt(player.position.x, player.position.y, player.position.z);
             if (Boar.DEBUG_CHUNKS && !chunkInside.hasAllSections() && chunkInside.warnForMissingSections()) {
                 StringBuilder missing = null;
                 for (int idx = 0; idx < chunkInside.sections().length; idx++) {
@@ -270,7 +270,7 @@ public class AuthInputPackets extends TeleportHandler implements PacketListener 
             }
         }
 
-        player.insideUnloadedChunk = !player.compensatedWorld.isChunkLoadedAt(player.position.x, player.position.z);
+        player.insideUnloadedChunk = !player.compensatedWorld.isLoadedForPlayerAt(player.position.x, player.position.y, player.position.z);
         player.compensatedWorld.cleanChunksAtPlayerPosition();
 
         LegacyAuthInputPackets.doPostPrediction(player, packet);

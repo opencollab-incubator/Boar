@@ -38,6 +38,8 @@ import java.util.OptionalInt;
 @Getter
 public class CompensatedWorld {
     private static final int INITIAL_CHUNK_CLEANUP_DELAY_TICKS = 300;
+    // How long, in player ticks after Boar first gets a chunk, a player is held for a sub-chunk the server has not sent yet.
+    private static final int MAX_SUB_CHUNK_WAIT_TICKS = 200;
 
     private final BoarPlayer player;
     private final Long2ObjectMap<BoarChunk> chunks = new Long2ObjectOpenHashMap<>();
@@ -171,7 +173,13 @@ public class CompensatedWorld {
                 return false;
             }
 
-            return !inView;
+            if (inView) {
+                return false;
+            }
+
+            // Drop its waiting block updates too, or they would be applied over fresh blocks when the chunk is sent again.
+            this.pendingBlockUpdates.remove(key);
+            return true;
         });
     }
 
@@ -259,6 +267,24 @@ public class CompensatedWorld {
         return this.isChunkLoaded(GenericMath.floor(x), GenericMath.floor(z));
     }
 
+    public boolean isLoadedForPlayerAt(float x, float y, float z) {
+        final BoarChunk chunk = this.getChunk(GenericMath.floor(x) >> 4, GenericMath.floor(z) >> 4);
+        if (chunk == null) {
+            return false;
+        }
+        // The server only sends a sub-chunk the client asks for, and can refuse one, so stop waiting on an old chunk: a client must not stay held forever.
+        if (chunk.hasAllSections() || this.player.tick - chunk.loadedTick() >= MAX_SUB_CHUNK_WAIT_TICKS) {
+            return true;
+        }
+
+        final int feetY = GenericMath.floor(y);
+        return this.hasSectionOrOutside(chunk, feetY) && this.hasSectionOrOutside(chunk, feetY - 1);
+    }
+
+    private boolean hasSectionOrOutside(BoarChunk chunk, int blockY) {
+        return blockY < this.getMinY() || blockY >= this.getHeightY() || chunk.getSection((blockY - this.getMinY()) >> 4) != null;
+    }
+
     public void updateBlock(final Vector3i position, int layer, int block) {
         this.updateBlock(position.getX(), position.getY(), position.getZ(), layer, block);
     }
@@ -268,13 +294,13 @@ public class CompensatedWorld {
             return;
         }
 
-        final BoarChunkSection[] column = this.getChunkSections(x >> 4, z >> 4);
-        if (column == null) {
+        final BoarChunk chunk = this.getChunk(x >> 4, z >> 4);
+        if (chunk == null || chunk.getSection((y - this.getMinY()) >> 4) == null) {
             this.queuePendingBlockUpdate(x, y, z, layer, block);
             return;
         }
 
-        this.applyBlockUpdate(column, x, y, z, layer, block);
+        this.applyBlockUpdate(chunk.sections(), x, y, z, layer, block);
     }
 
     private void queuePendingBlockUpdate(int x, int y, int z, int layer, int block) {

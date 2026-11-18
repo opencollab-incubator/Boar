@@ -159,7 +159,7 @@ public class TeleportUtil {
     public void setPacketPosition(Vec3 position) {
         this.player.setPos(position.down(this.player.getPlayerYOffset()));
         player.nativeOriginY = position.y;
-        player.insideUnloadedChunk = !player.compensatedWorld.isChunkLoadedAt(position.x, position.z);
+        player.insideUnloadedChunk = !player.compensatedWorld.isLoadedForPlayerAt(player.position.x, player.position.y, player.position.z);
     }
 
     public void startInterpolation(Vec3 target) {
